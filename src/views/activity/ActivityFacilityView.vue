@@ -1,3 +1,7 @@
 <template>
-  <div>고객활동 - 부대시설 이용</div>
+  <EmptyContent />
 </template>
+
+<script setup>
+import EmptyContent from '@/views/common/EmptyView.vue'
+</script>

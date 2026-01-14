@@ -1,15 +1,25 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import CrmLayout from '@/layouts/CrmLayout.vue'
 import ActivityLayout from '@/views/activity/ActivityLayout.vue'
-import EmptyView from '@/views/dummy/EmptyView.vue'
+import ReportLayout from "@/views/report/ReportLayout.vue";
+import CustomerLayout from "@/views/customer/CustomerLayout.vue";
+import MessageLayout from "@/views/message/MessageLayout.vue";
+import SettingLayout from "@/views/setting/SettingLayout.vue";
+import SystemLayout from "@/views/system/SystemLayout.vue";
+import VocLayout from "@/views/voc/VocLayout.vue";
+import TestView from "@/views/TestView.vue";
 
 const routes = [
     {
         path: '/',
         component: CrmLayout,
         children: [
-            //  루트는 activities로만 보낸다
-            { path: '', redirect: 'activities' },
+            { path: '', component: TestView },
+
+
+
+            { path: 'reports', component: ReportLayout },
+            { path: 'customers', component: CustomerLayout },
 
             {
                 path: 'activities',
@@ -23,13 +33,11 @@ const routes = [
                 ],
             },
 
-            { path: 'reports', component: EmptyView },
-            { path: 'customers', component: EmptyView },
-            { path: 'voc', component: EmptyView },
-            { path: 'survey', component: EmptyView },
-            { path: 'messages', component: EmptyView },
-            { path: 'setting', component: EmptyView },
-            { path: 'system', component: EmptyView },
+            { path: 'voc', component: VocLayout },
+            { path: 'messages', component: MessageLayout },
+            { path: 'setting', component: SettingLayout },
+            { path: 'system', component: SystemLayout },
+
         ],
     },
 ]

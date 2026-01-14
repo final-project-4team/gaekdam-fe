@@ -1,13 +1,9 @@
 <template>
   <div class="crm-root">
-    <!-- 전역 상단 -->
     <TopBar />
 
     <div class="crm-body">
-      <!-- 전역 사이드 -->
       <SideMenu />
-
-      <!-- 메인 컨텐츠 -->
       <div class="crm-content">
         <router-view />
       </div>
@@ -16,8 +12,8 @@
 </template>
 
 <script setup>
-import TopBar from '@/components/common/TopBar.vue'
-import SideMenu from '@/components/common/SideMenu.vue'
+import TopBar from '@/components/layoutComponents/TopBar.vue'
+import SideMenu from '@/components/layoutComponents/SideMenu.vue'
 </script>
 
 <style scoped>
@@ -27,15 +23,18 @@ import SideMenu from '@/components/common/SideMenu.vue'
   flex-direction: column;
 }
 
+/* TopBar 제외한 전체 */
 .crm-body {
   flex: 1;
   display: flex;
+  background: #f4f7fb;
+  overflow: hidden; /* body 자체는 스크롤 금지 */
 }
 
+/* 메인 컨텐츠만 스크롤 */
 .crm-content {
   flex: 1;
-  background: #f4f7fb;
-  padding: 16px;
-  overflow: auto;
+  padding: 10px 14px;
+  overflow-y: auto; /* 여기서만 스크롤 */
 }
 </style>
