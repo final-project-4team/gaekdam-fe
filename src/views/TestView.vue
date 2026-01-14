@@ -1,4 +1,7 @@
 <template>
+  <h1>
+    공통 컴포넌트 테스트 페이지
+  </h1>
   <div class="example-page">
     <!-- 상단 검색 + 필터 -->
     <div class="toolbar">

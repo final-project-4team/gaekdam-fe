@@ -1,15 +1,27 @@
 <template>
   <header class="top-bar">
     <div class="left"></div>
-    <div class="center">
+
+    <div class="center" @click="goTestPage" >
      고객을 담다 <br><span class="brand">客談</span>
     </div>
+
 
     <div class="right">
       <span class="user">userName</span>
     </div>
   </header>
 </template>
+
+<script setup>
+import {useRouter} from "vue-router";
+const router = useRouter()
+
+const goTestPage = () => {
+  router.push('/')
+}
+
+</script>
 
 <style scoped>
 .top-bar {
@@ -27,6 +39,7 @@
   justify-self: center;
   font-weight: 400;
   font-size: 12px;
+  cursor: pointer;
 }
 
 .brand {
