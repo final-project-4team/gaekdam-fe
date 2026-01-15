@@ -42,8 +42,9 @@ const isActive = (path) => route.path.startsWith(path)
 .side {
   width: 220px;
   background: #ffffff;
-  border-right: 1px solid #e6eaf0;
+  border-right: 1px solid #eef2f7;
   height: 100%;
+  padding: 12px 0 0 0;
 }
 
 .hotel {
@@ -51,29 +52,53 @@ const isActive = (path) => route.path.startsWith(path)
   display: flex;
   align-items: center;
   padding: 0 16px;
-  border-bottom: 1px solid #e6eaf0;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 15px;
 }
 
+/* 메뉴 리스트 */
 .menu-list {
-  padding: 12px 8px;
+  padding: 12px 10px;
 }
 
+/* 메뉴 아이템 */
 .menu {
-  padding: 12px 16px;
+  position: relative;
+  padding: 11px 14px;
   margin-bottom: 6px;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
-  color: #2e3a45;
+  color: #475569;
   font-size: 14px;
+  transition: all 0.15s ease;
 }
 
+/* hover */
 .menu:hover {
-  background: #f0f4f8;
+  background: #f8fafc;
 }
 
+/* active */
 .menu.active {
-  background: #e6f0ff;
-  color: #1d4ed8;
+  background: #f1f5ff;
+  color: #7191e6;
   font-weight: 600;
+}
+
+/* 왼쪽 포인트 바 */
+.menu.active::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 70%;
+  border-radius: 4px;
+  background: linear-gradient(
+      to bottom,
+      #60a5fa,
+      #2563eb
+  );
 }
 </style>

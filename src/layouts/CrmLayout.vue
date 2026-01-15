@@ -34,7 +34,7 @@ import SideMenu from '@/components/layoutComponents/SideMenu.vue'
 /* 메인 컨텐츠만 스크롤 */
 .crm-content {
   flex: 1;
-  padding: 10px 14px;
+  padding: 8px 12px;
   overflow-y: auto; /* 여기서만 스크롤 */
 }
 </style>

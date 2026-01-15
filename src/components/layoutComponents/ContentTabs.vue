@@ -19,7 +19,6 @@ defineProps({
   tabs: {
     type: Array,
     required: true,
-    // [{ label: string, path: string }]
   },
 })
 
@@ -33,37 +32,46 @@ const isActive = (path) => route.path === path
 <style scoped>
 .tabs {
   display: flex;
-  gap: 24px;
+  gap: 28px;
+  padding: 0 20px;
+  border-bottom: 1px solid #eef2f7;
 }
 
 /* 기본 탭 */
 .tab {
-  padding: 10px 2px;
-  font-size: 14px;
-  color: #7b8794;
-  cursor: pointer;
   position: relative;
+  padding: 14px 2px;
+  font-size: 14px;
+  color: #64748b;
+  cursor: pointer;
   font-weight: 500;
+  transition: color 0.15s ease;
 }
 
+/* hover */
 .tab:hover {
-  color: #2e3a45;
+  color: #334155;
 }
 
-/* active 탭 */
+/* active */
 .tab.active {
-  color: #1d4ed8;
+  color: #577ce6;
   font-weight: 600;
 }
 
+/* 하단 인디케이터 */
 .tab.active::after {
   content: '';
   position: absolute;
   left: 0;
-  right: 0;
   bottom: -1px;
-  height: 2px;
-  background: #1d4ed8;
-  border-radius: 2px;
+  width: 100%;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(
+      to right,
+      #7bb0f1,
+      #6f93f6
+  );
 }
 </style>

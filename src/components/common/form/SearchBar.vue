@@ -1,6 +1,6 @@
 <template>
   <div class="search-bar">
-    <!-- 🔽 검색 기준 (옵션) -->
+    <!-- 검색 기준 (옵션) -->
     <div v-if="searchTypes?.length" class="select-wrap">
       <select v-model="innerType">
         <option
@@ -13,7 +13,7 @@
       </select>
     </div>
 
-    <!-- 🔍 입력 -->
+    <!-- 입력 -->
     <div class="input-wrap">
       <input
           class="input"
