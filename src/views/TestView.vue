@@ -1,47 +1,8 @@
 <template>
   <div class="test-page">
-    <h1 class="title">공통 컴포넌트 테스트 페이지</h1>
+    <h1 class="title">공통 컴포넌트 사용법 테스트 (최신 기준)</h1>
 
-    <!-- ===================== -->
-    <!-- 1. SearchBar 기본 -->
-    <!-- ===================== -->
-    <section class="block">
-      <h3>SearchBar - 기본 (상세검색 없음)</h3>
-      <SearchBar
-          placeholder="예약번호 검색"
-          :showDetail="false"
-          @search="onSearch"
-      />
-    </section>
 
-    <!-- ===================== -->
-    <!-- 2. SearchBar 상세검색 -->
-    <!-- ===================== -->
-    <section class="block">
-      <h3>SearchBar - 상세검색 포함</h3>
-      <SearchBar
-          placeholder="고객명 또는 예약번호 검색"
-          @search="onSearch"
-          @detail="onDetail"
-      />
-    </section>
-
-    <!-- ===================== -->
-    <!-- 3. SearchBar 기준 선택형 -->
-    <!-- ===================== -->
-    <section class="block">
-      <h3>SearchBar - 검색 기준 선택형</h3>
-      <SearchBar
-          :searchTypes="searchTypes"
-          placeholder="고객명 또는 예약번호 검색"
-          @search="onSearchWithType"
-          @detail="onDetail"
-      />
-    </section>
-
-    <!-- ===================== -->
-    <!-- 4. 버튼 종류 / 사이즈 -->
-    <!-- ===================== -->
     <section class="block">
       <h3>BaseButton 종류 / 사이즈</h3>
 
@@ -70,69 +31,43 @@
       </div>
     </section>
 
-    <!-- ===================== -->
-    <!-- 5. 모달 테스트 -->
-    <!-- ===================== -->
-    <section class="block">
-      <h3>BaseModal 테스트</h3>
-
-      <div class="button-row">
-        <BaseButton type="ghost" size="md" @click="openSimpleModal">
-          공통 모달
-        </BaseButton>
-
-        <BaseButton type="primary" size="md" @click="openActionModal">
-          버튼 추가 모달
-        </BaseButton>
-      </div>
-    </section>
 
     <!-- ===================== -->
-    <!-- 6. 테이블 + 페이징 -->
+    <!-- ListView -->
     <!-- ===================== -->
-    <section class="block">
-      <h3>테이블 + 페이징 (정렬 포함)</h3>
-
-      <TableWithPaging
-          :columns="columns"
-          :rows="rows"
-          :pageSize="5"
-          @row-click="openRowModal"
-      />
-    </section>
-
-    <!-- ===================== -->
-    <!-- 7. 통합 ListView -->
-    <!-- ===================== -->
-    <section class="block" style="border: 2px solid red">
-      <h3>통합 ListView (Search + Filter + Sort + Paging + Detail)</h3>
+    <section class="block highlight">
+      <h3>ListView (Search + Filter + Sort + Paging + Detail)</h3>
 
       <ListView
           :columns="columns"
-          :rows="rows"
+          :rows="pagedRows"
           :filters="filters"
           :searchTypes="searchTypes"
+          :page="page"
+          :pageSize="pageSize"
+          :total="filteredRows.length"
+          show-search
           show-detail
           v-model:detail="detailForm"
+          @search="onSearch"
+          @filter="onFilter"
+          @sort-change="onSortChange"
+          @page-change="onPageChange"
           @row-click="openRowModal"
       >
-        <!-- 상세검색 폼 슬롯 -->
+        <!-- ===================== -->
+        <!-- Detail Search Form -->
+        <!-- ===================== -->
         <template #detail-form>
           <div class="detail-form">
             <div class="row">
               <label>고객명</label>
-              <input
-                  v-model="detailForm.customerName"
-                  placeholder="고객명 입력"
-              />
+              <input v-model="detailForm.customerName" />
             </div>
 
             <div class="row">
               <label>예약번호</label>
-              <input
-                  v-model="detailForm.reservationNo"
-                  placeholder="예약번호 입력"
-              />
+              <input v-model="detailForm.reservationNo" />
             </div>
 
             <div class="row">
@@ -143,70 +78,42 @@
                 <option value="체크인예정">체크인예정</option>
               </select>
             </div>
-
-            <p class="hint">
-              * 적용: 모달 닫히면서 바로 리스트에 반영됨<br />
-              * 초기화: 입력값이 비워지고 전체 리스트로 복귀
-            </p>
           </div>
         </template>
       </ListView>
     </section>
 
     <!-- ===================== -->
-    <!-- 모달 영역 -->
+    <!-- Row Modal -->
     <!-- ===================== -->
-    <BaseModal
-        v-if="showSimpleModal"
-        title="공통 모달 테스트"
-        @close="showSimpleModal = false"
-    >
-      <p>이 모달은 기본 footer(닫기 버튼)를 사용합니다.</p>
-    </BaseModal>
-
-    <BaseModal
-        v-if="showActionModal"
-        title="버튼 추가 모달 테스트"
-        @close="showActionModal = false"
-    >
-      <p>이 모달은 footer를 커스터마이징한 버전입니다.</p>
-
-      <template #footer>
-        <BaseButton type="ghost" size="sm" @click="showActionModal = false">
-          취소
-        </BaseButton>
-        <BaseButton type="primary" size="sm" @click="confirmAction">
-          확인
-        </BaseButton>
-      </template>
-    </BaseModal>
-
     <BaseModal
         v-if="showRowModal"
         title="예약 상세"
         @close="closeRowModal"
     >
-      <div v-if="selectedRow">
-        <p><b>예약번호:</b> {{ selectedRow.reservationNo }}</p>
-        <p><b>고객명:</b> {{ selectedRow.customerName }}</p>
-        <p><b>객실유형:</b> {{ selectedRow.roomType }}</p>
-        <p><b>운영상태:</b> {{ selectedRow.status }}</p>
-      </div>
+      <pre>{{ selectedRow }}</pre>
     </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 import SearchBar from '@/components/common/form/SearchBar.vue'
-import BaseButton from '@/components/common/button/BaseButton.vue'
-import BaseModal from '@/components/common/modal/BaseModal.vue'
-import TableWithPaging from '@/components/common/table/TableWithPaging.vue'
 import ListView from '@/components/common/ListView.vue'
+import BaseModal from '@/components/common/modal/BaseModal.vue'
+import BaseButton from "@/components/common/button/BaseButton.vue";
 
 /* ===================== */
-/* 필터 */
+/* Search Types */
+const searchTypes = [
+  { label: '전체', key: 'keyword', type: 'text' },
+  { label: '고객명', key: 'customerName', type: 'text' },
+  { label: '예약번호', key: 'reservationNo', type: 'number' },
+]
+
+/* ===================== */
+/* Filters */
 const filters = [
   {
     key: 'status',
@@ -227,39 +134,36 @@ const filters = [
 ]
 
 /* ===================== */
-/* 검색 기준 */
-const searchTypes = [
-  { label: '전체', value: '' },
-  { label: '고객명', value: 'CUSTOMER_NAME' },
-  { label: '예약번호', value: 'RESERVATION_NO' },
-  { label: '객실번호', value: 'ROOM_NO' },
+/* Table */
+const columns = [
+  { key: 'reservationNo', label: '예약번호', sortable: true },
+  { key: 'customerName', label: '고객명', sortable: true },
+  { key: 'roomType', label: '객실유형', sortable: true },
+  { key: 'status', label: '운영상태', sortable: true },
 ]
 
 /* ===================== */
-/* 테이블 */
-const columns = [
-  { key: 'reservationNo', label: '예약번호', sortable: true, align: 'center' },
-  { key: 'customerName', label: '고객명', sortable: true, align: 'center' },
-  { key: 'roomType', label: '객실유형', sortable: true, align: 'center' },
-  { key: 'checkinDate', label: '투숙예정일', sortable: true, align: 'center' },
-  { key: 'checkoutDate', label: '투숙종료일', sortable: true, align: 'center' },
-  { key: 'status', label: '운영상태', sortable: true, align: 'center' },
-]
-
-const rows = ref(
-    [...Array(11)].map((_, i) => ({
-      id: i + 1,
-      reservationNo: String(i + 1),
-      customerName: ['김철수', '이영희', '박고객', '김고객'][i % 4],
-      roomType: i % 2 ? '스위트' : '디럭스',
-      checkinDate: '2025/12/28',
-      checkoutDate: '2025/12/29',
-      status: i % 3 ? '체크인예정' : '투숙중',
+/* Dummy Data */
+const allRows = ref(
+    [...Array(20)].map((_, i) => ({
+      reservationNo: String(1000 + i),
+      customerName: ['김철수', '이영희', '박고객'][i % 3],
+      roomType: i % 2 ? '디럭스' : '스위트',
+      status: i % 2 ? '투숙중' : '체크인예정',
     }))
 )
 
 /* ===================== */
-/* 상세검색 테스트 상태 (ListView와 v-model로 연결됨) */
+/* State */
+const page = ref(1)
+const pageSize = ref(5)
+
+const searchCondition = ref({})
+const filterValues = ref({})
+const sortState = ref({})
+
+/* ===================== */
+/* Detail Search */
 const detailForm = ref({
   customerName: '',
   reservationNo: '',
@@ -267,15 +171,97 @@ const detailForm = ref({
 })
 
 /* ===================== */
-/* 모달 */
-const showSimpleModal = ref(false)
-const showActionModal = ref(false)
+/* Filtering Logic */
+const filteredRows = computed(() => {
+  let rows = [...allRows.value]
+
+  // 🔹 SearchBar 검색
+  Object.entries(searchCondition.value).forEach(([k, v]) => {
+    if (!v) return
+
+    // ✅ 전체 검색
+    if (k === 'keyword') {
+      rows = rows.filter(r =>
+          String(r.customerName).includes(v) ||
+          String(r.reservationNo).includes(v) ||
+          String(r.roomType).includes(v)
+      )
+      return
+    }
+
+    // ✅ 단일 필드 검색
+    rows = rows.filter(r =>
+        String(r[k] ?? '').includes(String(v))
+    )
+  })
+
+  // 🔹 FilterGroup
+  Object.entries(filterValues.value).forEach(([k, v]) => {
+    if (!v) return
+    rows = rows.filter(r => r[k] === v)
+  })
+
+  // 🔹 ✅ 상세검색 (핵심!)
+  if (detailForm.value.customerName) {
+    rows = rows.filter(r =>
+        r.customerName.includes(detailForm.value.customerName)
+    )
+  }
+
+  if (detailForm.value.reservationNo) {
+    rows = rows.filter(r =>
+        r.reservationNo.includes(detailForm.value.reservationNo)
+    )
+  }
+
+  if (detailForm.value.status) {
+    rows = rows.filter(r =>
+        r.status === detailForm.value.status
+    )
+  }
+
+  // 🔹 Sort
+  if (sortState.value.sortBy) {
+    const { sortBy, direction } = sortState.value
+    rows.sort((a, b) =>
+        direction === 'ASC'
+            ? String(a[sortBy]).localeCompare(String(b[sortBy]))
+            : String(b[sortBy]).localeCompare(String(a[sortBy]))
+    )
+  }
+
+  return rows
+})
+
+const pagedRows = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredRows.value.slice(start, start + pageSize.value)
+})
+
+/* ===================== */
+/* Events */
+const onSearch = ({ key, value }) => {
+  page.value = 1
+  searchCondition.value = value ? { [key]: value } : {}
+}
+
+const onFilter = (values) => {
+  page.value = 1
+  filterValues.value = values
+}
+
+const onSortChange = ({ sortBy, direction }) => {
+  sortState.value = { sortBy, direction }
+}
+
+const onPageChange = (p) => {
+  page.value = p
+}
+
+/* ===================== */
+/* Row Modal */
 const showRowModal = ref(false)
 const selectedRow = ref(null)
-
-const openSimpleModal = () => (showSimpleModal.value = true)
-const openActionModal = () => (showActionModal.value = true)
-const confirmAction = () => (showActionModal.value = false)
 
 const openRowModal = (row) => {
   selectedRow.value = row
@@ -287,11 +273,7 @@ const closeRowModal = () => {
   selectedRow.value = null
 }
 
-/* ===================== */
-/* 테스트용 로그 */
-const onSearch = (v) => console.log('[검색]', v)
-const onSearchWithType = (v) => console.log('[기준 검색]', v)
-const onDetail = () => console.log('[상세 검색]')
+const openDetailModal = () => {}
 </script>
 
 <style scoped>
@@ -316,10 +298,8 @@ const onDetail = () => console.log('[상세 검색]')
   gap: 12px;
 }
 
-.button-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.highlight {
+  border: 2px solid #2563eb;
 }
 
 .detail-form {
@@ -345,13 +325,5 @@ const onDetail = () => console.log('[상세 검색]')
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
-  font-size: 14px;
-}
-
-.hint {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #6b7280;
-  line-height: 1.4;
 }
 </style>

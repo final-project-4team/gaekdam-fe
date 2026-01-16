@@ -18,40 +18,38 @@
             :class="['th', { sortable: col.sortable, active: sortKey === col.key }]"
             @click="onSort(col)"
         >
-          <!-- 정렬 기준 텍스트 -->
           <span class="th-label">
-              {{ col.label }}
-            </span>
+            {{ col.label }}
+          </span>
 
-          <!-- 정렬 아이콘 (레이아웃 분리) -->
           <span v-if="col.sortable" class="sort-icon">
-              <!-- 기본 -->
-              <svg
-                  v-if="sortKey !== col.key"
-                  viewBox="0 0 24 24"
-                  class="icon inactive"
-              >
-                <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />
-              </svg>
+            <!-- 기본 -->
+            <svg
+                v-if="sortKey !== col.key"
+                viewBox="0 0 24 24"
+                class="icon inactive"
+            >
+              <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />
+            </svg>
 
             <!-- ASC -->
-              <svg
-                  v-else-if="sortOrder === 'asc'"
-                  viewBox="0 0 24 24"
-                  class="icon active"
-              >
-                <path d="M8 14l4-4 4 4" />
-              </svg>
+            <svg
+                v-else-if="sortOrder === 'ASC'"
+                viewBox="0 0 24 24"
+                class="icon active"
+            >
+              <path d="M8 14l4-4 4 4" />
+            </svg>
 
             <!-- DESC -->
-              <svg
-                  v-else
-                  viewBox="0 0 24 24"
-                  class="icon active"
-              >
-                <path d="M8 10l4 4 4-4" />
-              </svg>
-            </span>
+            <svg
+                v-else
+                viewBox="0 0 24 24"
+                class="icon active"
+            >
+              <path d="M8 10l4 4 4-4" />
+            </svg>
+          </span>
         </th>
       </tr>
       </thead>
@@ -59,7 +57,7 @@
       <tbody>
       <tr
           v-for="row in rows"
-          :key="row.id"
+          :key="row[rowKey]"
           class="table-row"
           @click="$emit('row-click', row)"
       >
@@ -88,34 +86,45 @@ import { ref, watch } from 'vue'
 const props = defineProps({
   columns: { type: Array, default: () => [] },
   rows: { type: Array, default: () => [] },
+
+  /** ✅ row 식별자 (기본값 안전하게) */
+  rowKey: { type: String, default: 'id' },
 })
 
 const emit = defineEmits(['row-click', 'sort-change'])
 
+/* ===================== */
+/* 정렬 상태 */
+/* ===================== */
 const sortKey = ref('')
-const sortOrder = ref('asc')
+const sortOrder = ref('ASC') // 서버 기준
 
 const onSort = (col) => {
   if (!col.sortable) return
 
   if (sortKey.value === col.key) {
-    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+    sortOrder.value = sortOrder.value === 'ASC' ? 'DESC' : 'ASC'
   } else {
     sortKey.value = col.key
-    sortOrder.value = 'asc'
+    sortOrder.value = 'ASC'
   }
 
-  emit('sort-change', { key: sortKey.value, order: sortOrder.value })
+  emit('sort-change', {
+    sortBy: sortKey.value,
+    direction: sortOrder.value,
+  })
 }
 
-/* columns 변경 시 정렬 상태 보호 */
+/* ===================== */
+/* columns 변경 시 정렬 보호 */
+/* ===================== */
 watch(
     () => props.columns,
     () => {
       if (sortKey.value && !props.columns.some(c => c.key === sortKey.value)) {
         sortKey.value = ''
-        sortOrder.value = 'asc'
-        emit('sort-change', { key: '', order: 'asc' })
+        sortOrder.value = 'ASC'
+        emit('sort-change', undefined)
       }
     }
 )
@@ -161,7 +170,7 @@ th {
   display: inline-block;
 }
 
-/* 정렬 아이콘 (레이아웃 제외) */
+/* 정렬 아이콘 */
 .sort-icon {
   position: absolute;
   right: 10px;

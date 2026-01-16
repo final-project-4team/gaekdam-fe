@@ -3,8 +3,8 @@
     <select
         v-for="filter in filters"
         :key="filter.key"
-        v-model="values[filter.key]"
-        @change="emitChange"
+        :value="values[filter.key]"
+        @change="e => onChange(filter.key, e.target.value)"
     >
       <option
           v-for="opt in filter.options"
@@ -24,14 +24,6 @@ const props = defineProps({
   filters: {
     type: Array,
     required: true,
-    /*
-      [
-        {
-          key: 'status',
-          options: [{ label, value }]
-        }
-      ]
-    */
   },
 })
 
@@ -43,7 +35,8 @@ props.filters.forEach(f => {
   values[f.key] = ''
 })
 
-const emitChange = () => {
+const onChange = (key, value) => {
+  values[key] = value
   emit('change', { ...values })
 }
 </script>
