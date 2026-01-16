@@ -189,4 +189,5 @@ const closeRowModal = () => {
 .detail-view p {
   margin: 6px 0;
 }
+
 </style>
