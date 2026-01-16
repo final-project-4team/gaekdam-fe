@@ -1,29 +1,31 @@
-import { ref, computed } from 'vue';
-import { defineStore } from 'pinia';
-import { jwtDecode } from 'jwt-decode';
-import { loginApi, refreshApi, logoutApi } from '@/api/authApi';
-import { getUserMe } from '@/api/authApi';
+import { ref, computed } from "vue";
+import { defineStore } from "pinia";
+import { jwtDecode } from "jwt-decode";
+import { loginApi, refreshApi, logoutApi } from "@/api/auth/authApi";
+import router from "@/router";
+import {getMyPropertyApi} from "@/api/property/propertyApi.js";
 
-import router from '@/router';
+export const useAuthStore = defineStore("auth", () => {
 
-export const useAuthStore = defineStore('auth', () => {
-
-    // state
+    /* ===================== */
+    /* state */
+    /* ===================== */
     const accessToken = ref(null);
     const user = ref(null);
     const loading = ref(false);
+    const hotel = ref(null);
 
-    // getters
-    const isLoggedIn = computed(() => !!accessToken.value && !!user.value);
+    /* ===================== */
+    /* getters */
+    /* ===================== */
+    const isLoggedIn = computed(() => !!accessToken.value);
 
-    const isAdmin = computed(() => {
-        const role = user.value?.role;
-        return role === 'ADMIN' || role === 'ROLE_ADMIN';
-    });
+    const hasAuthority = (authority) =>
+        computed(() => user.value?.authorities?.includes(authority));
 
-    const username = computed(() => user.value?.username || "");
-
-    // state setters
+    /* ===================== */
+    /* setters */
+    /* ===================== */
     const setAccessToken = (token) => {
         accessToken.value = token;
         if (token) localStorage.setItem("accessToken", token);
@@ -31,19 +33,23 @@ export const useAuthStore = defineStore('auth', () => {
     };
 
     const setUser = (data) => {
-        user.value = data || null;
+        user.value = data;
         if (data) localStorage.setItem("user", JSON.stringify(data));
         else localStorage.removeItem("user");
     };
 
-    // decode JWT → user 세팅
+    /* ===================== */
+    /* JWT → user */
+    /* ===================== */
     const setUserFromToken = (token) => {
         try {
             const payload = jwtDecode(token);
 
             setUser({
-                username: payload.sub,  // 백엔드 JWT에서 sub=email
-                role: payload.role
+                loginId: payload.sub,
+                authorities: [payload.role],     // permissionName
+                hotelGroupCode: payload.hotelGroupCode,
+                propertyCode: payload.propertyCode,
             });
 
         } catch (e) {
@@ -52,135 +58,93 @@ export const useAuthStore = defineStore('auth', () => {
         }
     };
 
-    // 새로고침 시 저장값 복원
+    /* ===================== */
+    /* storage 복원 */
+    /* ===================== */
     const loadFromStorage = () => {
         const token = localStorage.getItem("accessToken");
         const userStr = localStorage.getItem("user");
 
         if (token) accessToken.value = token;
-
-        if (userStr) {
-            try { user.value = JSON.parse(userStr); }
-            catch { user.value = null; }
-        }
+        if (userStr) user.value = JSON.parse(userStr);
     };
 
-    // 인증 상태 초기화
-    const clearAuthState = () => {
-        setAccessToken(null);
-        setUser(null);
-        loading.value = false;
-        router.push("/login");
-    };
-
-
-   const fetchUserMe = async () => {
-     try {
-       const res = await getUserMe();
-       const { success, data } = res.data;
-
-       if (!success) return;
-
-       user.value = {
-         ...user.value,
-         pName: data.pname,
-         role: data.role,
-       };
-
-       localStorage.setItem("user", JSON.stringify(user.value));
-
-     } catch (e) {
-       console.error("유저 정보 불러오기 실패", e);
-     }
-   };
-
-
-    //로그인
-    const login = async ({ userEmail, password }) => {
+    /* ===================== */
+    /* login */
+    /* ===================== */
+    const login = async ({ loginId, password }) => {
         loading.value = true;
-
         try {
-            const res = await loginApi(userEmail, password);
-            const { success, data, message } = res.data;
+            const res = await loginApi(loginId, password);
+            const { success, data } = res.data;
+            if (!success) throw new Error();
 
-            if (!success) {
-                return {
-                    success: false,
-                    message: message || "로그인 실패"
-                };
-            }
-
-            // accessToken 적용
             setAccessToken(data.accessToken);
             setUserFromToken(data.accessToken);
-
-
-
-            await fetchUserMe();
+            await fetchMyHotel();
 
             return { success: true };
-
         } catch (e) {
-            return {
-                success: false,
-                message: e.response?.data?.message || "로그인 요청 중 오류 발생"
-            };
+            return { success: false };
         } finally {
             loading.value = false;
         }
     };
 
-
-    // 토큰 재발급
-    const refreshTokens = async () => {
+    const fetchMyHotel = async () => {
         try {
-            const res = await refreshApi();
-            const { success, data, message } = res.data;
-
-            if (!success) throw new Error(message || "토큰 재발급 실패");
-
-            setAccessToken(data.accessToken);
-            setUserFromToken(data.accessToken);
-
-            await fetchUserMe();
-
+            const res = await getMyPropertyApi();
+            hotel.value = res.data.data;
         } catch (e) {
-            setAccessToken(null);
-            setUser(null);
-            throw e;
+            console.error("호텔 정보 조회 실패", e);
+            hotel.value = null;
         }
     };
 
 
-    // 로그아웃
+    /* ===================== */
+    /* refresh */
+    /* ===================== */
+    const refreshTokens = async () => {
+        const res = await refreshApi();
+        const { data } = res.data;
+
+        setAccessToken(data.accessToken);
+        setUserFromToken(data.accessToken);
+    };
+
+    /* ===================== */
+    /* logout */
+    /* ===================== */
     const logout = async () => {
         try {
             await logoutApi();
-        } catch (e) {
-            // 서버 에러여도 클라이언트 상태는 정리
         } finally {
             clearAuthState();
         }
     };
 
+    const clearAuthState = () => {
+        setAccessToken(null);
+        setUser(null);
+        hotel.value = null;
+        router.push("/login");
+    };
+
     return {
         accessToken,
         user,
+        hotel,
         loading,
-        isLoggedIn,
-        isAdmin,
-        username,
 
-        setAccessToken,
-        setUser,
-        setUserFromToken,
-        loadFromStorage,
-        clearAuthState,
+        isLoggedIn,
+        hasAuthority,
 
         login,
         refreshTokens,
         logout,
 
-        fetchUserMe
+        loadFromStorage,
+        clearAuthState,
     };
 });

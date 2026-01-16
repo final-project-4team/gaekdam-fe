@@ -8,19 +8,24 @@
 
 
     <div class="right">
-      <span class="user">userName</span>
+      <span class="user">{{ userName }}</span>
     </div>
   </header>
 </template>
 
 <script setup>
-import {useRouter} from "vue-router";
+import { computed } from "vue"
+import { useRouter } from "vue-router"
+import { useAuthStore } from "@/stores/authStore"
+
 const router = useRouter()
+const authStore = useAuthStore()
+
+const userName = computed(() => authStore.user?.loginId || "")
 
 const goTestPage = () => {
   router.push('/')
 }
-
 </script>
 
 <style scoped>

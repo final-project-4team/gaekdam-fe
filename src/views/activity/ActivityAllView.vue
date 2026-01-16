@@ -7,10 +7,17 @@
     <ListView
         :columns="columns"
         :rows="rows"
+        :total="totalCount"
         :filters="filters"
         :searchTypes="searchTypes"
         show-detail
         v-model:detail="detailForm"
+
+        @search="onSearch"
+        @filter="onFilter"
+        @sort-change="onSortChange"
+        @page-change="onPageChange"
+
         @row-click="openRowModal"
     >
       <!-- ===================== -->
@@ -62,94 +69,153 @@
 
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from "vue";
 
-import ListView from '@/components/common/ListView.vue'
-import BaseModal from '@/components/common/modal/BaseModal.vue'
+import ListView from "@/components/common/ListView.vue";
+import BaseModal from "@/components/common/modal/BaseModal.vue";
+import { getReservationListApi } from "@/api/reservation/reservationApi";
 
 /* ===================== */
 /* 검색 기준 */
 /* ===================== */
 const searchTypes = [
-  { label: '전체', value: '' },
-  { label: '고객명', value: 'CUSTOMER_NAME' },
-  { label: '예약번호', value: 'RESERVATION_NO' },
-]
+  { label: "전체", value: "" },
+  { label: "고객명", value: "CUSTOMER_NAME" },
+  { label: "예약번호", value: "RESERVATION_NO" },
+];
 
 /* ===================== */
 /* 필터 */
 /* ===================== */
 const filters = [
   {
-    key: 'status',
+    key: "status",
     options: [
-      { label: '운영상태', value: '' },
-      { label: '투숙중', value: '투숙중' },
-      { label: '체크인예정', value: '체크인예정' },
-      { label: '체크아웃예정', value: '체크아웃예정' },
+      { label: "운영상태", value: "" },
+      { label: "투숙중", value: "투숙중" },
+      { label: "체크인예정", value: "체크인예정" },
+      { label: "체크아웃예정", value: "체크아웃예정" },
     ],
   },
   {
-    key: 'roomType',
+    key: "roomType",
     options: [
-      { label: '객실유형', value: '' },
-      { label: '디럭스', value: '디럭스' },
-      { label: '스위트', value: '스위트' },
+      { label: "객실유형", value: "" },
+      { label: "디럭스", value: "디럭스" },
+      { label: "스위트", value: "스위트" },
     ],
   },
-]
+];
 
 /* ===================== */
 /* 테이블 컬럼 */
 /* ===================== */
 const columns = [
-  { key: 'reservationNo', label: '예약번호', sortable: true, align: 'center' },
-  { key: 'customerName', label: '고객명', sortable: true },
-  { key: 'roomType', label: '객실유형', sortable: true, align: 'center' },
-  { key: 'checkinDate', label: '투숙예정일', sortable: true, align: 'center' },
-  { key: 'checkoutDate', label: '투숙종료일', sortable: true, align: 'center' },
-  { key: 'status', label: '운영상태', sortable: true, align: 'center' },
-]
+  { key: "reservationNo", label: "예약번호", sortable: true, align: "center" },
+  { key: "customerName", label: "고객명", sortable: true },
+  { key: "roomType", label: "객실유형", sortable: true, align: "center" },
+  { key: "checkinDate", label: "투숙예정일", sortable: true, align: "center" },
+  { key: "checkoutDate", label: "투숙종료일", sortable: true, align: "center" },
+  { key: "status", label: "운영상태", sortable: true, align: "center" },
+];
 
 /* ===================== */
-/* 더미 데이터 */
+/* 리스트 / 페이징 상태 */
 /* ===================== */
-const rows = ref(
-    Array.from({ length: 30 }).map((_, i) => ({
-      id: i + 1,
-      reservationNo: String(1000 + i),
-      customerName: ['김민', '이영희', '박고객'][i % 3],
-      roomType: i % 2 ? '스위트' : '디럭스',
-      checkinDate: '2025/12/27',
-      checkoutDate: '2025/12/28',
-      status: ['투숙중', '체크인예정', '체크아웃예정'][i % 3],
-    }))
-)
+const rows = ref([]);
+const totalCount = ref(0);
+
+const page = ref(1);
+const pageSize = ref(10);
+
+/* ===================== */
+/* 검색 / 필터 / 정렬 상태 */
+/* ===================== */
+const keyword = ref("");
+const searchType = ref("");
+const filterValues = ref({});
+const sortState = ref({});
 
 /* ===================== */
 /* 상세검색 상태 */
 /* ===================== */
 const detailForm = ref({
-  customerName: '',
-  reservationNo: '',
-  status: '',
-})
+  customerName: "",
+  reservationNo: "",
+  status: "",
+});
+
+/* ===================== */
+/* API 로딩 */
+/* ===================== */
+const loadReservations = async () => {
+  const res = await getReservationListApi({
+    page: page.value,
+    size: pageSize.value,
+    keyword: keyword.value,
+    searchType: searchType.value,
+    filters: filterValues.value,
+    detail: detailForm.value,
+    sort: sortState.value,
+  });
+
+  rows.value = res.data.data.items;
+  totalCount.value = res.data.data.totalCount;
+};
+
+/* ===================== */
+/* ListView 이벤트 핸들러 */
+/* ===================== */
+const onSearch = (payload) => {
+  if (typeof payload === "string") {
+    keyword.value = payload;
+    searchType.value = "";
+  } else {
+    keyword.value = payload.keyword;
+    searchType.value = payload.type;
+  }
+  page.value = 1;
+  loadReservations();
+};
+
+const onFilter = (filters) => {
+  filterValues.value = filters;
+  page.value = 1;
+  loadReservations();
+};
+
+const onSortChange = (sort) => {
+  sortState.value = sort;
+  loadReservations();
+};
+
+const onPageChange = (p) => {
+  page.value = p;
+  loadReservations();
+};
 
 /* ===================== */
 /* Row Modal */
 /* ===================== */
-const showRowModal = ref(false)
-const selectedRow = ref(null)
+const showRowModal = ref(false);
+const selectedRow = ref(null);
 
 const openRowModal = (row) => {
-  selectedRow.value = row
-  showRowModal.value = true
-}
+  selectedRow.value = row;
+  showRowModal.value = true;
+};
 
 const closeRowModal = () => {
-  showRowModal.value = false
-  selectedRow.value = null
-}
+  showRowModal.value = false;
+  selectedRow.value = null;
+};
+
+/* ===================== */
+/* 최초 진입 시 로드 */
+/* ===================== */
+onMounted(() => {
+  loadReservations();
+});
 </script>
 
 

@@ -1,7 +1,7 @@
 <template>
   <aside class="side">
     <div class="hotel">
-      <strong>Hotel Name</strong>
+      <strong>{{ hotelName }}</strong>
     </div>
 
     <nav class="menu-list">
@@ -20,9 +20,17 @@
 
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
-
+import { useAuthStore } from "@/stores/authStore";
+import {computed} from "vue";
 const router = useRouter()
 const route = useRoute()
+
+
+const authStore = useAuthStore();
+
+const hotelName = computed(() => {
+  return authStore.hotel?.hotelGroupName || "Hotel";
+});
 
 const menus = [
   { label: '리포트', path: '/reports' },
