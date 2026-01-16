@@ -1,48 +1,61 @@
 <template>
   <div class="login-page">
-    <div class="login-card">
-      <h2>직원 로그인</h2>
+    <div class="bg-accent" />
 
-      <div class="form-row">
-        <label>아이디</label>
-        <input
-            v-model="loginId"
-            type="text"
-            placeholder="아이디 입력"
-            @keyup.enter="onLogin"
-        />
+    <div class="login-wrapper">
+      <div class="login-card">
+        <!-- 카드 헤더 (브랜드) -->
+        <div class="card-header">
+          <div class="brand-title">고객을 담다</div>
+          <div class="brand-name">客談</div>
+        </div>
+
+        <!-- 로그인 폼 -->
+        <div class="form-row">
+          <label>아이디</label>
+          <input
+              v-model="loginId"
+              type="text"
+              placeholder="아이디 입력"
+              @keyup.enter="onLogin"
+          />
+        </div>
+
+        <div class="form-row">
+          <label>비밀번호</label>
+          <input
+              v-model="password"
+              type="password"
+              placeholder="비밀번호 입력"
+              @keyup.enter="onLogin"
+          />
+        </div>
+
+        <!-- 공통 버튼 -->
+        <BaseButton
+            type="primary"
+            size="lg"
+            :disabled="loading"
+            @click="onLogin"
+            class="login-btn"
+        >
+          {{ loading ? "로그인 중..." : "로그인" }}
+        </BaseButton>
+
+        <p v-if="errorMessage" class="error">
+          {{ errorMessage }}
+        </p>
       </div>
-
-      <div class="form-row">
-        <label>비밀번호</label>
-        <input
-            v-model="password"
-            type="password"
-            placeholder="비밀번호 입력"
-            @keyup.enter="onLogin"
-        />
-      </div>
-
-      <button
-          class="login-button"
-          :disabled="loading"
-          @click="onLogin"
-          @keyup.enter="onLogin"
-      >
-        {{ loading ? "로그인 중..." : "로그인" }}
-      </button>
-
-      <p v-if="errorMessage" class="error">
-        {{ errorMessage }}
-      </p>
     </div>
   </div>
 </template>
+
 
 <script setup>
 import { ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/stores/authStore";
+import BaseButton from "@/components/common/button/BaseButton.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -54,6 +67,8 @@ const errorMessage = ref("");
 const loading = ref(false);
 
 const onLogin = async () => {
+  if (loading.value) return;
+
   errorMessage.value = "";
   loading.value = true;
 
@@ -69,37 +84,75 @@ const onLogin = async () => {
     return;
   }
 
-  // 원래 가려던 페이지로 이동
   const redirectPath = route.query.redirect || "/";
-  router.push(redirectPath);
+  router.replace(redirectPath);
 };
 </script>
 
 <style scoped>
 .login-page {
-  height: 100vh;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f9fafb;
+  position: relative;
+  overflow: hidden;
 }
 
+/* 은은한 배경 */
+.bg-accent {
+  position: absolute;
+  top: -220px;
+  right: -220px;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(
+      circle,
+      rgba(96,165,250,0.12),
+      transparent 70%
+  );
+}
+
+.login-wrapper {
+  width: 380px;
+  z-index: 1;
+}
+
+/* 카드 */
 .login-card {
-  width: 360px;
-  padding: 24px;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 22px 28px 28px 28px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.08);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
-.login-card h2 {
-  margin-bottom: 8px;
+/* 카드 헤더 */
+.card-header {
   text-align: center;
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
+.brand-title {
+  font-size: 12px;
+  color: #64748b;
+  letter-spacing: 0.1em;
+}
+
+.brand-name {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: 0.18em;
+}
+
+/* 입력 */
 .form-row {
   display: flex;
   flex-direction: column;
@@ -109,33 +162,35 @@ const onLogin = async () => {
 .form-row label {
   font-size: 13px;
   font-weight: 600;
+  color: #334155;
 }
 
 .form-row input {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 14px;
+  transition: 0.15s;
 }
 
-.login-button {
-  margin-top: 8px;
-  padding: 12px;
-  border-radius: 8px;
-  border: none;
-  background: #2563eb;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
+.form-row input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96,165,250,0.15);
 }
 
-.login-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+/* 버튼 정렬 */
+.login-btn {
+  margin-top: 10px;
 }
 
+/* 에러 */
 .error {
-  color: #dc2626;
+  margin-top: 6px;
   font-size: 13px;
+  color: #dc2626;
   text-align: center;
 }
+
 </style>
