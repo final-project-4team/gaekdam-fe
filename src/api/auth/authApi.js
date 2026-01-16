@@ -1,4 +1,4 @@
-import api from "@/axios";
+import api from "@/api/axios";
 
 // 회원가입
 export const signupApi = (data) => {
@@ -6,8 +6,8 @@ export const signupApi = (data) => {
 };
 
 // 로그인
-export const loginApi = (userId, password) => {
-    return api.post("/auth/login", { userId, password });
+export const loginApi = (loginId, password) => {
+    return api.post("/auth/login", { loginId, password });
 };
 
 // 토큰 재발급
