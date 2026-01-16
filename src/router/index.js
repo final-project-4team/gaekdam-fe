@@ -64,12 +64,17 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const authStore = useAuthStore()
 
-    // 공개 페이지는 통과
-    if (to.meta.public) {
+    // 로그인 상태인데 /login 접근 → 메인으로
+    if (to.path === '/login' && authStore.isLoggedIn) {
+        return next('/')
+    }
+
+    // 로그인 페이지는 비로그인 상태에서만 허용
+    if (to.path === '/login') {
         return next()
     }
 
-    // 로그인 안 했으면 로그인으로
+    // 로그인 안 했으면 CRM 접근 불가
     if (!authStore.isLoggedIn) {
         return next({
             path: '/login',
@@ -79,5 +84,6 @@ router.beforeEach((to, from, next) => {
 
     next()
 })
+
 
 export default router

@@ -9,6 +9,7 @@
             v-model="loginId"
             type="text"
             placeholder="아이디 입력"
+            @keyup.enter="onLogin"
         />
       </div>
 
@@ -18,6 +19,7 @@
             v-model="password"
             type="password"
             placeholder="비밀번호 입력"
+            @keyup.enter="onLogin"
         />
       </div>
 
@@ -25,6 +27,7 @@
           class="login-button"
           :disabled="loading"
           @click="onLogin"
+          @keyup.enter="onLogin"
       >
         {{ loading ? "로그인 중..." : "로그인" }}
       </button>
