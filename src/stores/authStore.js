@@ -64,9 +64,11 @@ export const useAuthStore = defineStore("auth", () => {
     const loadFromStorage = () => {
         const token = localStorage.getItem("accessToken");
         const userStr = localStorage.getItem("user");
+        const hotelStr = localStorage.getItem("hotel");
 
         if (token) accessToken.value = token;
         if (userStr) user.value = JSON.parse(userStr);
+        if (hotelStr) hotel.value = JSON.parse(hotelStr);
     };
 
     /* ===================== */
@@ -91,13 +93,20 @@ export const useAuthStore = defineStore("auth", () => {
         }
     };
 
+
+    const setHotel = (data) => {
+        hotel.value = data;
+        if (data) localStorage.setItem("hotel", JSON.stringify(data));
+        else localStorage.removeItem("hotel");
+    };
+
     const fetchMyHotel = async () => {
         try {
             const res = await getMyPropertyApi();
-            hotel.value = res.data.data;
+            setHotel(res.data.data);
         } catch (e) {
             console.error("호텔 정보 조회 실패", e);
-            hotel.value = null;
+            setHotel(null);
         }
     };
 
@@ -127,7 +136,7 @@ export const useAuthStore = defineStore("auth", () => {
     const clearAuthState = () => {
         setAccessToken(null);
         setUser(null);
-        hotel.value = null;
+        setHotel(null);
         router.push("/login");
     };
 

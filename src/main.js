@@ -18,7 +18,7 @@ app.use(router)
 app.use(ElementPlus)
 
 
-const authStore = useAuthStore(pinia) // 🔥 핵심
+const authStore = useAuthStore(pinia)
 authStore.loadFromStorage()
 
 app.mount('#app')
