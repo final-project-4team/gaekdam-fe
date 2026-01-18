@@ -53,6 +53,7 @@
           @filter="onFilter"
           @sort-change="onSortChange"
           @page-change="onPageChange"
+          @detail-reset="onDetailReset"
           @row-click="openRowModal"
       >
         <!-- ===================== -->
@@ -105,9 +106,9 @@ import BaseButton from "@/components/common/button/BaseButton.vue"
 /* ===================== */
 /* Search Types */
 const searchTypes = [
-  { label: '전체', key: 'keyword', type: 'text' },
-  { label: '고객명', key: 'customerName', type: 'text' },
-  { label: '예약번호', key: 'reservationNo', type: 'number' },
+  { label: '전체', value: '' },
+  { label: '고객명', value: 'CUSTOMER_NAME' },
+  { label: '예약번호', value: 'RESERVATION_NO' },
 ]
 
 /* ===================== */
@@ -152,13 +153,20 @@ const allRows = ref(
 )
 
 /* ===================== */
-/* State */
+/* Paging */
 const page = ref(1)
 const pageSize = ref(5)
 
-/* 핵심 */
-const searchKeyword = ref('')        // 전체검색
-const searchCondition = ref({})      // 단일 필드
+/* ===================== */
+/* 🔥 기본검색 (SearchBar 전용) */
+const quickSearch = ref({
+  keyword: null,        // 전체검색
+  customerName: null,
+  reservationNo: null,
+})
+
+/* ===================== */
+/* Filter / Sort */
 const filterValues = ref({})
 const sortState = ref({})
 
@@ -175,9 +183,10 @@ const detailForm = ref({
 const filteredRows = computed(() => {
   let rows = [...allRows.value]
 
-  /* 전체 검색 (OR) */
-  if (searchKeyword.value) {
-    const v = searchKeyword.value
+  /* ===================== */
+  /* 전체검색 (OR) */
+  if (quickSearch.value.keyword) {
+    const v = quickSearch.value.keyword
     rows = rows.filter(r =>
         r.customerName.includes(v) ||
         r.reservationNo.includes(v) ||
@@ -186,21 +195,27 @@ const filteredRows = computed(() => {
     )
   }
 
-  /* 단일 필드 검색 */
-  Object.entries(searchCondition.value).forEach(([k, v]) => {
-    if (!v) return
+  if (quickSearch.value.customerName) {
     rows = rows.filter(r =>
-        String(r[k] ?? '').includes(String(v))
+        r.customerName.includes(quickSearch.value.customerName)
     )
-  })
+  }
 
-  /*  FilterGroup */
+  if (quickSearch.value.reservationNo) {
+    rows = rows.filter(r =>
+        r.reservationNo.includes(quickSearch.value.reservationNo)
+    )
+  }
+
+  /* ===================== */
+  /* FilterGroup */
   Object.entries(filterValues.value).forEach(([k, v]) => {
     if (!v) return
     rows = rows.filter(r => r[k] === v)
   })
 
-  /*  상세검색 */
+  /* ===================== */
+  /* 상세검색 */
   if (detailForm.value.customerName) {
     rows = rows.filter(r =>
         r.customerName.includes(detailForm.value.customerName)
@@ -219,7 +234,8 @@ const filteredRows = computed(() => {
     )
   }
 
-  /*  Sort */
+  /* ===================== */
+  /* Sort */
   if (sortState.value.sortBy) {
     const { sortBy, direction } = sortState.value
     rows.sort((a, b) =>
@@ -239,18 +255,54 @@ const pagedRows = computed(() => {
 
 /* ===================== */
 /* Events */
-const onSearch = ({ key, value }) => {
+const onSearch = (payload) => {
   page.value = 1
-  searchKeyword.value = ''
-  searchCondition.value = {}
 
-  if (!value) return
-
-  if (key === 'keyword') {
-    searchKeyword.value = value
-  } else {
-    searchCondition.value = { [key]: value }
+  // 🔹 항상 초기화
+  quickSearch.value = {
+    keyword: null,
+    customerName: null,
+    reservationNo: null,
   }
+
+  const key = payload?.key
+  const value = payload?.value ?? ''
+
+  // ✅ 빈 값 → 전체 조회
+  if (!String(value).trim()) {
+    return
+  }
+
+  // ✅ 전체검색
+  if (key === 'keyword' || key === '') {
+    quickSearch.value.keyword = value
+    return
+  }
+
+  // ✅ 단일검색
+  if (key === 'customerName') {
+    quickSearch.value.customerName = value
+  }
+
+  if (key === 'reservationNo') {
+    quickSearch.value.reservationNo = value
+  }
+}
+
+const onDetailReset = () => {
+  detailForm.value = {
+    customerName: '',
+    reservationNo: '',
+    status: '',
+  }
+
+  quickSearch.value = {
+    keyword: null,
+    customerName: null,
+    reservationNo: null,
+  }
+
+  page.value = 1
 }
 
 const onFilter = (values) => {
@@ -265,7 +317,22 @@ const onSortChange = ({ sortBy, direction }) => {
 const onPageChange = (p) => {
   page.value = p
 }
+
+const showRowModal = ref(false)
+const selectedRow = ref(null)
+
+const openRowModal = (row) => {
+  selectedRow.value = row
+  showRowModal.value = true
+}
+
+const closeRowModal = () => {
+  showRowModal.value = false
+  selectedRow.value = null
+}
+
 </script>
+
 
 <style scoped>
 .test-page {
