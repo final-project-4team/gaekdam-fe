@@ -5,8 +5,8 @@
       <select v-model="selectedKey">
         <option
             v-for="item in searchTypes"
-            :key="item.key"
-            :value="item.key"
+            :key="item.value"
+            :value="item.value"
         >
           {{ item.label }}
         </option>
@@ -79,19 +79,17 @@ const props = defineProps({
 
 const emit = defineEmits(['search', 'detail'])
 
-const selectedKey = ref(props.searchTypes[0]?.key)
+const selectedKey = ref(props.searchTypes[0]?.value ?? '')
 const value = ref(null)
 
 const current = computed(() =>
-    props.searchTypes.find(t => t.key === selectedKey.value)
+    props.searchTypes.find(t => t.value === selectedKey.value)
 )
 
 const submit = () => {
-  if (!selectedKey.value) return
-
   emit('search', {
-    key: selectedKey.value,
-    value: value.value,
+    key: selectedKey.value ?? '',
+    value: value.value ?? '',
   })
 }
 </script>

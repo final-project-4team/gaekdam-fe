@@ -34,6 +34,7 @@ const routes = [
             {
                 path: 'activities',
                 component: ActivityLayout,
+                redirect: '/activities/all',
                 children: [
                     { path: 'all', component: () => import('@/views/activity/ActivityAllView.vue') },
                     { path: 'check', component: () => import('@/views/activity/ActivityCheckView.vue') },

@@ -66,7 +66,13 @@
             :key="col.key"
             :class="col.align ? `align-${col.align}` : 'align-center'"
         >
-          {{ row[col.key] }}
+          <slot
+              :name="`cell-${col.key}`"
+              :row="row"
+              :value="row[col.key]"
+          >
+            {{ row[col.key] }}
+          </slot>
         </td>
       </tr>
 
@@ -87,7 +93,7 @@ const props = defineProps({
   columns: { type: Array, default: () => [] },
   rows: { type: Array, default: () => [] },
 
-  /** ✅ row 식별자 (기본값 안전하게) */
+  /**  row 식별자 (기본값 안전하게) */
   rowKey: { type: String, default: 'id' },
 })
 
