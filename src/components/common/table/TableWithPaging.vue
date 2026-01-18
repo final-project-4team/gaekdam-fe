@@ -5,7 +5,12 @@
         :rows="rows"
         @row-click="$emit('row-click', $event)"
         @sort-change="s => emit('sort-change', s)"
-    />
+
+    >
+      <template v-for="(_, name) in $slots" #[name]="slotProps">
+        <slot :name="name" v-bind="slotProps"/>
+      </template>
+    </BaseTable>
 
     <Pagination
         v-if="totalPages > 1"
@@ -17,17 +22,17 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import {computed} from 'vue'
 import BaseTable from '@/components/common/table/BaseTable.vue'
 import Pagination from '@/components/common/pagination/Pagination.vue'
 
 const props = defineProps({
-  columns: { type: Array, required: true },
-  rows: { type: Array, required: true },
+  columns: {type: Array, required: true},
+  rows: {type: Array, required: true},
 
-  page: { type: Number, required: true },
-  pageSize: { type: Number, required: true },
-  total: { type: Number, required: true },
+  page: {type: Number, required: true},
+  pageSize: {type: Number, required: true},
+  total: {type: Number, required: true},
 })
 
 const emit = defineEmits([

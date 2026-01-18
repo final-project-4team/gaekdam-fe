@@ -98,11 +98,9 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-
-import SearchBar from '@/components/common/form/SearchBar.vue'
 import ListView from '@/components/common/ListView.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
-import BaseButton from "@/components/common/button/BaseButton.vue";
+import BaseButton from "@/components/common/button/BaseButton.vue"
 
 /* ===================== */
 /* Search Types */
@@ -158,7 +156,9 @@ const allRows = ref(
 const page = ref(1)
 const pageSize = ref(5)
 
-const searchCondition = ref({})
+/* 핵심 */
+const searchKeyword = ref('')        // 전체검색
+const searchCondition = ref({})      // 단일 필드
 const filterValues = ref({})
 const sortState = ref({})
 
@@ -175,33 +175,32 @@ const detailForm = ref({
 const filteredRows = computed(() => {
   let rows = [...allRows.value]
 
-  // 🔹 SearchBar 검색
+  /* 전체 검색 (OR) */
+  if (searchKeyword.value) {
+    const v = searchKeyword.value
+    rows = rows.filter(r =>
+        r.customerName.includes(v) ||
+        r.reservationNo.includes(v) ||
+        r.roomType.includes(v) ||
+        r.status.includes(v)
+    )
+  }
+
+  /* 단일 필드 검색 */
   Object.entries(searchCondition.value).forEach(([k, v]) => {
     if (!v) return
-
-    // ✅ 전체 검색
-    if (k === 'keyword') {
-      rows = rows.filter(r =>
-          String(r.customerName).includes(v) ||
-          String(r.reservationNo).includes(v) ||
-          String(r.roomType).includes(v)
-      )
-      return
-    }
-
-    // ✅ 단일 필드 검색
     rows = rows.filter(r =>
         String(r[k] ?? '').includes(String(v))
     )
   })
 
-  // 🔹 FilterGroup
+  /*  FilterGroup */
   Object.entries(filterValues.value).forEach(([k, v]) => {
     if (!v) return
     rows = rows.filter(r => r[k] === v)
   })
 
-  // 🔹 ✅ 상세검색 (핵심!)
+  /*  상세검색 */
   if (detailForm.value.customerName) {
     rows = rows.filter(r =>
         r.customerName.includes(detailForm.value.customerName)
@@ -220,7 +219,7 @@ const filteredRows = computed(() => {
     )
   }
 
-  // 🔹 Sort
+  /*  Sort */
   if (sortState.value.sortBy) {
     const { sortBy, direction } = sortState.value
     rows.sort((a, b) =>
@@ -242,7 +241,16 @@ const pagedRows = computed(() => {
 /* Events */
 const onSearch = ({ key, value }) => {
   page.value = 1
-  searchCondition.value = value ? { [key]: value } : {}
+  searchKeyword.value = ''
+  searchCondition.value = {}
+
+  if (!value) return
+
+  if (key === 'keyword') {
+    searchKeyword.value = value
+  } else {
+    searchCondition.value = { [key]: value }
+  }
 }
 
 const onFilter = (values) => {
@@ -257,23 +265,6 @@ const onSortChange = ({ sortBy, direction }) => {
 const onPageChange = (p) => {
   page.value = p
 }
-
-/* ===================== */
-/* Row Modal */
-const showRowModal = ref(false)
-const selectedRow = ref(null)
-
-const openRowModal = (row) => {
-  selectedRow.value = row
-  showRowModal.value = true
-}
-
-const closeRowModal = () => {
-  showRowModal.value = false
-  selectedRow.value = null
-}
-
-const openDetailModal = () => {}
 </script>
 
 <style scoped>
