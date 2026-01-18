@@ -42,26 +42,20 @@
       </template>
     </ListView>
 
-    <!-- 상세 모달 -->
-    <BaseModal v-if="showRowModal" title="운영 상세" @close="closeRowModal">
-      <div v-if="selectedRow" class="detail-view">
-        <p><b>예약번호:</b> {{ selectedRow.reservationNo }}</p>
-        <p><b>지점:</b> {{ selectedRow.propertyName }}</p>
-        <p><b>고객명:</b> {{ selectedRow.customerName }}</p>
-        <p><b>객실유형:</b> {{ selectedRow.roomType }}</p>
-        <p><b>투숙기간:</b> {{ selectedRow.checkinDate }} ~ {{ selectedRow.checkoutDate }}</p>
-        <p><b>운영상태:</b> {{ selectedRow.status }}</p>
-      </div>
-    </BaseModal>
+    <ActivityDetailModal
+        v-if="showRowModal"
+        :reservationCode="selectedReservationCode"
+        @close="closeRowModal"
+    />
   </div>
 </template>
 
 <script setup>
 import {ref, computed, onMounted, watch} from 'vue'
 import ListView from '@/components/common/ListView.vue'
-import BaseModal from '@/components/common/modal/BaseModal.vue'
-import {getOperationBoardApi} from '@/api/reservation/operationApi'
-import {getPropertyListByHotelGroupApi} from '@/api/property/propertyApi'
+import {getOperationBoardApi} from '@/api/reservation/operationApi.js'
+import {getPropertyListByHotelGroupApi} from '@/api/property/propertyApi.js'
+import ActivityDetailModal from "@/views/activity/modal/ActivityDetailModal.vue";
 
 /* ===================== */
 /* 상태 라벨 */
@@ -307,16 +301,17 @@ const onDetailReset = () => {
 /* 모달 */
 /* ===================== */
 const showRowModal = ref(false)
-const selectedRow = ref(null)
+const selectedReservationCode = ref(null)
 
 const openRowModal = (row) => {
-  selectedRow.value = row
+  selectedReservationCode.value = row.reservationNo
   showRowModal.value = true
 }
 
+
 const closeRowModal = () => {
   showRowModal.value = false
-  selectedRow.value = null
+  selectedReservationCode.value = null;
 }
 
 /* ===================== */
