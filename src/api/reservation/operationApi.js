@@ -13,19 +13,40 @@ const OPERATION_SORT_KEY_MAP = {
     status: 't.operationStatus',
 }
 
+/**
+ * 운영 보드 조회 API
+ *
+ * summaryType:
+ * - ALL_TODAY
+ * - TODAY_CHECKIN
+ * - TODAY_CHECKOUT
+ * - STAYING
+ */
 export const getOperationBoardApi = ({
                                          page = 1,
                                          size = 10,
+
+
                                          filters = {},
                                          detail = {},
                                          sort = {},
+
+                                         // 요약 카드 타입
+                                         summaryType,
                                      }) => {
     return api.get('/reservations/operations', {
         params: {
             page,
             size,
 
-            // filter
+            /* =====================
+             * Summary (상단 카드 클릭)
+             * ===================== */
+            summaryType: summaryType ?? undefined,
+
+            /* =====================
+             * Filters
+             * ===================== */
             propertyCode:
                 filters.propertyCode !== null && filters.propertyCode !== ''
                     ? filters.propertyCode
@@ -36,15 +57,22 @@ export const getOperationBoardApi = ({
                     ? filters.status
                     : undefined,
 
-
-            customerName: detail.customerName || undefined,
+            /* =====================
+             * Detail Search
+             * ===================== */
+            customerName:
+                detail.customerName && detail.customerName.trim() !== ''
+                    ? detail.customerName
+                    : undefined,
 
             reservationCode:
-                detail.reservationCode != null
+                detail.reservationCode != null && detail.reservationCode !== ''
                     ? Number(detail.reservationCode)
                     : undefined,
 
-            // sort
+            /* =====================
+             * Sort
+             * ===================== */
             sortBy:
                 sort.sortBy && OPERATION_SORT_KEY_MAP[sort.sortBy]
                     ? OPERATION_SORT_KEY_MAP[sort.sortBy]
@@ -52,6 +80,5 @@ export const getOperationBoardApi = ({
 
             direction: sort.direction || undefined,
         },
-
     })
 }
