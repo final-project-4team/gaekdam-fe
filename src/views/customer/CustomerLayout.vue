@@ -1,7 +1,8 @@
+<!-- src/views/customer/CustomerLayout.vue -->
 <template>
   <MainContentLayout>
     <template #tabs>
-      <ContentTabs :tabs="tabs" />
+      <ContentTabs :tabs="customerTabs" />
     </template>
 
     <router-view />
@@ -12,8 +13,7 @@
 import MainContentLayout from '@/components/layoutComponents/MainContentLayout.vue'
 import ContentTabs from '@/components/layoutComponents/ContentTabs.vue'
 
-
-const tabs = [
-  { label: '빈탭', path: '/empty' },
+const customerTabs = [
+  { label: '고객 목록', path: '/customers/all' },
 ]
 </script>
