@@ -261,7 +261,6 @@ onMounted(async () => {
 /* BaseModal 세로 크기 줄이기 */
 /* ============================= */
 :deep(.base-modal-body) {
-  max-height: 76vh;     /* ← 82 → 76 */
   overflow: hidden;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -280,12 +279,21 @@ onMounted(async () => {
   }
 }
 
+@media (max-height: 800px) {
+  .wrap {
+    max-height: calc(100vh - 140px);
+  }
+}
+
 
 /* ============================= */
 /* 전체 래퍼 */
 /* ============================= */
 .wrap {
-  padding: 4px 6px; /* ← 10px → 6/8 */
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding: 4px 6px;
+
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
   color: #111827;
 }
