@@ -29,7 +29,16 @@ const routes = [
             { path: '', component: TestView },
 
             { path: 'reports', component: ReportLayout },
-            { path: 'customers', component: CustomerLayout },
+
+            {
+                path: 'customers',
+                component: CustomerLayout,
+                children: [
+                    { path: '', redirect: { name: 'CustomerList' } },
+                    { path: 'all', name: 'CustomerList', component: () => import('@/views/customer/CustomerListView.vue') },
+                    { path: ':id', name: 'CustomerDetail', component: () => import('@/views/customer/CustomerDetailView.vue') },
+                ],
+            },
 
             {
                 path: 'activities',
@@ -47,6 +56,7 @@ const routes = [
             { path: 'messages', component: MessageLayout },
             { path: 'setting', component: SettingLayout },
             { path: 'system', component: SystemLayout },
+
         ],
     },
 ]
