@@ -128,7 +128,7 @@
 
       <!-- RIGHT -->
       <div class="col">
-        <!-- ✅ 메모는 분리된 CustomerMemoView로 대체 -->
+        <!-- 메모는 분리된 CustomerMemoView로 대체 -->
         <CustomerMemoView :customerCode="customerCode" />
 
         <!-- 멤버십 -->
@@ -164,7 +164,7 @@
       </div>
     </div>
 
-    <!-- 연락처 전체보기 모달 (✅ contacts DTO 반영) -->
+    <!-- 연락처 전체보기 모달 ( contacts DTO 반영) -->
     <BaseModal v-if="showContactModal" title="연락처 전체보기" @close="showContactModal=false">
       <div class="modal-body">
         <div v-if="(detail.contacts?.length || 0) === 0">
