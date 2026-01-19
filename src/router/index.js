@@ -46,6 +46,17 @@ const routes = [
             },
 
             {
+                path: 'voc',
+                component: VocLayout,
+                children: [
+                    { path: '', redirect: '/voc/inquiries' },
+                    { path: 'inquiries', name: 'InquiryList', component: () => import('@/views/voc/InquiryListView.vue'),},
+                    { path: 'inquiries/:inquiryCode', name: 'InquiryDetail', component: () => import('@/views/voc/InquiryDetailView.vue'),},
+                ]
+            },
+
+
+                    {
                 path: 'activities',
                 component: ActivityLayout,
                 redirect: '/activities/all',
@@ -57,7 +68,6 @@ const routes = [
                 ],
             },
 
-            { path: 'voc', component: VocLayout },
             { path: 'messages', component: MessageLayout },
 
 
