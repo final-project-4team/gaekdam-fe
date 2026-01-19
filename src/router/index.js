@@ -54,8 +54,27 @@ const routes = [
 
             { path: 'voc', component: VocLayout },
             { path: 'messages', component: MessageLayout },
-            { path: 'setting', component: SettingLayout },
-            { path: 'system', component: SystemLayout },
+
+
+            { path: 'setting',
+              component: SettingLayout,
+              children:[
+                { path: 'employee', component: () => import('@/views/setting/SettingEmployee.vue') },
+                { path: 'objective', component: () => import('@/views/setting/SettingObjective.vue') },
+                { path: 'department', component: () => import('@/views/setting/SettingDepartment.vue') },
+                { path: 'permission', component: () => import('@/views/setting/SettingPermission.vue') },
+                { path: 'membership', component: () => import('@/views/setting/SettingMembership.vue') },
+                { path: 'loyalty', component: () => import('@/views/setting/SettingLoyalty.vue') },
+
+              ]
+            },
+            { path: 'system',
+              component: SystemLayout,
+              children: [
+                  {path: 'systemLog',component:()=> import('@/views/system/SystemSystemLog.vue')},
+                  {path: 'myPage',component:()=> import('@/views/system/SystemMyPage.vue')}
+              ]
+            },
 
         ],
     },
