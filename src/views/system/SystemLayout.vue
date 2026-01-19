@@ -14,6 +14,7 @@ import ContentTabs from '@/components/layoutComponents/ContentTabs.vue'
 
 
 const tabs = [
-  { label: '빈탭', path: '/empty' },
+  { label: '시스템 로그', path: '/system/systemLog' },
+  { label: '마이페이지', path: '/system/myPage' },
 ]
 </script>
