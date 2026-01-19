@@ -37,8 +37,8 @@
             </div>
             <div class="meta">
               <span>운영 상태</span>
-              <span class="status-badge" :class="detail.stay.stayStatus">
-                {{ detail.stay.stayStatus }}
+              <span class="status-badge" :class="stayStatus">
+              {{ stayStatus }}
               </span>
             </div>
             <div class="meta">
@@ -162,13 +162,13 @@
             <h3 class="title">투숙 정보</h3>
             <dl class="kv">
               <dt>투숙 상태</dt>
-              <dd>{{ detail.stay.stayStatus }}</dd>
+              <dd>{{ stayStatus }}</dd>
               <dt>인원</dt>
-              <dd>{{ detail.stay.guestCount }}</dd>
+              <dd>{{ stayGuestCount }}</dd>
               <dt>체크인</dt>
-              <dd>{{ detail.stay.actualCheckinAt || "-" }}</dd>
+              <dd>{{ actualCheckinAt }}</dd>
               <dt>체크아웃</dt>
-              <dd>{{ detail.stay.actualCheckoutAt || "-" }}</dd>
+              <dd>{{ actualCheckoutAt }}</dd>
             </dl>
           </section>
 
@@ -215,6 +215,22 @@ defineEmits(["close"]);
 
 const loading = ref(false);
 const detail = ref(null);
+
+const stayStatus = computed(() => {
+  return detail.value?.stay?.stayStatus ?? 'RESERVED'
+})
+
+const stayGuestCount = computed(() => {
+  return detail.value?.stay?.guestCount ?? '-'
+})
+
+const actualCheckinAt = computed(() => {
+  return detail.value?.stay?.actualCheckinAt ?? '-'
+})
+
+const actualCheckoutAt = computed(() => {
+  return detail.value?.stay?.actualCheckoutAt ?? '-'
+})
 
 const displayCustomerName = computed(() =>
     detail.value?.customer?.customerName || "-"
@@ -578,9 +594,9 @@ onMounted(async () => {
 
   background: #e2eeff;
   color: #4e8fed;
-  border: 1px solid #e2e8f0;    /* slate-200 */
+  border: 1px solid #e2e8f0; /* slate-200 */
 
-  box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
 .empty-package {
@@ -590,7 +606,7 @@ onMounted(async () => {
   justify-content: center;
 
   font-size: 12px;
-  color: #94a3b8;        /* slate-400 */
+  color: #94a3b8; /* slate-400 */
   letter-spacing: -0.1px;
 }
 
