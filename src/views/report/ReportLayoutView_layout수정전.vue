@@ -58,11 +58,11 @@
               <option value="월간">월간</option>
             </select>
 
-            <select v-model="selectedYear" @change="applyPeriodToLayout">
+            <select v-model="selectedYear">
               <option v-for="y in years" :key="y" :value="y">{{ y }}년</option>
             </select>
 
-            <select v-if="periodType === '월간'" v-model="selectedMonth" @change="applyPeriodToLayout">
+            <select v-if="periodType === '월간'" v-model="selectedMonth">
               <option v-for="m in months" :key="m" :value="m">{{ m }}월</option>
             </select>
 
@@ -90,9 +90,9 @@
         <div class="form-row">
           <label class="form-label">조회 권한부여</label>
           <div class="radio-group">
-            <label><input type="radio" :value="VISIBILITY.PRIVATE" v-model="selectedVisibility" /> 나에게만</label>
-            <label><input type="radio" :value="VISIBILITY.DEPT" v-model="selectedVisibility" /> 부서 내 공유</label>
-            <label><input type="radio" :value="VISIBILITY.TENANT" v-model="selectedVisibility" /> 호텔 전체</label>
+            <label><input type="radio" value="PRIVATE" v-model="selectedVisibility" /> 나에게만</label>
+            <label><input type="radio" value="DEPARTMENT" v-model="selectedVisibility" /> 부서 내 공유</label>
+            <label><input type="radio" value="PUBLIC" v-model="selectedVisibility" /> 회사 전체</label>
           </div>
         </div>
 
@@ -142,15 +142,8 @@
 import { ref, computed, onMounted } from 'vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
-import { createReportLayout, deleteReportLayout, listReportLayouts, updateReportLayout } from '@/api/report/layoutApi'
+import { createReportLayout, deleteReportLayout, listReportLayouts } from '@/api/report/layoutApi'
 import { useAuthStore } from '@/stores/authStore'
-
-// Visibility enum mapping to backend
-const VISIBILITY = {
-  PRIVATE: 'PRIVATE',
-  TENANT: 'TENANT', // 호텔 전체 (backend VisibilityScope.TENANT)
-  DEPT: 'DEPT'      // 부서 (backend VisibilityScope.DEPT)
-}
 
 // 사용자 인증
 const auth = useAuthStore?.()
@@ -197,8 +190,8 @@ const shareReport = () => {
 const showCreateLayout = ref(false)
 const newLayoutName = ref('')
 const newLayoutDescription = ref('')
-const selectedVisibility = ref(VISIBILITY.PRIVATE)
-const openCreateLayout = () => { newLayoutName.value = ''; newLayoutDescription.value = ''; selectedVisibility.value = VISIBILITY.PRIVATE; showCreateLayout.value = true }
+const selectedVisibility = ref('PRIVATE')
+const openCreateLayout = () => { newLayoutName.value = ''; newLayoutDescription.value = ''; selectedVisibility.value = 'PRIVATE'; showCreateLayout.value = true }
 
 const createLayout = async () => {
   if (creatingLayout.value) return
@@ -236,35 +229,6 @@ const createLayout = async () => {
 const selectLayout = (i) => {
   selectedIndex.value = i
   selectedTemplateIndex.value = 0
-}
-
-// 현재 선택된 layout에 기간 필터를 PATCH로 저장
-const applyPeriodToLayout = async () => {
-  const layout = currentLayout.value
-  if (!layout || !layout.id) return
-
-  const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
-  const period = preset === 'MONTH'
-    ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}`
-    : `${selectedYear.value}`
-
-  const payload = {
-    // backend ReportLayoutUpdateDto에 맞춰 필요한 필드만 보냄
-    layoutId: layout.id,
-    defaultFilterJson: { periodType: preset, period }
-  }
-
-  try {
-    await updateReportLayout(layout.id, payload)
-    // 로컬 상태도 갱신
-    const idx = layouts.value.findIndex(l => l.id === layout.id)
-    if (idx !== -1) {
-      layouts.value[idx].defaultFilterJson = payload.defaultFilterJson
-    }
-    console.log('[ReportLayout] applied period to layout', layout.id, payload)
-  } catch (err) {
-    console.error('기간 적용 실패', err)
-  }
 }
 
 // 템플릿 추가
@@ -375,12 +339,7 @@ const loadLayouts = async () => {
   const employeeCode = auth?.employeeCode ?? 1
   const res = await listReportLayouts(employeeCode)
   console.log('[ReportLayout] list response=', res?.data?.data)
-  // backend returns items with `layoutId` field — map it to `id` used in the UI
-  layouts.value = (res?.data?.data || []).map(r => ({
-    id: r.layoutId ?? r.id,
-    name: r.name,
-    templates: r.templates || []
-  }))
+  layouts.value = (res?.data?.data || []).map(r => ({ id: r.id, name: r.name, templates: r.templates || [] }))
   
   
 }

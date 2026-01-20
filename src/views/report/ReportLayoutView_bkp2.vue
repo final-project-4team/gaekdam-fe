@@ -90,9 +90,9 @@
         <div class="form-row">
           <label class="form-label">조회 권한부여</label>
           <div class="radio-group">
-            <label><input type="radio" :value="VISIBILITY.PRIVATE" v-model="selectedVisibility" /> 나에게만</label>
-            <label><input type="radio" :value="VISIBILITY.DEPT" v-model="selectedVisibility" /> 부서 내 공유</label>
-            <label><input type="radio" :value="VISIBILITY.TENANT" v-model="selectedVisibility" /> 호텔 전체</label>
+            <label><input type="radio" value="PRIVATE" v-model="selectedVisibility" /> 나에게만</label>
+            <label><input type="radio" value="DEPARTMENT" v-model="selectedVisibility" /> 부서 내 공유</label>
+            <label><input type="radio" value="PUBLIC" v-model="selectedVisibility" /> 회사 전체</label>
           </div>
         </div>
 
@@ -145,13 +145,6 @@ import BaseModal from '@/components/common/modal/BaseModal.vue'
 import { createReportLayout, deleteReportLayout, listReportLayouts, updateReportLayout } from '@/api/report/layoutApi'
 import { useAuthStore } from '@/stores/authStore'
 
-// Visibility enum mapping to backend
-const VISIBILITY = {
-  PRIVATE: 'PRIVATE',
-  TENANT: 'TENANT', // 호텔 전체 (backend VisibilityScope.TENANT)
-  DEPT: 'DEPT'      // 부서 (backend VisibilityScope.DEPT)
-}
-
 // 사용자 인증
 const auth = useAuthStore?.()
 
@@ -197,8 +190,8 @@ const shareReport = () => {
 const showCreateLayout = ref(false)
 const newLayoutName = ref('')
 const newLayoutDescription = ref('')
-const selectedVisibility = ref(VISIBILITY.PRIVATE)
-const openCreateLayout = () => { newLayoutName.value = ''; newLayoutDescription.value = ''; selectedVisibility.value = VISIBILITY.PRIVATE; showCreateLayout.value = true }
+const selectedVisibility = ref('PRIVATE')
+const openCreateLayout = () => { newLayoutName.value = ''; newLayoutDescription.value = ''; selectedVisibility.value = 'PRIVATE'; showCreateLayout.value = true }
 
 const createLayout = async () => {
   if (creatingLayout.value) return
