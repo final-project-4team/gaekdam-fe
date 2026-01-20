@@ -14,40 +14,20 @@
 </template>
 
 <script setup>
-import {computed, ref} from 'vue'
-import {getTodayReservationSummaryApi} from "@/api/reservation/index.js";
+import { computed } from 'vue'
 
 const props = defineProps({
   summary: { type: Object, required: true },
   active: { type: String, default: '' },
 })
 
-const summary = ref({
-  totalCount: 0,
-  todayCheckInCount: 0,
-  todayCheckOutCount: 0,
-  stayingRoomCount: 0,
-})
-
-const loadSummary = async () => {
-  const res = await getTodayReservationSummaryApi()
-  const data = res.data.data
-
-  summary.value = {
-    totalCount: data.totalCount,
-    todayCheckInCount: data.todayCheckInCount,
-    todayCheckOutCount: data.todayCheckOutCount,
-    stayingRoomCount: data.stayingRoomCount,
-  }
-}
-
 defineEmits(['select'])
 
 const cards = computed(() => [
-  { type: 'ALL_TODAY', label: '전체', value: props.summary.totalCount },
-  { type: 'TODAY_CHECKIN', label: '체크인 예정', value: props.summary.todayCheckInCount },
-  { type: 'TODAY_CHECKOUT', label: '체크아웃 예정', value: props.summary.todayCheckOutCount },
-  { type: 'STAYING', label: '현재 투숙', value: props.summary.stayingRoomCount },
+  { type: 'ALL_TODAY', label: '전체', value: props.summary.ALL_TODAY },
+  { type: 'CHECKIN_PLANNED', label: '체크인 예정', value: props.summary.CHECKIN_PLANNED },
+  { type: 'CHECKOUT_PLANNED', label: '체크아웃 예정', value: props.summary.CHECKOUT_PLANNED },
+  { type: 'STAYING', label: '현재 투숙', value: props.summary.STAYING },
 ])
 </script>
 

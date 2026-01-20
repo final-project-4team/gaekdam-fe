@@ -11,7 +11,7 @@
     />
 
     <!-- ===================== -->
-    <!-- Operation List -->
+    <!-- Today Operation List -->
     <!-- ===================== -->
     <ListView
         :columns="columns"
@@ -19,7 +19,6 @@
         :page="page"
         :pageSize="pageSize"
         :total="total"
-        :searchTypes="searchTypes"
         show-search
         @search="onSearch"
         @page-change="onPageChange"
@@ -27,7 +26,9 @@
     >
       <!-- 운영 상태 -->
       <template #cell-operationStatus="{ value }">
-        <span class="status" :class="value">{{ value }}</span>
+        <span class="status" :class="value">
+          {{ STATUS_LABEL[value] }}
+        </span>
       </template>
 
       <!-- 체크인 / 체크아웃 -->
@@ -63,9 +64,18 @@ import ListView from '@/components/common/ListView.vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import TodayCheckSummary from './TodayCheckSummary.vue'
 import {
-  getTodayReservationSummaryApi,
-  getOperationBoardApi,
+  getTodayOperationListApi,
+  getTodayOperationSummaryApi,
 } from '@/api/reservation'
+
+/* ===================== */
+/* Status Label */
+const STATUS_LABEL = {
+  CHECKIN_PLANNED: '체크인예정',
+  STAYING: '투숙중',
+  CHECKOUT_PLANNED: '체크아웃예정',
+  COMPLETED: '완료',
+}
 
 /* ===================== */
 /* Paging */
@@ -79,25 +89,24 @@ const rows = ref([])
 const summaryType = ref('ALL_TODAY')
 
 const summary = ref({
-  allToday: 0,
-  todayCheckIn: 0,
-  todayCheckOut: 0,
-  stayingRooms: 0,
+  ALL_TODAY: 0,
+  CHECKIN_PLANNED: 0,
+  CHECKOUT_PLANNED: 0,
+  STAYING: 0,
+  COMPLETED: 0,
 })
 
 /* ===================== */
-/* Search / Filter State */
+/* Search */
 const detail = reactive({
   customerName: null,
   reservationCode: null,
 })
 
-const filters = reactive({})
-
 /* ===================== */
 /* Columns */
 const columns = [
-  { key: 'reservationCode', label: '예약번호', sortable: true },
+  { key: 'reservationCode', label: '예약번호' },
   { key: 'customerName', label: '고객명' },
   { key: 'roomType', label: '객실유형' },
   { key: 'plannedCheckinDate', label: '체크인 예정' },
@@ -106,30 +115,45 @@ const columns = [
   { key: 'action', label: '처리', width: 220 },
 ]
 
-const searchTypes = [
-  { label: '전체', value: 'keyword' },
-  { label: '고객명', value: 'customerName' },
-  { label: '예약번호', value: 'reservationCode' },
-]
-
 /* ===================== */
 /* API */
 const loadSummary = async () => {
-  const res = await getTodayReservationSummaryApi()
-  summary.value = res.data.data
+  const res = await getTodayOperationSummaryApi()
+  const data = res.data.data
+
+  summary.value = {
+    ALL_TODAY:
+        (data.CHECKIN_PLANNED || 0)
+        + (data.CHECKOUT_PLANNED || 0)
+        + (data.STAYING || 0)
+        + (data.COMPLETED || 0),
+
+    CHECKIN_PLANNED: data.CHECKIN_PLANNED || 0,
+
+    // 체크아웃 카드는 완료 포함
+    CHECKOUT_PLANNED:
+        (data.CHECKOUT_PLANNED || 0)
+        + (data.COMPLETED || 0),
+
+    STAYING: data.STAYING || 0,
+
+    COMPLETED: data.COMPLETED || 0,
+  }
 }
 
 const loadList = async () => {
-  const res = await getOperationBoardApi({
+  const res = await getTodayOperationListApi({
     page: page.value,
     size: pageSize.value,
-    summaryType: summaryType.value,
-    filters,
+    summaryType: summaryType.value === 'ALL_TODAY'
+        ? undefined
+        : summaryType.value,
     detail,
   })
 
-  rows.value = res.data.data.content
-  total.value = res.data.data.totalElements
+  const data = res.data.data
+  rows.value = data.content || []
+  total.value = data.totalElements
 }
 
 /* ===================== */
@@ -142,22 +166,12 @@ const onSelectSummary = async (type) => {
 
 const onSearch = async ({ key, value }) => {
   page.value = 1
-
-  // 초기화
   detail.customerName = null
   detail.reservationCode = null
 
-  if (!value) {
-    await loadList()
-    return
-  }
+  if (!value) return loadList()
 
-  if (key === 'keyword') {
-    detail.customerName = value
-    return loadList()
-  }
-
-  if (key === 'customerName') {
+  if (key === 'keyword' || key === 'customerName') {
     detail.customerName = value
   }
 
@@ -180,10 +194,11 @@ const openDetail = (row) => {
 /* ===================== */
 /* Button Rules */
 const canCheckin = (status) =>
-    status === 'RESERVED' || status === 'CHECKIN_PLANNED'
+    status === 'CHECKIN_PLANNED'
 
-const canCheckout = (status) =>
-    status === 'CHECKOUT_PLANNED' || status === 'STAYING'
+const canCheckout = (row) =>
+    row.operationStatus === 'CHECKOUT_PLANNED'
+    && row.actualCheckinAt != null
 
 const checkin = (row) => {
   console.log('checkin', row.reservationCode)
@@ -216,15 +231,19 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.status.STAYING {
-  color: #047857;
-}
-
 .status.CHECKIN_PLANNED {
   color: #2563eb;
 }
 
+.status.STAYING {
+  color: #047857;
+}
+
 .status.CHECKOUT_PLANNED {
   color: #d97706;
+}
+
+.status.COMPLETED {
+  color: #6b7280;
 }
 </style>
