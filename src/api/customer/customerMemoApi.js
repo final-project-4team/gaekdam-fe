@@ -1,9 +1,17 @@
 import api from "@/api/axios";
 
 // 목록
-export const getCustomerMemosApi = ({ customerCode, page = 1, size = 20, sortBy = "created_at", direction = "DESC" }) => {
+export const getCustomerMemosApi = ({
+                                        customerCode,
+                                        page = 1,
+                                        size = 20,
+                                        sortBy = "created_at",
+                                        direction = "DESC",
+                                        fromDate, // ISO DATE_TIME: 2026-08-01T00:00:00
+                                        toDate,   // ISO DATE_TIME: 2026-08-31T23:59:59
+                                    }) => {
     return api.get(`/customers/${customerCode}/memos`, {
-        params: { page, size, sortBy, direction },
+        params: { page, size, sortBy, direction, fromDate, toDate },
     });
 };
 
