@@ -19,7 +19,7 @@
         show-search
         show-detail
         v-model:detail="detailForm"
-        @update:searchType="v => (searchType = v)"
+        @update:searchType="(v) => (searchType.value = normalizeSearchType(v))"
         @search="onSearch"
         @filter="onFilter"
         @sort-change="onSortChange"
@@ -99,15 +99,22 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 /* ===================== */
-/* 검색 타입 */
+/* ✅ SearchTypes: TestView 방식으로 통일(label/value) */
+/* - 전체는 value: "" */
 /* ===================== */
 const searchTypes = [
-  { label: "전체", key: "keyword", type: "text" },
-  { label: "고객명", key: "customerName", type: "text" },
-  { label: "연락처", key: "phoneNumber", type: "text" }, // ✅ 서버가 phoneNumber로 받음
-  { label: "이메일", key: "email", type: "text" },
-  { label: "고객코드", key: "customerCode", type: "number" },
+  { label: "전체", value: "" },
+  { label: "고객명", value: "customerName" },
+  { label: "대표 연락처", value: "phoneNumber" }, // ✅ 대표연락처 클릭 시 값이 바뀌게 됨
+  { label: "이메일", value: "email" },
+  { label: "고객코드", value: "customerCode" },
 ];
+
+const DEFAULT_SEARCH_TYPE = "";
+const normalizeSearchType = (v) => {
+  const vv = (v ?? "").toString();
+  return searchTypes.some((t) => t.value === vv) ? vv : DEFAULT_SEARCH_TYPE;
+};
 
 /* ===================== */
 /* 필터 */
@@ -145,6 +152,33 @@ const filters = [
       { label: "WEB", value: "WEB" },
       { label: "OFFLINE", value: "OFFLINE" },
       { label: "OTA", value: "OTA" },
+    ],
+  },
+
+  /* 멤버십 */
+  {
+    key: "membershipGrade",
+    options: [
+      { label: "멤버십(전체)", value: "" },
+      { label: "미가입", value: "NONE" },
+      { label: "BASIC", value: "BASIC" },
+      { label: "BRONZE", value: "BRONZE" },
+      { label: "SILVER", value: "SILVER" },
+      { label: "GOLD", value: "GOLD" },
+      { label: "PLATINUM", value: "PLATINUM" },
+      { label: "DIAMOND", value: "DIAMOND" },
+    ],
+  },
+
+  /* 로열티 */
+  {
+    key: "loyaltyGrade",
+    options: [
+      { label: "로열티(전체)", value: "" },
+      { label: "-", value: "NONE" },
+      { label: "GENERAL", value: "GENERAL" },
+      { label: "EXCELLENT", value: "EXCELLENT" },
+      { label: "VIP", value: "VIP" },
     ],
   },
 ];
@@ -188,11 +222,12 @@ const totalCount = ref(0);
 const page = ref(1);
 const pageSize = ref(10);
 
-const searchType = ref("keyword");
+/* ✅ 기본값: 전체 */
+const searchType = ref(DEFAULT_SEARCH_TYPE);
 const searchValue = ref("");
 
 const filterValues = ref({});
-const sortState = ref({ sortBy: "customer_code", direction: "DESC" }); // ✅ 백 sort whitelist와 맞추기
+const sortState = ref({ sortBy: "customer_code", direction: "DESC" });
 
 const defaultDetailForm = () => ({
   customerName: "",
@@ -202,14 +237,13 @@ const defaultDetailForm = () => ({
   status: "",
 });
 
-// ListView reset이 {}를 넣을 수 있어서 방어
 const detailForm = ref(defaultDetailForm());
 
 /* ===================== */
 /* normalize */
 /* ===================== */
 const t = (v) => (v ?? "").toString().trim();
-const phoneDigits = (v) => (v ?? "").toString().replace(/\D/g, ""); // 숫자만
+const phoneDigits = (v) => (v ?? "").toString().replace(/\D/g, "");
 const emailLower = (v) => (v ?? "").toString().trim().toLowerCase();
 
 /* ===================== */
@@ -218,12 +252,12 @@ const emailLower = (v) => (v ?? "").toString().trim().toLowerCase();
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 
 const buildParams = () => {
-  // detailForm이 {}로 들어오는 케이스 방어
-  const d = detailForm.value && Object.keys(detailForm.value).length ? detailForm.value : defaultDetailForm();
+  const d =
+      detailForm.value && Object.keys(detailForm.value).length ? detailForm.value : defaultDetailForm();
 
   const params = {
     hotelGroupCode: hotelGroupCode.value,
-    page: Math.max(page.value - 1, 0),
+    page: page.value,
     size: pageSize.value,
 
     // 필터
@@ -232,27 +266,34 @@ const buildParams = () => {
     nationalityType: filterValues.value.nationalityType || undefined,
     inflowChannel: filterValues.value.inflowChannel || undefined,
 
-    // 상세검색(서버가 받는 키로만!)
+    // 추가 필터
+    membershipGrade: filterValues.value.membershipGrade || undefined,
+    loyaltyGrade: filterValues.value.loyaltyGrade || undefined,
+
+    // 상세검색
     customerName: t(d.customerName) || undefined,
-    phoneNumber: phoneDigits(d.phoneNumber) || undefined, // ✅ 하이픈 제거
-    email: (emailLower(d.email) || undefined),
+    phoneNumber: phoneDigits(d.phoneNumber) || undefined,
+    email: emailLower(d.email) || undefined,
     customerCode: t(d.customerCode) ? Number(t(d.customerCode)) : undefined,
     ...(t(d.status) ? { status: t(d.status) } : {}),
 
-    // 정렬(백 whitelist: created_at, customer_code, customer_name, last_used_date)
+    // 정렬
     sortBy: sortState.value.sortBy || "created_at",
     direction: sortState.value.direction || "DESC",
   };
 
   // 상단 검색
   const v = t(searchValue.value);
-  if (v) {
-    if (searchType.value === "keyword") params.keyword = v;
+  const st = normalizeSearchType(searchType.value); // "" | customerName | phoneNumber | email | customerCode
 
-    if (searchType.value === "customerName") params.customerName = v;
-    if (searchType.value === "phoneNumber") params.phoneNumber = phoneDigits(v);
-    if (searchType.value === "email") params.email = emailLower(v);
-    if (searchType.value === "customerCode") params.customerCode = Number(v);
+  if (v) {
+    // ✅ 전체(= "")면 keyword로 보내기
+    if (st === "") params.keyword = v;
+
+    if (st === "customerName") params.customerName = v;
+    if (st === "phoneNumber") params.phoneNumber = phoneDigits(v);
+    if (st === "email") params.email = emailLower(v);
+    if (st === "customerCode") params.customerCode = Number(v);
   }
 
   return params;
@@ -285,8 +326,11 @@ const loadCustomers = async () => {
 /* ===================== */
 const onSearch = ({ key, value }) => {
   page.value = 1;
-  searchType.value = key;
+
+  // ✅ ListView가 key로 내려주는 값이 searchTypes.value랑 동일해야 함
+  searchType.value = normalizeSearchType(key);
   searchValue.value = value ?? "";
+
   loadCustomers();
 };
 
@@ -297,7 +341,6 @@ const onFilter = (values) => {
 };
 
 const onSortChange = ({ sortBy, direction }) => {
-  // ✅ 백 whitelist 형식으로 변환(프론트 컬럼키 -> 백 sortBy)
   const map = {
     createdAt: "created_at",
     customerCode: "customer_code",
@@ -310,7 +353,7 @@ const onSortChange = ({ sortBy, direction }) => {
     direction: (direction || "DESC").toUpperCase() === "ASC" ? "ASC" : "DESC",
   };
 
-  page.value = 1; // ✅ 정렬 변경 시 1페이지로
+  page.value = 1;
   loadCustomers();
 };
 
@@ -331,7 +374,7 @@ watch(
 );
 
 /* ===================== */
-/* 상세검색 watch: 공통(ListView) 못건드리니까 debounce로 안정화 */
+/* 상세검색 watch: debounce */
 /* ===================== */
 let detailTimer = null;
 let lastDetailKey = "";
@@ -347,7 +390,6 @@ const normalizeDetailForKey = (d) => ({
 watch(
     () => ({ ...detailForm.value }),
     (v) => {
-      // reset이 {}로 들어오면 폼 복구
       if (!v || Object.keys(v).length === 0) {
         detailForm.value = defaultDetailForm();
         return;
