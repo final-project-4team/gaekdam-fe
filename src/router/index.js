@@ -28,8 +28,13 @@ const routes = [
         children: [
             { path: '', component: TestView },
 
-            { path: 'reports', component: ReportLayout },
-
+            { path: 'reports', 
+                component: ReportLayout,
+                children: [
+                    { path: '', component: () => import('@/views/report/ReportLayoutView.vue') },
+                ] 
+            },
+            
             {
                 path: 'customers',
                 component: CustomerLayout,
