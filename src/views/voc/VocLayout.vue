@@ -1,7 +1,7 @@
 <template>
   <MainContentLayout>
     <template #tabs>
-      <ContentTabs :tabs="tabs" />
+      <ContentTabs :tabs="Voctabs" />
     </template>
 
     <router-view />
@@ -13,7 +13,8 @@ import MainContentLayout from '@/components/layoutComponents/MainContentLayout.v
 import ContentTabs from '@/components/layoutComponents/ContentTabs.vue'
 
 
-const tabs = [
-  { label: '빈탭', path: '/empty' },
+const Voctabs = [
+  { label: '전체', path: '/voc/inquiries' },
+  { label: '사건/사고 관리', path: '/voc/incidents' },
 ]
 </script>
