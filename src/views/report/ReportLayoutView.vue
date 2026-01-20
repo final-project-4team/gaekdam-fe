@@ -10,8 +10,8 @@
         @click="selectLayout(i)"
       >
         <span>{{ l.name }}</span>
-        <span @click.stop>
-          <BaseButton size="sm" type="danger" @click="confirmDeleteLayout(i)">✕</BaseButton>
+        <span class="top-delete">
+          <BaseButton size="sm" @click.stop="confirmDeleteLayout(i)">✕</BaseButton>
         </span>
       </div>
 
@@ -36,7 +36,7 @@
             </button>
 
             <span class="tpl-delete" @click.stop>
-              <BaseButton size="sm" type="danger" @click="confirmDeleteTemplate(idx)">✕</BaseButton>
+              <BaseButton size="sm" @click="confirmDeleteTemplate(idx)">✕</BaseButton>
             </span>
           </div>
         </div>
@@ -50,6 +50,22 @@
       <section class="main-pane">
         <div class="layout-header">
           <h3>{{ currentLayout.name }}</h3>
+          <div class="header-controls">
+            <select v-model="periodType" @change="onPeriodTypeChange">
+              <option value="연간">연간</option>
+              <option value="월간">월간</option>
+            </select>
+
+            <select v-model="selectedYear">
+              <option v-for="y in years" :key="y" :value="y">{{ y }}년</option>
+            </select>
+
+            <select v-if="periodType === '월간'" v-model="selectedMonth">
+              <option v-for="m in months" :key="m" :value="m">{{ m }}월</option>
+            </select>
+
+            <BaseButton type="primary" size="sm" @click="shareReport">공유</BaseButton>
+          </div>
         </div>
 
         <div class="template-grid">
@@ -118,6 +134,31 @@ const creatingLayout = ref(false)
 const currentLayout = computed(() => layouts.value[selectedIndex.value] || { name: '', templates: [] })
 
 const creatingTemplate = ref(false)
+
+// 기간/공유 컨트롤 상태
+const periodType = ref('연간') // '연간' | '월간'
+const currentYear = new Date().getFullYear()
+const years = computed(() => {
+  // 최근 6년치 표시
+  return Array.from({ length: 6 }, (_, i) => String(currentYear - i))
+})
+const months = computed(() => Array.from({ length: 12 }, (_, i) => String(i + 1)))
+const selectedYear = ref(String(currentYear))
+const selectedMonth = ref(String(new Date().getMonth() + 1))
+
+const onPeriodTypeChange = () => {
+  // 월간 -> 연간 변경 등에서 기본값 보정
+  if (periodType.value === '연간') {
+    // 월 선택은 초기화
+    selectedMonth.value = String(new Date().getMonth() + 1)
+  }
+}
+
+const shareReport = () => {
+  // 실제 공유 로직 연결 전에 임시 동작으로 로그 출력
+  console.log('공유 클릭:', { periodType: periodType.value, year: selectedYear.value, month: selectedMonth.value })
+  // TODO: 공유 모달 또는 링크 생성 로직 추가
+}
 
 // 레이아웃 추가
 const showCreateLayout = ref(false)
@@ -229,13 +270,22 @@ const deleteLayout = () => {
 .left-pane { width:120px; display:flex; flex-direction:column; align-items:flex-start; }
 .left-controls { margin-bottom:8px; }
 .template-list-vertical { display:flex; flex-direction:column; gap:8px; width:100%; }
-.tpl-row { display:flex; align-items:center; gap:8px; }
+.tpl-row { position: relative; display:flex; align-items:center; gap:8px; }
 .tpl-btn { flex:1; padding:8px; border-radius:8px; background:#f6f8fb; border:1px solid #e6eef8; cursor:pointer; text-align:left }
 .tpl-btn.active { background: linear-gradient(135deg,#e6f0ff,#dfeaff); color:#12336a }
-.tpl-delete { display:inline-flex }
+/* position delete icon in top tab */
+.top-tab { position: relative }
+.top-delete { position: relative; display:inline-flex }
+
+/* template list: position delete icon */
+.tpl-delete { position: relative; right:6px; display:inline-flex }
 
 .main-pane { flex:1 }
 .layout-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px }
+/* Header controls on the right */
+.header-controls { display:flex; gap:8px; align-items:center }
+.header-controls select { padding:6px 8px; border-radius:6px; border:1px solid #dfe6f3; background:#fff }
+
 .template-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px }
 .card { padding:18px; border:1px solid #eee; border-radius:8px; background:#fff; text-align:center }
 .card-title { font-weight:700; margin-bottom:6px }
