@@ -83,16 +83,16 @@ const searchTypes = [
 const propertyOptions = ref([])
 
 const filters = computed(() => [
-  {key: 'propertyCode', options: propertyOptions.value},
+  { key: 'propertyCode', options: propertyOptions.value },
   {
     key: 'status',
     options: [
-      {label: '운영상태', value: ''},
-      {label: '예약중', value: 'RESERVED'},
-      {label: '체크인예정', value: 'CHECKIN_PLANNED'},
-      {label: '투숙중', value: 'STAYING'},
-      {label: '체크아웃예정', value: 'CHECKOUT_PLANNED'},
-      {label: '완료', value: 'COMPLETED'},
+      { label: '운영상태', value: '' },
+      { label: '예약중', value: 'RESERVED' },
+      { label: '투숙중', value: 'STAYING' },
+      { label: '완료', value: 'COMPLETED' },
+      { label: '취소', value: 'CANCELED' },
+      { label: '노쇼', value: 'NO_SHOW' },
     ],
   },
 ])
@@ -100,23 +100,23 @@ const filters = computed(() => [
 const OPERATION_STATUS_STYLE = {
   RESERVED: {
     label: '예약중',
-    color: '#111827',
-  },
-  CHECKIN_PLANNED: {
-    label: '체크인예정',
-    color: '#2563EB',
+    color: '#111827', // Slate
   },
   STAYING: {
     label: '투숙중',
-    color: '#15803D',
-  },
-  CHECKOUT_PLANNED: {
-    label: '체크아웃예정',
-    color: '#B91C1C',
+    color: '#15803D', // Emerald
   },
   COMPLETED: {
     label: '완료',
-    color: '#6B7280',
+    color: '#6B7280', // Gray
+  },
+  CANCELED: {
+    label: '취소',
+    color: '#9CA3AF', // Gray (톤다운)
+  },
+  NO_SHOW: {
+    label: '노쇼',
+    color: '#7C2D12', // Brown / 경고성
   },
 }
 
@@ -191,7 +191,10 @@ const loadOperationBoard = async () => {
   const data = res.data.data
 
   rows.value = (data.content || []).map(r => {
-    const status = OPERATION_STATUS_STYLE[r.operationStatus] || {}
+    const status = OPERATION_STATUS_STYLE[r.operationStatus] || {
+      label: r.operationStatus,
+      color: '#374151',
+    }
 
     return {
       reservationNo: r.reservationCode,

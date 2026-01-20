@@ -158,7 +158,7 @@ const page = ref(1)
 const pageSize = ref(5)
 
 /* ===================== */
-/* 🔥 기본검색 (SearchBar 전용) */
+/* 기본검색 (SearchBar 전용) */
 const quickSearch = ref({
   keyword: null,        // 전체검색
   customerName: null,
