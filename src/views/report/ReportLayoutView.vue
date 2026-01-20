@@ -111,8 +111,8 @@
     <!-- 템플릿 추가 모달 -->
     <BaseModal v-if="showCreateTemplate" title="템플릿 추가" @close="showCreateTemplate = false">
       <div class="available-list">
-        <div v-for="tpl in availableTemplates" :key="tpl.id" class="available-row">
-          <span>{{ tpl.name }}</span>
+        <div v-for="tpl in availableTemplates" :key="tpl.templateId" class="available-row">
+          <span>{{ tpl.displayName }}</span>
           <BaseButton size="sm" @click="confirmAddTemplate(tpl)">추가</BaseButton>
         </div>
       </div>
@@ -143,6 +143,7 @@ import { ref, computed, onMounted } from 'vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import { createReportLayout, deleteReportLayout, listReportLayouts, updateReportLayout } from '@/api/report/layoutApi'
+import { addLayoutTemplate, deleteLayoutTemplate, listLayoutTemplates } from '@/api/report/layoutTemplateApi'
 import { useAuthStore } from '@/stores/authStore'
 
 // Visibility enum mapping to backend
@@ -236,6 +237,53 @@ const createLayout = async () => {
 const selectLayout = (i) => {
   selectedIndex.value = i
   selectedTemplateIndex.value = 0
+  // load templates for the selected layout from server (if it has id)
+  const layout = layouts.value[i]
+  if (layout && layout.id) {
+    loadTemplatesForLayout(layout.id, i)
+  }
+}
+
+// Load templates for a given layoutId and write into layouts[index].templates
+const loadTemplatesForLayout = async (layoutId, index) => {
+   try {
+    const res = await listLayoutTemplates(layoutId)
+    console.debug('[ReportLayout] listLayoutTemplates response=', res)
+    const payload = res?.data?.data
+    // support several possible shapes: direct array, { templates: [] }, { items/list: [] }, or single object
+    let items = []
+    if (Array.isArray(payload)) {
+      items = payload
+    } else if (payload?.templates && Array.isArray(payload.templates)) {
+      items = payload.templates
+    } else if (payload?.items && Array.isArray(payload.items)) {
+      items = payload.items
+    } else if (payload?.list && Array.isArray(payload.list)) {
+      items = payload.list
+    } else if (payload) {
+      // if payload is a single object representing one item, wrap it
+      if (typeof payload === 'object') items = [payload]
+    }
+     // Map backend DTO to UI template shape
+    const mapped = items.map(r => ({
+      id: r.layoutTemplateId ?? r.id ?? (r.templateId ? `${r.templateId}-${Date.now()}` : `${Math.random()}`),
+      templateId: r.templateId,
+      // displayName: r.templateName,
+      // templateDesc: r.templateDesc,
+      isActive: r.isActive,
+      name: r.templateName
+    }))
+
+     // Guard index
+     const idx = typeof index === 'number' ? index : layouts.value.findIndex(l => l.id === layoutId)
+     if (idx !== -1) {
+       layouts.value[idx].templates = mapped
+       // reset selectedTemplateIndex if needed
+       if (selectedIndex.value === idx) selectedTemplateIndex.value = 0
+     }
+   } catch (err) {
+     console.error('[ReportLayout] loadTemplatesForLayout failed', err)
+   }
 }
 
 // 현재 선택된 layout에 기간 필터를 PATCH로 저장
@@ -267,50 +315,105 @@ const applyPeriodToLayout = async () => {
   }
 }
 
-// 템플릿 추가
+// 템플릿 추가: 백엔드 DTO 형식에 맞춘 샘플 목록
 const availableTemplates = [
-  { id: 'tpl1', name: '템플릿1' },
-  { id: 'tpl2', name: '템플릿2' },
-  { id: 'tpl3', name: '템플릿3' },
+  { templateId: 1, displayName: '고객경험 요약10', sortOrder: 1, isActive: true },
+  { templateId: 2, displayName: '매출 요약 대시보드', sortOrder: 2, isActive: true },
+  { templateId: 3, displayName: '예약 트렌드', sortOrder: 3, isActive: true },
 ]
 
 const showCreateTemplate = ref(false)
 const openCreateTemplate = () => { showCreateTemplate.value = true }
-const confirmAddTemplate = (tpl) => {
-    if (creatingTemplate.value) return
-    creatingTemplate.value = true
 
-  // 현재 선택된 레이아웃에 템플릿 추가
-  const copy = { ...tpl, id: `${tpl.id}-${Date.now()}` }
-  layouts.value[selectedIndex.value].templates.push(copy)
-  selectedTemplateIndex.value = layouts.value[selectedIndex.value].templates.length - 1
-  showCreateTemplate.value = false
+// 간단한 추가 로직: tpl 객체를 그대로 DTO로 사용하고, 레이아웃 id가 없으면 로컬에만 추가
+const confirmAddTemplate = async (tpl) => {
+  if (creatingTemplate.value) return
+  creatingTemplate.value = true
+  try {
+    const layout = layouts.value[selectedIndex.value]
+    if (!layout || !layout.id) {
+      // 로컬만 추가
+      const copy = { ...tpl, id: `${tpl.templateId}-${Date.now()}`, name: tpl.displayName }
+      layouts.value[selectedIndex.value].templates.push(copy)
+      selectedTemplateIndex.value = layouts.value[selectedIndex.value].templates.length - 1
+      showCreateTemplate.value = false
+      return
+    }
 
-  setTimeout(()=> creatingTemplate.value = false, 300)
+    const dto = {
+      templateId: tpl.templateId,
+      displayName: tpl.displayName,
+      sortOrder: tpl.sortOrder ?? (layouts.value[selectedIndex.value].templates.length + 1),
+      isActive: tpl.isActive ?? true
+    }
+
+    const employeeCode = auth?.employeeCode ?? 1
+    const sendLayoutId = Number.isFinite(Number(layout.id)) ? Number(layout.id) : layout.id
+    const res = await addLayoutTemplate(sendLayoutId, dto, employeeCode)
+    const newId = res?.data?.data
+
+    const added = { id: newId ?? `${dto.templateId}-${Date.now()}`, templateId: dto.templateId, displayName: dto.displayName, sortOrder: dto.sortOrder, isActive: dto.isActive, name: dto.displayName }
+    layouts.value[selectedIndex.value].templates.push(added)
+    selectedTemplateIndex.value = layouts.value[selectedIndex.value].templates.length - 1
+    showCreateTemplate.value = false
+  } catch (err) {
+    console.error('템플릿 추가 실패', err)
+  } finally {
+    creatingTemplate.value = false
+  }
 }
 
 // 템플릿 삭제
 const showDeleteTemplateModal = ref(false)
 const deleteTemplateIndex = ref(-1)
+const deletingTemplate = ref(false)
 
 const confirmDeleteTemplate = (idx) => {
   deleteTemplateIndex.value = idx
   showDeleteTemplateModal.value = true
 }
 
-const deleteTemplate = () => {
+const deleteTemplate = async () => {
+  if (deletingTemplate.value) return
+  deletingTemplate.value = true
+
   const i = deleteTemplateIndex.value
   const templates = layouts.value[selectedIndex.value]?.templates || []
-  if (i < 0 || i >= templates.length) { showDeleteTemplateModal.value = false; return }
-  templates.splice(i, 1)
-  // selectedTemplateIndex 보정
-  if (templates.length === 0) {
-    selectedTemplateIndex.value = 0
-  } else {
-    selectedTemplateIndex.value = Math.max(0, i - 1)
+  if (i < 0 || i >= templates.length) {
+    showDeleteTemplateModal.value = false
+    deletingTemplate.value = false
+    return
   }
-  showDeleteTemplateModal.value = false
-  deleteTemplateIndex.value = -1
+
+  const tpl = templates[i]
+  const layout = layouts.value[selectedIndex.value]
+
+  try {
+    // If both layout and template have server ids, call backend delete
+    if (layout && layout.id && tpl) {
+      const sendLayoutId = Number.isFinite(Number(layout.id)) ? Number(layout.id) : layout.id
+      // Controller expects templateId (library id). Use tpl.templateId when available, otherwise fallback to tpl.id
+      const sendTemplateId = tpl.templateId !== undefined ? tpl.templateId : (Number.isFinite(Number(tpl.id)) ? Number(tpl.id) : tpl.id)
+      await deleteLayoutTemplate(sendLayoutId, sendTemplateId)
+    }
+
+    // Remove locally regardless of server call
+    templates.splice(i, 1)
+    if (templates.length === 0) {
+      selectedTemplateIndex.value = 0
+    } else {
+      selectedTemplateIndex.value = Math.max(0, i - 1)
+    }
+
+    console.log('[ReportLayout] template deleted', tpl)
+  } catch (err) {
+    console.error('템플릿 삭제 실패', err)
+    try { alert('템플릿 삭제에 실패했습니다: ' + (err?.message || err)) } catch(_){ }
+  } finally {
+    showDeleteTemplateModal.value = false
+    deleteTemplateIndex.value = -1
+    deletingTemplate.value = false
+  }
 }
 
 // 레이아웃 삭제 상태 (id 기반)
@@ -381,8 +484,11 @@ const loadLayouts = async () => {
     name: r.name,
     templates: r.templates || []
   }))
-  
-  
+  // load templates for initial selected layout if available
+  const initial = layouts.value[selectedIndex.value]
+  if (initial && initial.id) {
+    loadTemplatesForLayout(initial.id, selectedIndex.value)
+  }
 }
 onMounted(loadLayouts)
 
