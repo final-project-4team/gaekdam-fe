@@ -23,3 +23,4 @@ export const deleteLoyaltyGrade = async (loyaltyGradeCode) => {
   const res = await api.delete("/loyalty-grade/" + loyaltyGradeCode);
   return res.data.data;
 };
+
