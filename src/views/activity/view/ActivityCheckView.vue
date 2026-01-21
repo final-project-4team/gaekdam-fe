@@ -23,6 +23,7 @@
         show-search
         @filter="onFilter"
         @search="onSearch"
+        @sort-change="onSortChange"
         @page-change="onPageChange"
         @row-click="openDetail"
     >
@@ -36,23 +37,30 @@
       <!-- 체크인 / 체크아웃 -->
       <template #cell-action="{ row }">
         <div class="action-buttons">
+          <!-- 체크인 예정 → 체크인 버튼만 -->
           <BaseButton
+              v-if="row.operationStatus === 'CHECKIN_PLANNED'"
               type="primary"
               size="sm"
-              :disabled="!canCheckin(row.operationStatus)"
-              @click.stop="checkin(row)"
+              @press="checkin(row)"
           >
             체크인 등록
           </BaseButton>
 
+          <!-- 투숙중 / 체크아웃 예정 → 체크아웃 버튼만 -->
           <BaseButton
+              v-else-if="
+          row.operationStatus === 'STAYING'
+          || row.operationStatus === 'CHECKOUT_PLANNED'
+        "
               type="warning"
               size="sm"
-              :disabled="!canCheckout(row.operationStatus)"
-              @click.stop="checkout(row)"
+              @press="checkout(row)"
           >
             체크아웃 등록
           </BaseButton>
+
+          <!-- COMPLETED → 아무 버튼도 안 나옴 -->
         </div>
       </template>
     </ListView>
@@ -93,6 +101,15 @@ const onFilter = async (values) => {
   await loadList()
 }
 
+const sortState = ref({})
+
+const TODAY_SORT_KEY_MAP = {
+  reservationCode: 't.reservationCode',
+  customerName: 't.customerNameHash',
+  plannedCheckinDate: 't.plannedCheckinDate',
+  plannedCheckoutDate: 't.plannedCheckoutDate',
+}
+
 /* ===================== */
 /* Status Label */
 const STATUS_LABEL = {
@@ -131,13 +148,13 @@ const detail = reactive({
 /* ===================== */
 /* Columns */
 const columns = [
-  { key: 'reservationCode', label: '예약번호' },
-  { key: 'customerName', label: '고객명' },
+  { key: 'reservationCode', label: '예약번호' ,sortable: true },
+  { key: 'customerName', label: '고객명',sortable: true },
   { key: 'roomType', label: '객실유형' },
-  { key: 'plannedCheckinDate', label: '체크인 예정' },
-  { key: 'plannedCheckoutDate', label: '체크아웃 예정' },
+  { key: 'plannedCheckinDate', label: '체크인 예정',sortable: true },
+  { key: 'plannedCheckoutDate', label: '체크아웃 예정',sortable: true },
   { key: 'operationStatus', label: '운영상태' },
-  { key: 'action', label: '처리', width: 220 },
+  { key: 'action', label: '처리', width: 220 ,align: 'center' },
 ]
 
 /* ===================== */
@@ -176,6 +193,7 @@ const loadList = async () => {
         : summaryType.value,
 
     propertyCode: filterValues.value.propertyCode,
+    sort: sortState.value,
     detail,
   })
 
@@ -217,6 +235,15 @@ const onPageChange = async (p) => {
 
 const openDetail = (row) => {
   console.log('open detail', row.reservationCode)
+}
+
+const onSortChange = (sort) => {
+  sortState.value = {
+    sortBy: sort.sortBy,
+    direction: sort.direction,
+  }
+  page.value = 1
+  loadList()
 }
 
 /* ===================== */
@@ -264,6 +291,14 @@ onMounted(async () => {
 .action-buttons {
   display: flex;
   gap: 8px;
+}
+
+/* 화면이 작아지면 */
+@media (max-width: 1600px) {
+  .action-buttons {
+    flex-direction: column;
+    gap: 6px;
+  }
 }
 
 .status {
