@@ -8,6 +8,7 @@
     </div>
 
     <ListView
+        :key="filtersKey"
         :columns="visibleColumns"
         :rows="rows"
         :filters="filters"
@@ -82,30 +83,28 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from "vue";
+import { computed, ref, watch, onBeforeUnmount, onMounted } from "vue";
 import { useRouter } from "vue-router";
 
 import ListView from "@/components/common/ListView.vue";
 import BaseButton from "@/components/common/button/BaseButton.vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 
-import { useAuthStore } from "@/stores/authStore";
-import { getCustomerListApi } from "@/api/customer/customerApi";
+import { useAuthStore } from "@/stores/authStore.js";
+import { getCustomerListApi } from "@/api/customer/customerApi.js";
 
-/* ===================== */
-/* 기본 */
-/* ===================== */
+import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
+import { getLoyaltyGradeList } from "@/api/setting/loyaltyGrade.js";
+
+/* base */
 const router = useRouter();
 const authStore = useAuthStore();
 
-/* ===================== */
-/* ✅ SearchTypes: TestView 방식으로 통일(label/value) */
-/* - 전체는 value: "" */
-/* ===================== */
+/* search types */
 const searchTypes = [
   { label: "전체", value: "" },
   { label: "고객명", value: "customerName" },
-  { label: "대표 연락처", value: "phoneNumber" }, // ✅ 대표연락처 클릭 시 값이 바뀌게 됨
+  { label: "대표 연락처", value: "phoneNumber" },
   { label: "이메일", value: "email" },
   { label: "고객코드", value: "customerCode" },
 ];
@@ -116,10 +115,47 @@ const normalizeSearchType = (v) => {
   return searchTypes.some((t) => t.value === vv) ? vv : DEFAULT_SEARCH_TYPE;
 };
 
-/* ===================== */
-/* 필터 */
-/* ===================== */
-const filters = [
+/* dynamic grade options */
+const membershipGradeOptions = ref([
+  { label: "멤버십(전체)", value: "" },
+  { label: "미가입", value: "NONE" },
+]);
+
+const loyaltyGradeOptions = ref([{ label: "로열티(전체)", value: "" }]);
+
+const loadGradeOptions = async () => {
+  try {
+    const [mList, lList] = await Promise.all([getMembershipGradeList(), getLoyaltyGradeList()]);
+
+    membershipGradeOptions.value = [
+      { label: "멤버십(전체)", value: "" },
+      { label: "미가입", value: "NONE" },
+      ...(Array.isArray(mList) ? mList : [])
+          .filter((g) => g && g.gradeName)
+          .map((g) => ({
+            label: g.gradeName,
+            value: g.gradeName,
+          })),
+    ];
+
+    loyaltyGradeOptions.value = [
+      { label: "로열티(전체)", value: "" },
+      ...(Array.isArray(lList) ? lList : [])
+          .filter((g) => g && g.loyaltyGradeName)
+          .map((g) => ({
+            label: g.loyaltyGradeName,
+            value: g.loyaltyGradeName,
+          })),
+    ];
+  } catch (e) {
+    console.error("등급 옵션 로딩 실패:", e);
+  }
+};
+
+onMounted(loadGradeOptions);
+
+/* filters */
+const filters = computed(() => [
   {
     key: "status",
     options: [
@@ -154,38 +190,16 @@ const filters = [
       { label: "OTA", value: "OTA" },
     ],
   },
+  { key: "membershipGrade", options: membershipGradeOptions.value },
+  { key: "loyaltyGrade", options: loyaltyGradeOptions.value },
+]);
 
-  /* 멤버십 */
-  {
-    key: "membershipGrade",
-    options: [
-      { label: "멤버십(전체)", value: "" },
-      { label: "미가입", value: "NONE" },
-      { label: "BASIC", value: "BASIC" },
-      { label: "BRONZE", value: "BRONZE" },
-      { label: "SILVER", value: "SILVER" },
-      { label: "GOLD", value: "GOLD" },
-      { label: "PLATINUM", value: "PLATINUM" },
-      { label: "DIAMOND", value: "DIAMOND" },
-    ],
-  },
+/* force rerender when dynamic options change */
+const filtersKey = computed(
+    () => `m:${membershipGradeOptions.value.length}-l:${loyaltyGradeOptions.value.length}`
+);
 
-  /* 로열티 */
-  {
-    key: "loyaltyGrade",
-    options: [
-      { label: "로열티(전체)", value: "" },
-      { label: "-", value: "NONE" },
-      { label: "GENERAL", value: "GENERAL" },
-      { label: "EXCELLENT", value: "EXCELLENT" },
-      { label: "VIP", value: "VIP" },
-    ],
-  },
-];
-
-/* ===================== */
-/* 컬럼 */
-/* ===================== */
+/* columns */
 const columns = [
   { key: "customerCode", label: "고객코드", sortable: true, align: "center" },
   { key: "customerName", label: "고객명", sortable: true, align: "center" },
@@ -199,9 +213,7 @@ const columns = [
   { key: "nationalityType", label: "국적", sortable: true, align: "center" },
 ];
 
-/* ===================== */
-/* 표시 컬럼 선택 */
-/* ===================== */
+/* column picker */
 const showColumnModal = ref(false);
 const columnKeySet = ref(columns.map((c) => c.key));
 
@@ -213,16 +225,13 @@ const visibleColumns = computed(() => {
 const openColumnModal = () => (showColumnModal.value = true);
 const resetColumns = () => (columnKeySet.value = columns.map((c) => c.key));
 
-/* ===================== */
-/* 상태 */
-/* ===================== */
+/* state */
 const rows = ref([]);
 const totalCount = ref(0);
 
 const page = ref(1);
 const pageSize = ref(10);
 
-/* ✅ 기본값: 전체 */
 const searchType = ref(DEFAULT_SEARCH_TYPE);
 const searchValue = ref("");
 
@@ -239,16 +248,12 @@ const defaultDetailForm = () => ({
 
 const detailForm = ref(defaultDetailForm());
 
-/* ===================== */
 /* normalize */
-/* ===================== */
 const t = (v) => (v ?? "").toString().trim();
 const phoneDigits = (v) => (v ?? "").toString().replace(/\D/g, "");
 const emailLower = (v) => (v ?? "").toString().trim().toLowerCase();
 
-/* ===================== */
-/* API */
-/* ===================== */
+/* api */
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 
 const buildParams = () => {
@@ -260,36 +265,29 @@ const buildParams = () => {
     page: page.value,
     size: pageSize.value,
 
-    // 필터
     status: filterValues.value.status || undefined,
     contractType: filterValues.value.contractType || undefined,
     nationalityType: filterValues.value.nationalityType || undefined,
     inflowChannel: filterValues.value.inflowChannel || undefined,
 
-    // 추가 필터
     membershipGrade: filterValues.value.membershipGrade || undefined,
     loyaltyGrade: filterValues.value.loyaltyGrade || undefined,
 
-    // 상세검색
     customerName: t(d.customerName) || undefined,
     phoneNumber: phoneDigits(d.phoneNumber) || undefined,
     email: emailLower(d.email) || undefined,
     customerCode: t(d.customerCode) ? Number(t(d.customerCode)) : undefined,
     ...(t(d.status) ? { status: t(d.status) } : {}),
 
-    // 정렬
     sortBy: sortState.value.sortBy || "created_at",
     direction: sortState.value.direction || "DESC",
   };
 
-  // 상단 검색
   const v = t(searchValue.value);
-  const st = normalizeSearchType(searchType.value); // "" | customerName | phoneNumber | email | customerCode
+  const st = normalizeSearchType(searchType.value);
 
   if (v) {
-    // ✅ 전체(= "")면 keyword로 보내기
     if (st === "") params.keyword = v;
-
     if (st === "customerName") params.customerName = v;
     if (st === "phoneNumber") params.phoneNumber = phoneDigits(v);
     if (st === "email") params.email = emailLower(v);
@@ -321,16 +319,11 @@ const loadCustomers = async () => {
   totalCount.value = data?.totalElements ?? 0;
 };
 
-/* ===================== */
-/* 이벤트 */
-/* ===================== */
+/* handlers */
 const onSearch = ({ key, value }) => {
   page.value = 1;
-
-  // ✅ ListView가 key로 내려주는 값이 searchTypes.value랑 동일해야 함
   searchType.value = normalizeSearchType(key);
   searchValue.value = value ?? "";
-
   loadCustomers();
 };
 
@@ -362,9 +355,7 @@ const onPageChange = (p) => {
   loadCustomers();
 };
 
-/* ===================== */
-/* 초기 로딩 */
-/* ===================== */
+/* initial load */
 watch(
     () => hotelGroupCode.value,
     (v) => {
@@ -373,9 +364,7 @@ watch(
     { immediate: true }
 );
 
-/* ===================== */
-/* 상세검색 watch: debounce */
-/* ===================== */
+/* detail debounce */
 let detailTimer = null;
 let lastDetailKey = "";
 
@@ -413,9 +402,7 @@ onBeforeUnmount(() => {
   if (detailTimer) clearTimeout(detailTimer);
 });
 
-/* ===================== */
-/* Row click -> 상세 */
-/* ===================== */
+/* row click */
 const goDetail = (row) => {
   if (!row?.customerCode) return;
   router.push({ name: "CustomerDetail", params: { id: row.customerCode } });
