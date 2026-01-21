@@ -76,7 +76,6 @@ const routes = [
               children:[
                 { path: 'employee', component: () => import('@/views/setting/SettingEmployee.vue') },
                 { path: 'objective', component: () => import('@/views/setting/SettingObjective.vue') },
-                { path: 'department', component: () => import('@/views/setting/SettingDepartment.vue') },
                 { path: 'permission', component: () => import('@/views/setting/SettingPermission.vue') },
                 { path: 'membership', component: () => import('@/views/setting/SettingMembership.vue') },
                 { path: 'loyalty', component: () => import('@/views/setting/SettingLoyalty.vue') },
