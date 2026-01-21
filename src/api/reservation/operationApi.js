@@ -96,11 +96,19 @@ export const getOperationBoardApi = ({
  * ✔ 정렬 (서버 고정)
  * ✔ ALL_TODAY → summaryType 미전송
  */
+
+const TODAY_SORT_KEY_MAP = {
+    reservationCode: 't.reservationCode',
+    customerName: 't.customerNameHash',
+    plannedCheckinDate: 't.plannedCheckinDate',
+    plannedCheckoutDate: 't.plannedCheckoutDate',
+}
 export const getTodayOperationListApi = ({
                                              page = 1,
                                              size = 10,
                                              summaryType,
                                              propertyCode,
+                                             sort = {},
                                              detail = {},
                                          }) => {
     return api.get('/reservations/today/operations', {
@@ -119,6 +127,17 @@ export const getTodayOperationListApi = ({
                 detail.customerName && detail.customerName.trim() !== ''
                     ? detail.customerName
                     : undefined,
+
+            /* =====================
+             * Sort
+             * ===================== */
+            sortBy:
+                sort.sortBy && TODAY_SORT_KEY_MAP[sort.sortBy]
+                    ? TODAY_SORT_KEY_MAP[sort.sortBy]
+                    : undefined,
+
+            direction: sort.direction || undefined,
+
 
             reservationCode:
                 detail.reservationCode != null && detail.reservationCode !== ''

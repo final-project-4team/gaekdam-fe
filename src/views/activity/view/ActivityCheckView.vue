@@ -23,8 +23,9 @@
         show-search
         @filter="onFilter"
         @search="onSearch"
+        @sort-change="onSortChange"
         @page-change="onPageChange"
-        @row-click="openDetail"
+        @row-click="onRowClick"
     >
       <!-- 운영 상태 -->
       <template #cell-operationStatus="{ value }">
@@ -36,30 +37,59 @@
       <!-- 체크인 / 체크아웃 -->
       <template #cell-action="{ row }">
         <div class="action-buttons">
+          <!-- 체크인 예정 → 체크인 버튼만 -->
           <BaseButton
+              v-if="row.operationStatus === 'CHECKIN_PLANNED'"
               type="primary"
               size="sm"
-              :disabled="!canCheckin(row.operationStatus)"
-              @click.stop="checkin(row)"
+              @press="checkin(row)"
           >
             체크인 등록
           </BaseButton>
 
+          <!-- 투숙중 / 체크아웃 예정 → 체크아웃 버튼만 -->
           <BaseButton
+              v-else-if="
+          row.operationStatus === 'STAYING'
+          || row.operationStatus === 'CHECKOUT_PLANNED'
+        "
               type="warning"
               size="sm"
-              :disabled="!canCheckout(row.operationStatus)"
-              @click.stop="checkout(row)"
+              @press="checkout(row)"
           >
             체크아웃 등록
           </BaseButton>
+
+          <!-- COMPLETED → 아무 버튼도 안 나옴 -->
         </div>
       </template>
     </ListView>
 
-  </div>
-</template>
 
+    <CheckInModal
+        v-if="showCheckInModal"
+        :reservationCode="selectedReservationCode"
+        @close="showCheckInModal = false"
+        @success="reload"
+    />
+
+    <CheckOutModal
+        v-if="showCheckOutModal"
+        :stayCode="selectedStayCode"
+        @close="showCheckOutModal = false"
+        @success="reload"
+    />
+
+
+    <CustomerBasicModal
+        v-if="showCustomerModal"
+        :customer="selectedCustomer"
+        @close="showCustomerModal = false"
+    />
+
+  </div>
+
+</template>
 <script setup>
 import {ref, reactive, onMounted, computed} from 'vue'
 import ListView from '@/components/common/ListView.vue'
@@ -70,6 +100,10 @@ import {
   getTodayOperationSummaryApi,
 } from '@/api/reservation'
 import {getPropertyListByHotelGroupApi} from "@/api/property/propertyApi.js";
+import CheckInModal from "@/views/activity/modal/CheckInModal.vue";
+import CheckOutModal from "@/views/activity/modal/CheckOutModal.vue";
+import CustomerBasicModal from '@/views/activity/modal/CustomerBasicModal.vue'
+import { getCustomerBasicApi } from '@/api/customer/customerApi'
 
 const propertyOptions = ref([])
 
@@ -91,6 +125,15 @@ const onFilter = async (values) => {
   // 지점 바뀌면 Summary + List 둘 다 갱신
   await loadSummary()
   await loadList()
+}
+
+const sortState = ref({})
+
+const TODAY_SORT_KEY_MAP = {
+  reservationCode: 't.reservationCode',
+  customerName: 't.customerNameHash',
+  plannedCheckinDate: 't.plannedCheckinDate',
+  plannedCheckoutDate: 't.plannedCheckoutDate',
 }
 
 /* ===================== */
@@ -131,13 +174,13 @@ const detail = reactive({
 /* ===================== */
 /* Columns */
 const columns = [
-  { key: 'reservationCode', label: '예약번호' },
-  { key: 'customerName', label: '고객명' },
+  { key: 'reservationCode', label: '예약번호' ,sortable: true },
+  { key: 'customerName', label: '고객명',sortable: true },
   { key: 'roomType', label: '객실유형' },
-  { key: 'plannedCheckinDate', label: '체크인 예정' },
-  { key: 'plannedCheckoutDate', label: '체크아웃 예정' },
+  { key: 'plannedCheckinDate', label: '체크인 예정',sortable: true },
+  { key: 'plannedCheckoutDate', label: '체크아웃 예정',sortable: true },
   { key: 'operationStatus', label: '운영상태' },
-  { key: 'action', label: '처리', width: 220 },
+  { key: 'action', label: '처리', width: 220 ,align: 'center' },
 ]
 
 /* ===================== */
@@ -150,20 +193,15 @@ const loadSummary = async () => {
   const data = res.data.data
 
   summary.value = {
+    // 오늘 운영 대상 = 체크인 예정 + 투숙중
     ALL_TODAY:
         (data.CHECKIN_PLANNED || 0)
-        + (data.CHECKOUT_PLANNED || 0)
-        + (data.STAYING || 0)
-        + (data.COMPLETED || 0),
+        + (data.STAYING || 0),
 
+    // 카드용
     CHECKIN_PLANNED: data.CHECKIN_PLANNED || 0,
-
-    CHECKOUT_PLANNED:
-        (data.CHECKOUT_PLANNED || 0)
-        + (data.COMPLETED || 0),
-
     STAYING: data.STAYING || 0,
-    COMPLETED: data.COMPLETED || 0,
+    CHECKOUT_PLANNED: data.CHECKOUT_PLANNED || 0,
   }
 }
 
@@ -176,6 +214,7 @@ const loadList = async () => {
         : summaryType.value,
 
     propertyCode: filterValues.value.propertyCode,
+    sort: sortState.value,
     detail,
   })
 
@@ -191,6 +230,7 @@ const onSelectSummary = async (type) => {
   page.value = 1
   await loadList()
 }
+
 
 const onSearch = async ({ key, value }) => {
   page.value = 1
@@ -215,26 +255,72 @@ const onPageChange = async (p) => {
   await loadList()
 }
 
-const openDetail = (row) => {
-  console.log('open detail', row.reservationCode)
+const onRowClick = (row) => {
+  console.log('row-click row:', row)
+
+  if (!row || !row.customerCode) return
+  openCustomerModal(row.customerCode)
+}
+
+const showCustomerModal = ref(false)
+const selectedCustomer = ref(null)
+const openCustomerModal = async (customerCode) => {
+  try {
+    const res = await getCustomerBasicApi(customerCode)
+    selectedCustomer.value = res.data.data
+    showCustomerModal.value = true
+  } catch (e) {
+    console.error(e)
+    alert('고객 정보를 불러오지 못했습니다.')
+  }
+}
+
+const onSortChange = (sort) => {
+  sortState.value = {
+    sortBy: sort.sortBy,
+    direction: sort.direction,
+  }
+  page.value = 1
+  loadList()
 }
 
 /* ===================== */
 /* Button Rules */
-const canCheckin = (status) =>
-    status === 'CHECKIN_PLANNED'
-
-const canCheckout = (row) =>
-    row.operationStatus === 'CHECKOUT_PLANNED'
-    && row.actualCheckinAt != null
+const showCheckInModal = ref(false)
+const showCheckOutModal = ref(false)
+const selectedStayCode = ref(null)
+const selectedReservationCode = ref(null)
 
 const checkin = (row) => {
-  console.log('checkin', row.reservationCode)
+  if (!row.reservationCode) {
+    console.error('stayCode 누락', row)
+    alert('투숙 정보가 없어 체크인을 진행할 수 없습니다.')
+    return
+  }
+
+
+  selectedReservationCode.value = row.reservationCode
+  showCheckInModal.value = true
 }
 
 const checkout = (row) => {
-  console.log('checkout', row.reservationCode)
+
+  if (!row.stayCode) {
+    console.error('stayCode 누락', row)
+    alert('투숙 정보가 없어 체크인을 진행할 수 없습니다.')
+    return
+  }
+
+  selectedStayCode.value = row.stayCode
+  showCheckOutModal.value = true
 }
+
+const reload = async () => {
+  await loadSummary()
+  await loadList()
+}
+
+
 
 /* ===================== */
 onMounted(async () => {
@@ -264,6 +350,14 @@ onMounted(async () => {
 .action-buttons {
   display: flex;
   gap: 8px;
+}
+
+/* 화면이 작아지면 */
+@media (max-width: 1600px) {
+  .action-buttons {
+    flex-direction: column;
+    gap: 6px;
+  }
 }
 
 .status {
