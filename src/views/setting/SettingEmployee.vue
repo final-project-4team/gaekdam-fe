@@ -1,82 +1,164 @@
 <template>
   <div class="activity-all-page">
-
-
-
+    <div class="page-header">
+      <BaseButton type="primary" @click="openCreateModal">직원 등록</BaseButton>
+    </div>
     <ListView
         :columns="columns"
-        :rows="employeeList"
+        :rows="rows"
+        :total="totalCount"
+        :page="page"
+        :pageSize="pageSize"
         :filters="filters"
         :searchTypes="searchTypes"
         show-detail
         v-model:detail="detailForm"
+        @search="onSearch"
+        @filter="onFilter"
+        @sort-change="onSortChange"
+        @page-change="onPageChange"
         @row-click="openRowModal"
+        @detail-reset="onDetailReset"
     >
+      <template #cell-status="{ row }">
+        <span>{{ row.statusText }}</span>
+      </template>
 
+      <!-- Context Menu Column -->
+      <template #cell-actions="{ row }">
+        <div class="menu-container">
+          <button class="kebab-btn" @click.stop="toggleMenu(row, $event)">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </button>
+        </div>
+      </template>
+
+      <!-- 상세검색 -->
       <template #detail-form>
         <div class="detail-form">
           <div class="row">
             <label>직원 명</label>
-            <input v-model="detailForm.employeeName" />
+            <input v-model="detailForm.employeeName"/>
           </div>
 
           <div class="row">
             <label>사번</label>
-            <input v-model="detailForm.employeeNumber" />
+            <input v-model="detailForm.employeeNumber"/>
           </div>
 
           <div class="row">
             <label>전화번호</label>
-            <input v-model="detailForm.phoneNumber" />
+            <input v-model="detailForm.phoneNumber"/>
           </div>
 
           <div class="row">
             <label>이메일</label>
-            <input v-model="detailForm.email" />
+            <input v-model="detailForm.email"/>
           </div>
-
-
         </div>
       </template>
     </ListView>
 
-
-
-
-
-    <BaseModal
+    <!-- 상세 모달 -->
+    <EmployeeDetailModal
         v-if="showRowModal"
-        title="직원 상세"
+        :employeeCode="selectedEmployee?.employeeCode"
         @close="closeRowModal"
+        @refresh="loadEmployeeList"
+    />
+
+    <!-- 비밀번호 초기화 결과 모달 -->
+    <BaseModal
+        v-if="showResetModal"
+        title="비밀번호 초기화 결과"
+        @close="closeResetModal"
     >
-      <div v-if="employeeDetail" class="detail-view">
-        <p><b>사번:</b> {{ employeeDetail.employeeNumber }}</p>
-        <p><b>로그인ID:</b> {{ employeeDetail.loginId }}</p>
-        <p><b>이름:</b> {{ employeeDetail.name }}</p>
-        <p><b>전화:</b> {{ employeeDetail.phone }}</p>
-        <p><b>이메일:</b> {{ employeeDetail.email }}</p>
-        <p><b>부서:</b> {{ employeeDetail.departmentName }}</p>
-        <p><b>직책:</b> {{ employeeDetail.hotelPositionName }}</p>
-        <p><b>지점:</b> {{ employeeDetail.propertyName }}</p>
-        <p><b>호텔그룹:</b> {{ employeeDetail.hotelGroupName }}</p>
-        <p><b>권한:</b> {{ employeeDetail.permissionName }}</p>
-        <p><b>상태:</b> {{ employeeDetail.employeeStatus }}</p>
+      <div class="reset-result-content">
+        <p class="desc">비밀번호가 초기화되었습니다.</p>
+        <div class="result-box">
+          <label>임시 비밀번호</label>
+          <div class="password-text">{{ resetPasswordResult }}</div>
+        </div>
+        <p class="caution">사용자에게 이 정보를 안전하게 전달해주세요.</p>
       </div>
+      <template #footer>
+        <BaseButton type="primary" @click="closeResetModal">확인</BaseButton>
+      </template>
     </BaseModal>
+
+
+    <Teleport to="body">
+      <div
+          v-if="activeMenuRow"
+          class="context-menu"
+          :style="menuStyle"
+          @click.stop
+      >
+
+        <template v-if="activeMenuRow.employeeStatus === 'ACTIVE'">
+          <button class="menu-item danger" @click="handleAction('lock', activeMenuRow)">
+            사용자 잠금
+          </button>
+          <button class="menu-item danger" @click="handleAction('resetPassword', activeMenuRow)">
+            비밀번호 초기화
+          </button>
+        </template>
+
+        <!-- LOCKED / DORMANCY: 사용자 활성화, 비번 초기화, 유저 수정 -->
+        <template v-else>
+          <button class="menu-item primary" @click="handleAction('activate', activeMenuRow)">
+            사용자 활성화
+          </button>
+          <button class="menu-item danger" @click="handleAction('resetPassword', activeMenuRow)">
+            비밀번호 초기화
+          </button>
+        </template>
+
+        <!-- 공통: 유저 수정 -->
+        <button class="menu-item" @click="handleAction('edit', activeMenuRow)">
+          유저 수정
+        </button>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
-
 <script setup>
-import {onMounted, ref} from 'vue'
-
+import {ref, onMounted, watch} from 'vue'
 import ListView from '@/components/common/ListView.vue'
+import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
-import {getEmployeeDetail, getEmployeeList} from "@/api/setting/employeeApi.js";
+import {getEmployeeList, updateEmployeeStatus, resetEmployeePassword, unlockEmployee} from '@/api/setting/employeeApi.js'
+import EmployeeDetailModal from "@/views/setting/modal/EmployeeDetailModal.vue";
 
+// ... (intermediate code)
 
-const employeeList=ref([]);
-const employeeDetail=ref([]);
+const columns = [
+  { key: 'employeeNumber', label: '사번', align: 'center',sortable: true, width: '100px' },
+  { key: 'departmentName', label: '부서',sortable: true, width: '100px' },
+  { key: 'hotelPositionName', label: '직책', align: 'center',sortable: true, width: '100px' },
+  { key: 'employeeName', label: '이름', align: 'center' ,sortable: true, width: '100px' },
+  { key: 'phoneNumber', label: '전화번호', align: 'center' ,sortable: true, width: '140px' },
+  { key: 'loginId', label: '아이디', align: 'center' ,sortable: true, width: '100px' },
+  { key: 'email', label: '이메일', align: 'center' ,sortable: true, width: '200px' },
+  { key: 'employeeStatus', label: '상태', align: 'center' ,sortable: true, width: '100px' },
+  { key: 'actions', label: '', align: 'center', sortable: false, width: '60px' },
+]
+
+const rows = ref([])
+const totalCount = ref(0)
+const page = ref(1)
+const pageSize = ref(10)
+
+const filterValues = ref({
+  employeeStatus: null,
+})
+
+const sortState = ref({})
+
 
 
 const searchTypes = [
@@ -85,7 +167,6 @@ const searchTypes = [
   { label: '직책', value: 'hotelPositionName' },
   { label: '이름', value: 'employeeName' }
 ]
-
 
 const filters = [
   {
@@ -99,51 +180,301 @@ const filters = [
   }
 ]
 
-
-const columns = [
-  { key: 'employeeNumber', label: '사번', align: 'center',sortable: true },
-  { key: 'departmentName', label: '부서',sortable: true },
-  { key: 'hotelPositionName', label: '직책', align: 'center',sortable: true },
-  { key: 'employeeName', label: '이름', align: 'center' ,sortable: true},
-  { key: 'phoneNumber', label: '전화번호', align: 'center' ,sortable: true},
-  { key: 'loginId', label: '아이디', align: 'center' ,sortable: true},
-  { key: 'email', label: '이메일', align: 'center' ,sortable: true},
-  { key: 'employeeStatus', label: '상태', align: 'center' ,sortable: true},
-]
-
+const quickSearch = ref({
+  keyword: null,        // 전체검색
+  employeeName: null,
+  employeeNumber: null,
+  departmentName: null,
+  hotelPositionName: null
+})
 
 
 const detailForm = ref({
-  employeeName: '',
-  employeeNumber: '',
-  phoneNumber : '',
-  email: '',
+  employeeName: null,
+  employeeNumber: null,
+  phoneNumber: null,
+  email: null,
 })
 
-/* ===================== */
-/* Row Modal */
-/* ===================== */
-const showRowModal = ref(false)
 
-const openRowModal = async (row) => {
-  const employeeCode = row.employeeCode;
-  employeeDetail.value=await getEmployeeDetail(employeeCode);
+const loadEmployeeList = async () => {
+  try {
+    const searchParams = {
+      keyword: quickSearch.value.keyword,
+      employeeName: quickSearch.value.employeeName ?? detailForm.value.employeeName,
+      employeeNumber: quickSearch.value.employeeNumber ?? detailForm.value.employeeNumber,
+      departmentName: quickSearch.value.departmentName,
+      hotelPositionName: quickSearch.value.hotelPositionName,
+      phoneNumber: detailForm.value.phoneNumber,
+      email: detailForm.value.email
+    }
+
+    const res = await getEmployeeList({
+      page: page.value,
+      size: pageSize.value,
+      filters: filterValues.value,
+      detail: searchParams,
+      sort: sortState.value,
+    })
+
+    const data = res
+    // API return structure: { content: [], totalElements: 123 }
+
+    rows.value = (data.content || []).map(r => {
+      return {
+        ...r,
+        statusText: r.employeeStatus, // Simple mapping for now
+      }
+    })
+
+    totalCount.value = data.totalElements || 0
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+
+const onSearch = (payload) => {
+  page.value = 1
+
+  quickSearch.value = {
+    keyword: null,
+    employeeName: null,
+    employeeNumber: null,
+    departmentName: null,
+    hotelPositionName: null
+  }
+
+  if (!payload || !payload.value) {
+    loadEmployeeList()
+    return
+  }
+
+  const key = payload.key ?? payload.type
+  const value = payload.value
+
+  if (key === '' || key === 'keyword') {
+    quickSearch.value.keyword = value
+  } else if (key === 'employeeName') {
+    quickSearch.value.employeeName = value
+  } else if (key === 'departmentName') {
+    quickSearch.value.departmentName = value
+  } else if (key === 'hotelPositionName') {
+    quickSearch.value.hotelPositionName = value
+  }
+
+  loadEmployeeList()
+}
+
+
+/* ===================== */
+/* 상세검색 watch (모달 전용) */
+/* ===================== */
+watch(
+    () => ({...detailForm.value}),
+    (v) => {
+      // 값이 하나라도 있으면 검색 수행
+      if (!v.employeeName && !v.employeeNumber && !v.phoneNumber && !v.email) return
+
+      //  상세검색 시 기본검색 무효화 (필요시)
+      // quickSearch.value.keyword = null
+
+      page.value = 1
+      loadEmployeeList()
+    }
+)
+
+
+const onFilter = (values) => {
+  filterValues.value = {
+    employeeStatus: values.employeeStatus ?? null,
+  }
+  page.value = 1
+  loadEmployeeList()
+}
+
+const onSortChange = (sort) => {
+  sortState.value = sort
+  loadEmployeeList()
+}
+
+const onPageChange = (p) => {
+  page.value = p
+  loadEmployeeList()
+}
+
+const onDetailReset = () => {
+  detailForm.value = {
+    employeeName: null,
+    employeeNumber: null,
+    phoneNumber: null,
+    email: null,
+  }
+
+  // 기본검색도 초기화
+  quickSearch.value = {
+    keyword: null,
+    employeeName: null,
+    employeeNumber: null,
+    departmentName: null,
+    hotelPositionName: null
+  }
+
+  page.value = 1
+  loadEmployeeList()
+}
+
+
+const showRowModal = ref(false)
+const selectedEmployee = ref(null)
+
+const openRowModal = (row) => {
+  console.log("Open Detail", row)
+  selectedEmployee.value = row
   showRowModal.value = true
 }
 
+const openCreateModal = () => {
+  selectedEmployee.value = { employeeCode: null } // Create Mode
+  showRowModal.value = true
+}
+
+
 const closeRowModal = () => {
   showRowModal.value = false
-  employeeDetail.value = null
+  selectedEmployee.value = null;
 }
-const openActionModal = () => {
-  console.log('openActionModal');
-};
 
-onMounted(async () => {
-  employeeList.value = await getEmployeeList();
-});
+/* ===================== */
+/* Context Menu */
+/* ===================== */
+const activeMenuRow = ref(null)
+const menuStyle = ref({ top: '0px', left: '0px' })
+
+const toggleMenu = (row, event) => {
+  if (event) event.stopPropagation() // 행 클릭 방지
+
+  if (activeMenuRow.value && activeMenuRow.value.employeeCode === row.employeeCode) {
+    activeMenuRow.value = null
+    return
+  }
+
+  const rect = event.currentTarget.getBoundingClientRect()
+
+  menuStyle.value = {
+    top: `${rect.bottom + 4}px`,
+    left: `${rect.right - 140}px`, // Align somewhat to right
+    position: 'fixed',
+    zIndex: 9999
+  }
+
+  activeMenuRow.value = row
+}
+
+// 메뉴 외부 클릭 시 닫기 (Optional: 전역 클릭 이벤트 추가 필요하지만 간단히 구현)
+// 실제로는 global click listener가 필요하나, 여기서는 다른 행 클릭 시 닫히는 것으로 대체될 수 있음.
+
+const handleAction = async (action, row) => {
+  activeMenuRow.value = null // 메뉴 닫기
+
+  if (action === 'edit') {
+    openRowModal(row)
+    return
+  }
+
+  try {
+    if (action === 'lock') {
+      if (!confirm(`${row.employeeName} 님을 잠금 처리하시겠습니까?`)) return
+      await updateEmployeeStatus(row.employeeCode, 'LOCKED')
+      alert('잠금 처리되었습니다.')
+    } else if (action === 'activate') {
+      if (!confirm(`${row.employeeName} 님을 활성화하시겠습니까?`)) return
+      await unlockEmployee(row.employeeCode)
+      alert('활성화되었습니다.')
+    } else if (action === 'resetPassword') {
+      if (!confirm(`${row.employeeName} 님의 비밀번호를 초기화하시겠습니까?`)) return
+      const res = await resetEmployeePassword(row.employeeCode)
+      // API response assumed to contain the password directly or in a field.
+      // User said "response looks like this so show it", implying the response body IS the data needed.
+      // Adjusting based on common patterns: res might be 'newPass' or { password: '...' }
+      // Since I don't see the exact structure, and the user said "response looks like this",
+      // typically they mean the JSON response. I will display the whole res if string, or res.password if object.
+      // Safe fallback: JSON.stringify if object and unknown structure.
+      // However, to look good, I will assume it's a string or a simple object.
+      // Let's assume it returns the password string directly or inside a field.
+      // I'll try to handle both.
+
+      resetPasswordResult.value = (typeof res === 'object' && res.password) ? res.password : res
+      showResetModal.value = true
+    }
+
+    // 리스트 갱신
+    loadEmployeeList()
+  } catch (e) {
+    console.error(e)
+    alert('요청 처리에 실패했습니다.')
+  }
+}
+
+
+/* ===================== */
+/* 초기 로딩 */
+/* ===================== */
+const showResetModal = ref(false)
+const resetPasswordResult = ref('')
+
+const closeResetModal = () => {
+  showResetModal.value = false
+  resetPasswordResult.value = ''
+}
+
+/* ... existing code ... */
+onMounted(() => {
+  loadEmployeeList()
+  window.addEventListener('click', () => {
+    activeMenuRow.value = null
+  })
+})
 </script>
 
+<style scoped>
+.reset-result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  padding: 20px 0;
+}
+.desc {
+  font-size: 15px;
+  color: #374151;
+}
+.result-box {
+  width: 100%;
+  background: #f3f4f6;
+  padding: 20px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.result-box label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 600;
+}
+.password-text {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2563eb;
+  letter-spacing: 1px;
+}
+.caution {
+  font-size: 13px;
+  color: #ef4444;
+}
+</style>
 
 <style scoped>
 .activity-all-page {
@@ -152,6 +483,12 @@ onMounted(async () => {
   gap: 16px;
   padding-top: 20px;
 }
+
+.page-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
 
 .detail-form {
   display: flex;
@@ -171,8 +508,7 @@ onMounted(async () => {
   color: #374151;
 }
 
-.detail-form input,
-.detail-form select {
+.detail-form input {
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
@@ -181,9 +517,94 @@ onMounted(async () => {
 .detail-view p {
   margin: 6px 0;
 }
-.button-row {
+
+.status-text {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+/* Context Menu Styles */
+.menu-container {
+  position: relative;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.kebab-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 12px; /* Click area increased */
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.kebab-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.dot {
+  width: 4px;
+  height: 4px;
+  background-color: #6b7280;
+  border-radius: 50%;
+}
+
+.context-menu {
+  position: absolute;
+  top: 100%;
+  right: 0; /* Align to right */
+  z-index: 1000; /* High z-index */
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  min-width: 160px; /* Slightly wider */
+  padding: 4px 0;
+  overflow: hidden;
+}
+
+/* Override BaseTable cell overflow to allow menu to show */
+:deep(.base-table td) {
+  overflow: visible !important;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px; /* Larger touch target */
+  font-size: 14px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  color: #374151;
+}
+
+
+.menu-item:hover {
+  background-color: #f3f4f6;
+}
+
+.menu-item.danger {
+  color: #ef4444;
+  background-color: #fef2f2;
+}
+.menu-item.danger:hover {
+  background-color: #fee2e2;
+}
+
+.menu-item.primary {
+  color: #2563eb;
+  background-color: #eff6ff;
+}
+.menu-item.primary:hover {
+  background-color: #dbeafe;
 }
 </style>

@@ -71,22 +71,10 @@
         </div>
 
         <div class="template-grid">
-          <div v-if="selectedTemplate && selectedTemplate.length" class="template-widgets">
-            <div class="card" v-for="w in (selectedTemplate[0]?.widgets || [])" :key="w.templateWidgetId">
-              <div class="card-title">{{ w.title }}</div>
-              <div class="card-body">
-                <div class="kpi-value">{{ w.value }}</div>
-                <div class="kpi-target" v-if="w.targetValue">목표: {{ w.targetValue }}</div>
-                <div class="kpi-delta" :class="deltaClass(w)">
-                  <span v-if="w.trend==='up'">▲</span>
-                  <span v-else-if="w.trend==='down'">▼</span>
-                  <span v-else>●</span>
-                  <span v-if="w.changePct !== null && w.changePct !== undefined"> {{ Math.abs(w.changePct).toFixed(1) }}%</span>
-                </div>
-              </div>
-            </div>
+          <div class="card" v-for="(t, idx) in selectedTemplate" :key="t.id">
+            <div class="card-title">{{ t.name }}</div>
+            <div class="card-body">템플릿 콘텐츠 예시</div>
           </div>
-          <div v-else class="empty">템플릿을 선택하거나 위젯이 없습니다.</div>
         </div>
       </section>
     </div>
@@ -156,7 +144,6 @@ import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import { createReportLayout, deleteReportLayout, listReportLayouts, updateReportLayout } from '@/api/report/layoutApi'
 import { addLayoutTemplate, deleteLayoutTemplate, listLayoutTemplates } from '@/api/report/layoutTemplateApi'
-import { getTemplateWidgets } from '@/api/report/layoutTemplateApi'
 import { useAuthStore } from '@/stores/authStore'
 
 // Visibility enum mapping to backend
@@ -304,11 +291,6 @@ const loadTemplatesForLayout = async (layoutId, index) => {
        // reset selectedTemplateIndex if needed
        if (selectedIndex.value === idx) selectedTemplateIndex.value = 0
      }
-
-     if (selectedIndex.value === idx) {
-      const tpl = layouts.value[idx].templates[0]
-      if (tpl) loadWidgetsForTemplate(tpl)
-     }
    } catch (err) {
      console.error('[ReportLayout] loadTemplatesForLayout failed', err)
    }
@@ -337,15 +319,7 @@ const applyPeriodToLayout = async () => {
     if (idx !== -1) {
       layouts.value[idx].defaultFilterJson = payload.defaultFilterJson
     }
-    
     console.log('[ReportLayout] applied period to layout', layout.id, payload)
-
-    // applyPeriodToLayout 성공 케이스에 추가
-    const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
-    if (tpl) await loadWidgetsForTemplate(tpl)
-
-    console.log('[Report Layout Template] applied period to Template', tpl)
-
   } catch (err) {
     console.error('기간 적용 실패', err)
   }
@@ -530,44 +504,6 @@ const loadLayouts = async () => {
 }
 onMounted(loadLayouts)
 
-function pad(n){ return String(n).padStart(2,'0') }
-
-function getPeriod() {
-  const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
-  return preset === 'MONTH'
-    ? `${selectedYear.value}-${pad(selectedMonth.value)}`
-    : `${selectedYear.value}`
-}
-
-// 
-async function loadWidgetsForTemplate(template) {
-  if (!template) return
-  const templateId = template.templateId ?? template.id
-  if (!templateId) return
-  const period = getPeriod()
-  try {
-    const res = await getTemplateWidgets(templateId, period)
-    const items = res?.data?.data || []
-    // API가 { data: [...] } 구조로 오므로 그대로 사용
-    template.widgets = Array.isArray(items) ? items.sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0)) : []
-  } catch (err) {
-    console.error('[ReportLayout] loadWidgetsForTemplate failed', err)
-    template.widgets = []
-  }
-}
-
-// 템플릿 호출시
-function onSelectTemplate(idx){
-  selectedTemplateIndex.value = idx
-  const tpl = currentLayout.value?.templates?.[idx]
-  if (tpl) loadWidgetsForTemplate(tpl)
-}
-
-function deltaClass(w){
-  if (!w || !w.trend) return ''
-  return w.trend === 'up' ? 'delta-up' : (w.trend === 'down' ? 'delta-down' : 'delta-neutral')
-}
-
 </script>
 
 <style scoped>
@@ -578,7 +514,7 @@ function deltaClass(w){
 .add-tab { margin-left:6px }
 
 .content-area { display:flex; gap:12px; }
-.left-pane { width:200px; display:flex; flex-direction:column; align-items:flex-start; }
+.left-pane { width:120px; display:flex; flex-direction:column; align-items:flex-start; }
 .left-controls { margin-bottom:8px; }
 .template-list-vertical { display:flex; flex-direction:column; gap:8px; width:100%; }
 .tpl-row { position: relative; display:flex; align-items:center; gap:8px; }
@@ -591,40 +527,15 @@ function deltaClass(w){
 /* template list: position delete icon */
 .tpl-delete { position: relative; right:6px; display:inline-flex }
 
-.main-pane { flex:1; overflow:auto; padding:12px 18px; box-sizing:border-box }
+.main-pane { flex:1 }
 .layout-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px }
 /* Header controls on the right */
 .header-controls { display:flex; gap:8px; align-items:center }
 .header-controls select { padding:6px 8px; border-radius:6px; border:1px solid #dfe6f3; background:#fff }
 
-/* Make the grid place cards as direct children. If .template-widgets wrapper exists, make its children participate in grid. */
-.template-widgets { display: contents; }
-
-.template-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  align-items: stretch;    /* 칸 높이 동일화 */
-  width: 100%;
-  /* 고정된 균일한 카드 높이(최소)와 같은 행에서 균등하게 확장 */
-  grid-auto-rows: minmax(140px, 1fr);
-  align-content: start;
-}
-.card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 100%;            /* grid-auto-rows가 정한 높이를 채움 */
-  padding: 12px 10px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  background: #fff;
-  box-sizing: border-box;
-  text-align: center;
-  min-width: 0;
-}
-.card-title { font-weight:700; margin-bottom:8px; font-size:14px }
+.template-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px }
+.card { padding:18px; border:1px solid #eee; border-radius:8px; background:#fff; text-align:center }
+.card-title { font-weight:700; margin-bottom:6px }
 .available-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f3f4f6 }
 
 .create-layout-form { display:flex; flex-direction:column; gap:12px; min-width:520px }
@@ -633,24 +544,4 @@ function deltaClass(w){
 .radio-group { display:flex; gap:12px; align-items:center }
 .radio-group label { display:flex; gap:6px; align-items:center }
 .create-layout-form input[type="text"], .create-layout-form textarea { flex:1; padding:8px; border:1px solid #e5e7eb; border-radius:6px }
-
-.kpi-value { font-size:20px; font-weight:800; margin-bottom:6px; word-break:keep-all }
-.kpi-target { color:#6b7280; font-size:12px }
-.kpi-delta { font-size:12px; margin-top:6px }
-.delta-up { color:#0ea5a0 } /* green */
-.delta-down { color:#ef4444 } /* red */
-.delta-neutral { color:#6b7280 } /* gray */
-
-/* 반응형: 작은 화면에서는 열 수 축소 */
-@media (max-width: 1100px) {
-  .template-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (max-width: 760px) {
-  .template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .left-pane { width: 140px }
-}
-@media (max-width: 420px) {
-  .template-grid { grid-template-columns: 1fr; }
-  .left-pane { display:none }
-}
 </style>
