@@ -12,3 +12,6 @@ export const updateLayoutTemplate = (layoutId, layoutTemplateId, dto) =>
 
 export const deleteLayoutTemplate = (layoutId, layoutTemplateId) =>
   axios.delete(`/report/dashboard/layouts/${layoutId}/templates/${layoutTemplateId}`)
+
+export const getTemplateWidgets = (templateId, period) => 
+  axios.get(`/report/templates/${templateId}/widgets`, { params: { period } })

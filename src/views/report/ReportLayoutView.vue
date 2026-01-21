@@ -143,7 +143,7 @@ import { ref, computed, onMounted } from 'vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import { createReportLayout, deleteReportLayout, listReportLayouts, updateReportLayout } from '@/api/report/layoutApi'
-import { addLayoutTemplate, deleteLayoutTemplate, listLayoutTemplates } from '@/api/report/layoutTemplateApi'
+import { addLayoutTemplate, deleteLayoutTemplate, listLayoutTemplates, getTemplaeWidgets } from '@/api/report/layoutTemplateApi'
 import { useAuthStore } from '@/stores/authStore'
 
 // Visibility enum mapping to backend
@@ -296,7 +296,7 @@ const loadTemplatesForLayout = async (layoutId, index) => {
    }
 }
 
-// 현재 선택된 layout에 기간 필터를 PATCH로 저장
+// 현재 선택된 layout에 기간 필터를 PATCH로 저장 & 통계데이터 수집
 const applyPeriodToLayout = async () => {
   const layout = currentLayout.value
   if (!layout || !layout.id) return
@@ -319,11 +319,16 @@ const applyPeriodToLayout = async () => {
     if (idx !== -1) {
       layouts.value[idx].defaultFilterJson = payload.defaultFilterJson
     }
+    
+    const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
+    if (tpl) await loadWidgetsForTemplate(tpl)
+
     console.log('[ReportLayout] applied period to layout', layout.id, payload)
   } catch (err) {
     console.error('기간 적용 실패', err)
   }
 }
+
 
 // 템플릿 추가: 백엔드 DTO 형식에 맞춘 샘플 목록
 const availableTemplates = [
@@ -502,6 +507,49 @@ const loadLayouts = async () => {
     loadTemplatesForLayout(initial.id, selectedIndex.value)
   }
 }
+
+/* 기간필터 적용하여 통계자료 업데이트 */
+// 2) 유틸: pad
+function pad(n) {
+  return String(n).padStart(2, '0')
+}
+
+// 3) getPeriod (ref 값 사용)
+function getPeriod() {
+  const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
+  return preset === 'MONTH' ? `${selectedYear.value}-${pad(selectedMonth.value)}` : `${selectedYear.value}`
+}
+
+// 4) loadWidgetsForTemplate 구현
+async function loadWidgetsForTemplate(template) {
+  if (!template) return
+  const templateId = template.templateId ?? template.id
+  if (!templateId) return
+
+  const period = getPeriod()
+  try {
+    const res = await getTemplateWidgets(templateId, period)
+    const payload = res?.data?.data
+    // 응답 shape에 맞춰서 mapping (서비스에서 이미 MetricResult 배열을 반환한다고 가정)
+    // 예: [{ widgetKey:'CHECKIN_COUNT', value:123, targetValue:200, formattedActual:'123' }, ...]
+    template.widgets = Array.isArray(payload) ? payload : (payload?.items || payload?.list || [])
+  } catch (err) {
+    console.error('[ReportLayout] loadWidgetsForTemplate failed', err)
+    template.widgets = []
+  }
+}
+
+// 5) 트리거: 템플릿 클릭 시 로드
+// (템플릿 리스트 버튼을 아래처럼 바꿔야 함)
+// 기존: @click="selectedTemplateIndex = idx"
+// 변경: @click="onSelectTemplate(idx)"
+const onSelectTemplate = (idx) => {
+  selectedTemplateIndex.value = idx
+  const tpl = currentLayout.value?.templates?.[idx]
+  if (tpl) loadWidgetsForTemplate(tpl)
+}
+
+// 화면 렌더링 시 레이아웃 실행
 onMounted(loadLayouts)
 
 </script>
