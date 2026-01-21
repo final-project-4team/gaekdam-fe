@@ -591,14 +591,11 @@ function deltaClass(w){
 /* template list: position delete icon */
 .tpl-delete { position: relative; right:6px; display:inline-flex }
 
-.main-pane { flex:1; overflow:auto; padding:12px 18px; box-sizing:border-box }
+.main-pane { flex:1 }
 .layout-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px }
 /* Header controls on the right */
 .header-controls { display:flex; gap:8px; align-items:center }
 .header-controls select { padding:6px 8px; border-radius:6px; border:1px solid #dfe6f3; background:#fff }
-
-/* Make the grid place cards as direct children. If .template-widgets wrapper exists, make its children participate in grid. */
-.template-widgets { display: contents; }
 
 .template-grid {
   display: grid;
@@ -606,23 +603,20 @@ function deltaClass(w){
   gap: 12px;
   align-items: stretch;    /* 칸 높이 동일화 */
   width: 100%;
-  /* 고정된 균일한 카드 높이(최소)와 같은 행에서 균등하게 확장 */
-  grid-auto-rows: minmax(140px, 1fr);
-  align-content: start;
+  /* 자동 행 높이: 최소 120px, 최대 콘텐츠에 따라 늘어남 */
+  grid-auto-rows: minmax(120px, auto);
 }
 .card {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  justify-content: space-between;
   height: 100%;            /* grid-auto-rows가 정한 높이를 채움 */
-  padding: 12px 10px;
+  padding: 14px;
   border: 1px solid #eee;
   border-radius: 8px;
   background: #fff;
   box-sizing: border-box;
   text-align: center;
-  min-width: 0;
 }
 .card-title { font-weight:700; margin-bottom:8px; font-size:14px }
 .available-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f3f4f6 }
@@ -634,7 +628,7 @@ function deltaClass(w){
 .radio-group label { display:flex; gap:6px; align-items:center }
 .create-layout-form input[type="text"], .create-layout-form textarea { flex:1; padding:8px; border:1px solid #e5e7eb; border-radius:6px }
 
-.kpi-value { font-size:20px; font-weight:800; margin-bottom:6px; word-break:keep-all }
+.kpi-value { font-size:20px; font-weight:800; margin-bottom:6px }
 .kpi-target { color:#6b7280; font-size:12px }
 .kpi-delta { font-size:12px; margin-top:6px }
 .delta-up { color:#0ea5a0 } /* green */
@@ -647,10 +641,8 @@ function deltaClass(w){
 }
 @media (max-width: 760px) {
   .template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .left-pane { width: 140px }
 }
 @media (max-width: 420px) {
   .template-grid { grid-template-columns: 1fr; }
-  .left-pane { display:none }
 }
 </style>
