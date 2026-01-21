@@ -14,7 +14,7 @@
         <!-- 드롭다운 -->
         <div v-if="showMenu" class="dropdown">
 
-           <div class="item">마이페이지</div>
+           <div class="item" @click="router.push('/system/myPage')">마이페이지</div>
 
           <div class="item logout" @click.stop="logout">
             로그아웃
