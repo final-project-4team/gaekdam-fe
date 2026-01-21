@@ -17,6 +17,7 @@
 import { computed } from 'vue'
 
 const props = defineProps({
+  
   summary: { type: Object, required: true },
   active: { type: String, default: '' },
 })

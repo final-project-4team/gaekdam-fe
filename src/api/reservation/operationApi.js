@@ -100,6 +100,7 @@ export const getTodayOperationListApi = ({
                                              page = 1,
                                              size = 10,
                                              summaryType,
+                                             propertyCode,
                                              detail = {},
                                          }) => {
     return api.get('/reservations/today/operations', {
@@ -107,18 +108,13 @@ export const getTodayOperationListApi = ({
             page,
             size,
 
-            /* =====================
-             * Summary (Today 전용)
-             * - ALL_TODAY 는 전달하지 않음
-             * ===================== */
             summaryType:
                 summaryType && summaryType !== 'ALL_TODAY'
                     ? summaryType
                     : undefined,
 
-            /* =====================
-             * Search
-             * ===================== */
+            propertyCode: propertyCode ?? undefined,
+
             customerName:
                 detail.customerName && detail.customerName.trim() !== ''
                     ? detail.customerName

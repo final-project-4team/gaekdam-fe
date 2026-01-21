@@ -2,13 +2,15 @@
   <button
       class="btn"
       :class="[type, size]"
-      @click="$emit('click')"
+      @click.stop.prevent="onPress"
   >
     <slot />
   </button>
 </template>
 
 <script setup>
+const emit = defineEmits(['press'])
+
 defineProps({
   type: {
     type: String,
@@ -21,6 +23,10 @@ defineProps({
     // sm | md | lg
   },
 })
+
+const onPress = () => {
+  emit('press')
+}
 </script>
 
 <style scoped>
