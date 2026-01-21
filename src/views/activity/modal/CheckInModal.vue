@@ -17,7 +17,7 @@
         <input
             v-model="form.carNumber"
             type="text"
-            placeholder="차량 번호 (선택)"
+            placeholder="차량 번호"
             class="input"
         />
       </div>

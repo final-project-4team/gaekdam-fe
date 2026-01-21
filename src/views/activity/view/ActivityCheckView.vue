@@ -25,7 +25,7 @@
         @search="onSearch"
         @sort-change="onSortChange"
         @page-change="onPageChange"
-        @row-click="openDetail"
+        @row-click="onRowClick"
     >
       <!-- 운영 상태 -->
       <template #cell-operationStatus="{ value }">
@@ -80,12 +80,16 @@
         @success="reload"
     />
 
+
+    <CustomerBasicModal
+        v-if="showCustomerModal"
+        :customer="selectedCustomer"
+        @close="showCustomerModal = false"
+    />
+
   </div>
+
 </template>
-
-
-
-
 <script setup>
 import {ref, reactive, onMounted, computed} from 'vue'
 import ListView from '@/components/common/ListView.vue'
@@ -98,6 +102,8 @@ import {
 import {getPropertyListByHotelGroupApi} from "@/api/property/propertyApi.js";
 import CheckInModal from "@/views/activity/modal/CheckInModal.vue";
 import CheckOutModal from "@/views/activity/modal/CheckOutModal.vue";
+import CustomerBasicModal from '@/views/activity/modal/CustomerBasicModal.vue'
+import { getCustomerBasicApi } from '@/api/customer/customerApi'
 
 const propertyOptions = ref([])
 
@@ -187,17 +193,15 @@ const loadSummary = async () => {
   const data = res.data.data
 
   summary.value = {
+    // 오늘 운영 대상 = 체크인 예정 + 투숙중
     ALL_TODAY:
         (data.CHECKIN_PLANNED || 0)
-        + (data.CHECKOUT_PLANNED || 0)
         + (data.STAYING || 0),
 
+    // 카드용
     CHECKIN_PLANNED: data.CHECKIN_PLANNED || 0,
-
-    CHECKOUT_PLANNED:
-        (data.CHECKOUT_PLANNED || 0),
-
     STAYING: data.STAYING || 0,
+    CHECKOUT_PLANNED: data.CHECKOUT_PLANNED || 0,
   }
 }
 
@@ -227,6 +231,7 @@ const onSelectSummary = async (type) => {
   await loadList()
 }
 
+
 const onSearch = async ({ key, value }) => {
   page.value = 1
   detail.customerName = null
@@ -250,8 +255,24 @@ const onPageChange = async (p) => {
   await loadList()
 }
 
-const openDetail = (row) => {
-  console.log('open detail', row.reservationCode)
+const onRowClick = (row) => {
+  console.log('row-click row:', row)
+
+  if (!row || !row.customerCode) return
+  openCustomerModal(row.customerCode)
+}
+
+const showCustomerModal = ref(false)
+const selectedCustomer = ref(null)
+const openCustomerModal = async (customerCode) => {
+  try {
+    const res = await getCustomerBasicApi(customerCode)
+    selectedCustomer.value = res.data.data
+    showCustomerModal.value = true
+  } catch (e) {
+    console.error(e)
+    alert('고객 정보를 불러오지 못했습니다.')
+  }
 }
 
 const onSortChange = (sort) => {
