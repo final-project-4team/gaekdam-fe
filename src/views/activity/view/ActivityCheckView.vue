@@ -65,8 +65,26 @@
       </template>
     </ListView>
 
+
+    <CheckInModal
+        v-if="showCheckInModal"
+        :reservationCode="selectedReservationCode"
+        @close="showCheckInModal = false"
+        @success="reload"
+    />
+
+    <CheckOutModal
+        v-if="showCheckOutModal"
+        :stayCode="selectedStayCode"
+        @close="showCheckOutModal = false"
+        @success="reload"
+    />
+
   </div>
 </template>
+
+
+
 
 <script setup>
 import {ref, reactive, onMounted, computed} from 'vue'
@@ -78,6 +96,8 @@ import {
   getTodayOperationSummaryApi,
 } from '@/api/reservation'
 import {getPropertyListByHotelGroupApi} from "@/api/property/propertyApi.js";
+import CheckInModal from "@/views/activity/modal/CheckInModal.vue";
+import CheckOutModal from "@/views/activity/modal/CheckOutModal.vue";
 
 const propertyOptions = ref([])
 
@@ -170,17 +190,14 @@ const loadSummary = async () => {
     ALL_TODAY:
         (data.CHECKIN_PLANNED || 0)
         + (data.CHECKOUT_PLANNED || 0)
-        + (data.STAYING || 0)
-        + (data.COMPLETED || 0),
+        + (data.STAYING || 0),
 
     CHECKIN_PLANNED: data.CHECKIN_PLANNED || 0,
 
     CHECKOUT_PLANNED:
-        (data.CHECKOUT_PLANNED || 0)
-        + (data.COMPLETED || 0),
+        (data.CHECKOUT_PLANNED || 0),
 
     STAYING: data.STAYING || 0,
-    COMPLETED: data.COMPLETED || 0,
   }
 }
 
@@ -248,20 +265,41 @@ const onSortChange = (sort) => {
 
 /* ===================== */
 /* Button Rules */
-const canCheckin = (status) =>
-    status === 'CHECKIN_PLANNED'
-
-const canCheckout = (row) =>
-    row.operationStatus === 'CHECKOUT_PLANNED'
-    && row.actualCheckinAt != null
+const showCheckInModal = ref(false)
+const showCheckOutModal = ref(false)
+const selectedStayCode = ref(null)
+const selectedReservationCode = ref(null)
 
 const checkin = (row) => {
-  console.log('checkin', row.reservationCode)
+  if (!row.reservationCode) {
+    console.error('stayCode 누락', row)
+    alert('투숙 정보가 없어 체크인을 진행할 수 없습니다.')
+    return
+  }
+
+
+  selectedReservationCode.value = row.reservationCode
+  showCheckInModal.value = true
 }
 
 const checkout = (row) => {
-  console.log('checkout', row.reservationCode)
+
+  if (!row.stayCode) {
+    console.error('stayCode 누락', row)
+    alert('투숙 정보가 없어 체크인을 진행할 수 없습니다.')
+    return
+  }
+
+  selectedStayCode.value = row.stayCode
+  showCheckOutModal.value = true
 }
+
+const reload = async () => {
+  await loadSummary()
+  await loadList()
+}
+
+
 
 /* ===================== */
 onMounted(async () => {
