@@ -19,7 +19,9 @@
         :page="page"
         :pageSize="pageSize"
         :total="total"
+        :filters="filters"
         show-search
+        @filter="onFilter"
         @search="onSearch"
         @page-change="onPageChange"
         @row-click="openDetail"
@@ -59,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import {ref, reactive, onMounted, computed} from 'vue'
 import ListView from '@/components/common/ListView.vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import TodayCheckSummary from './TodayCheckSummary.vue'
@@ -67,6 +69,29 @@ import {
   getTodayOperationListApi,
   getTodayOperationSummaryApi,
 } from '@/api/reservation'
+import {getPropertyListByHotelGroupApi} from "@/api/property/propertyApi.js";
+
+const propertyOptions = ref([])
+
+const filterValues = ref({
+  propertyCode: null,
+})
+
+const filters = computed(() => [
+  {
+    key: 'propertyCode',
+    options: propertyOptions.value,
+  },
+])
+
+const onFilter = async (values) => {
+  filterValues.value.propertyCode = values.propertyCode ?? null
+  page.value = 1
+
+  // 지점 바뀌면 Summary + List 둘 다 갱신
+  await loadSummary()
+  await loadList()
+}
 
 /* ===================== */
 /* Status Label */
@@ -118,7 +143,10 @@ const columns = [
 /* ===================== */
 /* API */
 const loadSummary = async () => {
-  const res = await getTodayOperationSummaryApi()
+  const res = await getTodayOperationSummaryApi({
+    propertyCode: filterValues.value.propertyCode,
+  })
+
   const data = res.data.data
 
   summary.value = {
@@ -130,13 +158,11 @@ const loadSummary = async () => {
 
     CHECKIN_PLANNED: data.CHECKIN_PLANNED || 0,
 
-    // 체크아웃 카드는 완료 포함
     CHECKOUT_PLANNED:
         (data.CHECKOUT_PLANNED || 0)
         + (data.COMPLETED || 0),
 
     STAYING: data.STAYING || 0,
-
     COMPLETED: data.COMPLETED || 0,
   }
 }
@@ -148,6 +174,8 @@ const loadList = async () => {
     summaryType: summaryType.value === 'ALL_TODAY'
         ? undefined
         : summaryType.value,
+
+    propertyCode: filterValues.value.propertyCode,
     detail,
   })
 
@@ -210,6 +238,17 @@ const checkout = (row) => {
 
 /* ===================== */
 onMounted(async () => {
+  const res = await getPropertyListByHotelGroupApi()
+  const list = res.data.data || []
+
+  propertyOptions.value = [
+    { label: '전체 지점', value: '' },
+    ...list.map(p => ({
+      label: p.propertyName,
+      value: p.propertyCode,
+    })),
+  ]
+
   await loadSummary()
   await loadList()
 })
