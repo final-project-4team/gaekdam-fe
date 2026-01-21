@@ -71,7 +71,7 @@
         </div>
 
         <div class="template-grid">
-          <div class="card" v-for="(t, idx) in selectedTemplate" :key="t.id">
+          <div class="card" v-for="(t, idx) in currentLayout.templates" :key="t.id">
             <div class="card-title">{{ t.name }}</div>
             <div class="card-body">템플릿 콘텐츠 예시</div>
           </div>
@@ -166,16 +166,6 @@ const selectedTemplateIndex = ref(0)
 
 const creatingLayout = ref(false)
 const currentLayout = computed(() => layouts.value[selectedIndex.value] || { name: '', templates: [] })
-
-// Compute the currently selected template (array with single item for v-for compatibility)
-const selectedTemplate = computed(() => {
-  const templates = currentLayout.value?.templates || []
-  const idx = selectedTemplateIndex.value
-  if (typeof idx === 'number' && idx >= 0 && idx < templates.length) {
-    return [templates[idx]]
-  }
-  return []
-})
 
 const creatingTemplate = ref(false)
 

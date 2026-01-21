@@ -71,7 +71,7 @@
         </div>
 
         <div class="template-grid">
-          <div class="card" v-for="(t, idx) in selectedTemplate" :key="t.id">
+          <div class="card" v-for="(t, idx) in currentLayout.templates" :key="t.id">
             <div class="card-title">{{ t.name }}</div>
             <div class="card-body">템플릿 콘텐츠 예시</div>
           </div>
@@ -166,16 +166,6 @@ const selectedTemplateIndex = ref(0)
 
 const creatingLayout = ref(false)
 const currentLayout = computed(() => layouts.value[selectedIndex.value] || { name: '', templates: [] })
-
-// Compute the currently selected template (array with single item for v-for compatibility)
-const selectedTemplate = computed(() => {
-  const templates = currentLayout.value?.templates || []
-  const idx = selectedTemplateIndex.value
-  if (typeof idx === 'number' && idx >= 0 && idx < templates.length) {
-    return [templates[idx]]
-  }
-  return []
-})
 
 const creatingTemplate = ref(false)
 
@@ -327,11 +317,9 @@ const applyPeriodToLayout = async () => {
 
 // 템플릿 추가: 백엔드 DTO 형식에 맞춘 샘플 목록
 const availableTemplates = [
-  { templateId: 1, displayName: '전체 요약 템플릿', sortOrder: 1, isActive: true },
-  { templateId: 2, displayName: '객실운영 요약 템플릿', sortOrder: 2, isActive: true },
-  { templateId: 3, displayName: '고객현황 요약 템플릿', sortOrder: 3, isActive: true },
-  { templateId: 4, displayName: '고객경험 요약 템플릿', sortOrder: 4, isActive: true },
-  { templateId: 5, displayName: '예약및매출 요약 템플릿', sortOrder: 5, isActive: true },
+  { templateId: 1, displayName: '고객경험 요약10', sortOrder: 1, isActive: true },
+  { templateId: 2, displayName: '매출 요약 대시보드', sortOrder: 2, isActive: true },
+  { templateId: 3, displayName: '예약 트렌드', sortOrder: 3, isActive: true },
 ]
 
 const showCreateTemplate = ref(false)
