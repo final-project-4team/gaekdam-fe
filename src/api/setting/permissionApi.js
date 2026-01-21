@@ -11,8 +11,8 @@ export const createPermission = async (permissionDetail) => {
   return res.data.data;
 };
 
-export const updatePermission = async (permissionDetail,permissionTypeList) => {
-  const res = await api.put("/permission/" +permissionDetail,  permissionTypeList);
+export const updatePermission = async (permissionCode, permissionTypeList) => {
+  const res = await api.put("/permission/" + permissionCode, permissionTypeList);
   return res.data.data;
 };
 

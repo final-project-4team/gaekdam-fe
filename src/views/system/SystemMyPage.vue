@@ -6,54 +6,60 @@
         <h3>내 정보</h3>
       </div>
 
-      <div class="form-container">
-        <!-- 첫 번째 줄: 아이디 / 이름 -->
-        <div class="form-row two-col">
-          <div class="form-group">
+      <div class="detail-container">
+        <!-- 1행: 성명 / 아이디 -->
+        <div class="row">
+          <div class="col">
+            <label>성명</label>
+            <input type="text" :value="myInfo.name" readonly class="read-only" />
+          </div>
+          <div class="col">
             <label>아이디</label>
             <input type="text" :value="myInfo.loginId" readonly class="read-only" />
           </div>
-          <div class="form-group">
-            <label>이름</label>
-            <input type="text" :value="myInfo.name" />
+        </div>
+
+        <!-- 2행: 사원번호 / 입사일자 -->
+        <div class="row">
+          <div class="col">
+            <label>사원번호</label>
+            <input type="text" :value="myInfo.employeeNumber" readonly class="read-only" />
+          </div>
+          <div class="col">
+            <label>입사일자</label>
+            <input type="text" :value="formatDate(myInfo.hiredAt)" readonly class="read-only" />
           </div>
         </div>
 
-        <!-- 두 번째 줄: 전화번호 / 부서 -->
-        <div class="form-row two-col">
-          <div class="form-group">
-            <label>전화번호</label>
-            <input type="text" :value="myInfo.phone" />
-          </div>
-          <div class="form-group">
+        <!-- 3행: 부서 / 직급 -->
+        <div class="row">
+          <div class="col">
             <label>부서</label>
-            <div class="fake-select read-only">
-              {{ myInfo.departmentName }}
-              <span class="arrow">▼</span>
-            </div>
+            <input type="text" :value="myInfo.departmentName" readonly class="read-only" />
+          </div>
+          <div class="col">
+            <label>직급</label>
+            <input type="text" :value="myInfo.hotelPositionName" readonly class="read-only" />
           </div>
         </div>
 
-        <!-- 세 번째 줄: 이메일 / 직급 -->
-        <div class="form-row two-col">
-          <div class="form-group">
+        <!-- 4행: 권한 / 전화번호 -->
+        <div class="row">
+          <div class="col">
+            <label>권한</label>
+             <input type="text" :value="myInfo.permissionName" readonly class="read-only" />
+          </div>
+          <div class="col">
+            <label>전화번호</label>
+            <input type="text" :value="myInfo.phone" readonly class="read-only" />
+          </div>
+        </div>
+
+        <!-- 5행: 이메일 (Full Width) -->
+        <div class="row">
+          <div class="col full-width">
             <label>이메일</label>
             <input type="text" :value="myInfo.email" readonly class="read-only" />
-          </div>
-          <div class="form-group">
-            <label>직급</label>
-            <div class="fake-select read-only">
-              {{ myInfo.hotelPositionName }}
-              <span class="arrow">▼</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 네 번째 줄: 사용자 상태 -->
-        <div class="form-row">
-          <div class="form-group half-width">
-            <label>사용자 상태</label>
-            <input type="text" :value="myInfo.employeeStatus" readonly class="read-only" />
           </div>
         </div>
       </div>
@@ -68,17 +74,17 @@
         <BaseButton @click="onChangePassword">비밀번호 변경</BaseButton>
       </div>
 
-      <div class="form-container">
-        <div class="form-row three-col">
-          <div class="form-group">
+      <div class="detail-container">
+        <div class="row">
+           <div class="col">
             <label>현재 비밀번호</label>
             <input type="password" v-model="passwordForm.currentPassword" />
           </div>
-          <div class="form-group">
+           <div class="col">
             <label>신규 비밀번호</label>
             <input type="password" v-model="passwordForm.newPassword" />
           </div>
-          <div class="form-group">
+           <div class="col">
             <label>신규 비밀번호 확인</label>
             <input type="password" v-model="passwordForm.confirmPassword" />
           </div>
@@ -92,7 +98,7 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from "@/stores/authStore";
 import { getEmployeeList } from "@/api/setting/employeeApi.js";
-import { changePassword } from "@/api/myPageApi.js";
+import { changePassword } from "@/api/system/myPageApi.js";
 import BaseButton from "@/components/common/button/BaseButton.vue";
 
 const authStore = useAuthStore();
@@ -103,7 +109,10 @@ const myInfo = ref({
   departmentName: '',
   email: '',
   hotelPositionName: '',
-  employeeStatus: ''
+  employeeStatus: '',
+  employeeNumber: '',
+  hiredAt: '',
+  permissionName: ''
 });
 
 const passwordForm = ref({
@@ -111,6 +120,12 @@ const passwordForm = ref({
   newPassword: '',
   confirmPassword: ''
 });
+
+// 날짜 포맷팅
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  return dateStr.substring(0, 10)
+}
 
 onMounted(async () => {
   try {
@@ -127,7 +142,10 @@ onMounted(async () => {
           departmentName: found.departmentName,
           email: found.email,
           hotelPositionName: found.hotelPositionName,
-          employeeStatus: found.employeeStatus
+          employeeStatus: found.employeeStatus,
+          employeeNumber: found.employeeNumber,
+          hiredAt: found.hiredAt,
+          permissionName: found.permissionName
         };
       }
     }
@@ -165,8 +183,10 @@ const onChangePassword = async () => {
 .system-my-page {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 10px 0; /* 내부 여백 */
+  gap: 40px; /* Increased gap between sections */
+  padding: 40px 0; /* More top/bottom padding */
+  max-width: 800px; /* Limit width to resemble modal */
+  margin: 0 auto; /* Center the form (optional, depending on preference, but usually good for focused tasks) */
 }
 
 .page-section {
@@ -192,7 +212,6 @@ const onChangePassword = async () => {
   padding-bottom: 12px;
 }
 
-/* BaseButton 때문에 높이 안맞는 문제 해결 */
 .section-header.flex-between h3 {
     border-bottom: none;
     padding-bottom: 0;
@@ -205,74 +224,53 @@ const onChangePassword = async () => {
   margin: 0;
 }
 
-/* 폼 스타일 유지 */
-.form-container {
+/* Detail Modal Styles Reused */
+.detail-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 24px; /* Increased from 16px */
+  padding: 10px 0;
 }
 
-.form-row {
+.row {
   display: flex;
-  gap: 24px;
+  gap: 16px;
 }
 
-.two-col > .form-group {
+.col {
   flex: 1;
-}
-
-.three-col > .form-group {
-  flex: 1;
-}
-
-.half-width {
-  width: calc(50% - 12px);
-}
-
-.form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.form-group label {
+.col.full-width {
+  flex: none;
+  width: 100%;
+}
+
+label {
   font-size: 13px;
-  font-weight: 700;
-  color: #111827;
+  font-weight: 600;
+  color: #374151;
 }
 
-.form-group input {
-  padding: 10px 12px;
+input, select {
+  padding: 10px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
-  color: #111827;
+  width: 100%; /* Ensure full width in cols */
 }
 
-.form-group input:focus {
+input:focus {
   border-color: #2563eb;
   outline: none;
 }
 
-.form-group input.read-only {
+input.read-only {
   background-color: #f3f4f6;
-  color: #4b5563;
-}
-
-.fake-select {
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  background-color: #f3f4f6;
-  color: #4b5563;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.fake-select .arrow {
-  font-size: 10px;
   color: #6b7280;
+  cursor: default; /* Changed from not-allowed for MyPage to look cleaner */
 }
 </style>
