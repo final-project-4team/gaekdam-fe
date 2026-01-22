@@ -48,7 +48,7 @@
   <!-- 전체 보기 -->
   <BaseModal v-if="showList" title="고객 메모 전체 보기" @close="closeList">
     <div class="modal-body">
-      <!-- ✅ 기간 필터 -->
+      <!-- 기간 필터 -->
       <div class="filter-bar">
         <div class="preset">
           <BaseButton
@@ -140,7 +140,6 @@
       <textarea v-model="editText" class="textarea" placeholder="메모 내용을 입력하세요" />
     </div>
     <template #footer>
-      <BaseButton type="danger" size="sm" @click="openDelete(editTarget)">삭제</BaseButton>
       <BaseButton type="ghost" size="sm" @click="closeEdit">취소</BaseButton>
       <BaseButton type="warning" size="sm" :disabled="saving" @click="update">저장</BaseButton>
     </template>
@@ -148,10 +147,10 @@
 
   <!-- 삭제 확인 -->
   <BaseModal v-if="showDelete" title="메모 삭제" @close="showDelete = false">
-    <div class="modal-body">삭제하시겠습니까? (복구 불가)</div>
+    <div class="modal-body">삭제하시겠습니까? </div>
     <template #footer>
       <BaseButton type="ghost" size="sm" @click="showDelete = false">취소</BaseButton>
-      <BaseButton type="danger" size="sm" :disabled="saving" @click="remove">삭제</BaseButton>
+      <BaseButton type="danger" size="sm" :disabled="saving" @click="remove">확인</BaseButton>
     </template>
   </BaseModal>
 </template>
@@ -167,13 +166,13 @@ import {
   createCustomerMemoApi,
   updateCustomerMemoApi,
   deleteCustomerMemoApi,
-} from "@/api/customer/customerMemoApi";
+} from "@/api/customer/customerMemoApi.js";
 
 const props = defineProps({
   customerCode: { type: [Number, String], required: true },
 });
 
-// ✅ CustomerDetailView에게 “메모 변경됨” 알리기
+// CustomerDetailView에게 “메모 변경됨” 알리기
 const emit = defineEmits(["changed"]);
 
 /* state */
@@ -199,7 +198,7 @@ const deleteTarget = ref(null);
 
 const saving = ref(false);
 
-/* ✅ 기간 필터 state */
+/* 기간 필터 state */
 const presetMonths = [1, 3, 6, 12];
 const selectedPreset = ref(null);
 const fromDate = ref(""); // yyyy-MM-dd
@@ -252,7 +251,7 @@ const create = async () => {
     showCreate.value = false;
 
     await Promise.all([loadRecent(), showList.value ? loadList(1) : Promise.resolve()]);
-    emit("changed"); // ✅ 타임라인 즉시 반영
+    emit("changed"); // 타임라인 즉시 반영
   } finally {
     saving.value = false;
   }
@@ -272,7 +271,7 @@ const goPage = async (p) => {
   await loadList(p);
 };
 
-/* ✅ 기간 필터 액션 */
+/* 기간 필터 액션 */
 const applyPreset = async (m) => {
   selectedPreset.value = m;
 
@@ -356,7 +355,7 @@ const update = async () => {
     closeEdit();
 
     await Promise.all([loadRecent(), showList.value ? loadList(list.value.page) : Promise.resolve()]);
-    emit("changed"); // ✅ 타임라인 즉시 반영
+    emit("changed"); // 타임라인 즉시 반영
   } finally {
     saving.value = false;
   }
@@ -386,7 +385,7 @@ const remove = async () => {
     if (showEdit.value) closeEdit();
 
     await Promise.all([loadRecent(), showList.value ? loadList(1) : Promise.resolve()]);
-    emit("changed"); // ✅ 타임라인 즉시 반영
+    emit("changed"); // 타임라인 즉시 반영
   } finally {
     saving.value = false;
   }
@@ -580,7 +579,7 @@ const fmt = (v) => {
   font-weight: 700;
 }
 
-/* ✅ 기간 필터 UI */
+/* 기간 필터 UI */
 .filter-bar {
   display: flex;
   flex-direction: column;

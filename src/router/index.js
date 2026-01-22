@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import CrmLayout from '@/layouts/CrmLayout.vue'
 import ActivityLayout from '@/views/activity/view/ActivityLayout.vue'
 import ReportLayout from '@/views/report/ReportLayout.vue'
-import CustomerLayout from '@/views/customer/CustomerLayout.vue'
+import CustomerLayout from '@/views/customer/view/CustomerLayout.vue'
 import MessageLayout from '@/views/message/MessageLayout.vue'
 import SettingLayout from '@/views/setting/SettingLayout.vue'
 import SystemLayout from '@/views/system/SystemLayout.vue'
@@ -40,8 +40,8 @@ const routes = [
                 component: CustomerLayout,
                 children: [
                     { path: '', redirect: { name: 'CustomerList' } },
-                    { path: 'all', name: 'CustomerList', component: () => import('@/views/customer/CustomerListView.vue') },
-                    { path: ':id', name: 'CustomerDetail', component: () => import('@/views/customer/CustomerDetailView.vue') },
+                    { path: 'all', name: 'CustomerList', component: () => import('@/views/customer/view/CustomerListView.vue') },
+                    { path: ':id', name: 'CustomerDetail', component: () => import('@/views/customer/view/CustomerDetailView.vue') },
                 ],
             },
 

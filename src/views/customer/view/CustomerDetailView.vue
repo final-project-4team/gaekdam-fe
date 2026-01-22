@@ -1,6 +1,5 @@
 <template>
   <div class="customer-detail-page">
-    <!-- 상단 헤더 -->
     <section class="card header-card">
       <div class="h-left">
         <div class="name-row">
@@ -44,7 +43,6 @@
         </div>
       </div>
 
-      <!-- ✅ 목록으로 버튼을 우측 끝 최상단 -->
       <div class="h-right">
         <BaseButton type="ghost" size="sm" @click="goBack">목록으로</BaseButton>
         <BaseButton type="primary" size="sm" @click="onDetailView">상세 보기</BaseButton>
@@ -53,12 +51,9 @@
       </div>
     </section>
 
-    <!-- 본문 -->
     <div class="grid">
-      <!-- LEFT -->
       <div class="col">
         <template v-for="card in leftCards" :key="card.id">
-          <!-- 고객 스냅샷 -->
           <section v-if="card.id === 'snapshot'" class="card">
             <div class="card-title">고객 스냅샷</div>
 
@@ -82,11 +77,9 @@
             </div>
           </section>
 
-          <!-- 최근 타임라인 -->
           <section v-else-if="card.id === 'timeline'" class="card">
             <div class="card-head">
               <div class="card-title">최근 타임라인</div>
-
               <div class="outline-wrap">
                 <BaseButton type="ghost" size="sm" @click="openTimelineAllModal">전체보기</BaseButton>
               </div>
@@ -105,11 +98,9 @@
             </ul>
           </section>
 
-          <!-- 예약/이용 -->
           <section v-else-if="card.id === 'reservation'" class="card">
             <div class="card-head">
               <div class="card-title">예약/이용 (최근 5건)</div>
-
               <div class="outline-wrap">
                 <BaseButton type="ghost" size="sm" @click="onReservationAll">전체보기</BaseButton>
               </div>
@@ -123,11 +114,9 @@
             />
           </section>
 
-          <!-- 문의/클레임 -->
           <section v-else-if="card.id === 'voc'" class="card">
             <div class="card-head">
               <div class="card-title">문의/클레임 (최근 3건)</div>
-
               <div class="outline-wrap">
                 <BaseButton type="ghost" size="sm" @click="onVocAll">전체보기</BaseButton>
               </div>
@@ -138,21 +127,13 @@
         </template>
       </div>
 
-      <!-- RIGHT -->
       <div class="col">
         <template v-for="card in rightCards" :key="card.id">
-          <!-- 메모 -->
-          <CustomerMemoView
-              v-if="card.id === 'memo'"
-              :customerCode="customerCode"
-              @changed="onMemoChanged"
-          />
+          <CustomerMemoView v-if="card.id === 'memo'" :customerCode="customerCode" @changed="onMemoChanged" />
 
-          <!-- 멤버십 -->
           <section v-else-if="card.id === 'membership'" class="card">
             <div class="card-head">
               <div class="card-title">멤버십</div>
-
               <div class="outline-wrap">
                 <BaseButton type="ghost" size="sm" @click="onMembershipHistory">이력 보기</BaseButton>
               </div>
@@ -167,11 +148,9 @@
             </div>
           </section>
 
-          <!-- 로열티 -->
           <section v-else-if="card.id === 'loyalty'" class="card">
             <div class="card-head">
               <div class="card-title">로열티</div>
-
               <div class="outline-wrap">
                 <BaseButton type="ghost" size="sm" @click="onLoyaltyHistory">이력 보기</BaseButton>
               </div>
@@ -188,20 +167,17 @@
       </div>
     </div>
 
-    <!-- 연락처 전체보기 모달 -->
     <BaseModal v-if="showContactModal" title="연락처 전체보기" @close="showContactModal = false">
       <div class="modal-body">
         <div v-if="(detail.contacts?.length || 0) === 0">연락처 데이터가 없습니다.</div>
 
-        <p v-for="(c, i) in detail.contacts" :key="i" style="margin: 6px 0">
+        <p v-for="(c, i) in detail.contacts" :key="i" class="contact-row">
           - {{ c.contactType }} :
           <span v-if="c.contactType === 'PHONE'">{{ formatPhone(c.contactValue) }}</span>
           <span v-else>{{ c.contactValue }}</span>
 
-          <span v-if="c.isPrimary" style="margin-left: 8px; font-weight: 900">(PRIMARY)</span>
-          <span style="margin-left: 8px; color:#6b7280">
-            {{ c.marketingOptIn ? "마케팅 동의" : "미동의" }}
-          </span>
+          <span v-if="c.isPrimary" class="primary">(PRIMARY)</span>
+          <span class="optin">{{ c.marketingOptIn ? "마케팅 동의" : "미동의" }}</span>
         </p>
       </div>
 
@@ -210,7 +186,6 @@
       </template>
     </BaseModal>
 
-    <!-- ✅ 고객 상세보기 모달 -->
     <BaseModal v-if="showDetailModal" title="고객 상세보기" @close="showDetailModal=false">
       <div class="modal-body">
         <div class="detail-box">
@@ -253,67 +228,153 @@
       </template>
     </BaseModal>
 
-    <!-- ✅ 멤버십 변경 모달(UI까지) -->
     <BaseModal v-if="showMembershipModal" title="멤버십 변경" @close="showMembershipModal=false">
       <div class="modal-body">
-        <div class="form-row">
-          <label>변경 등급</label>
-          <select v-model="membershipChange.grade">
-            <option value="">선택</option>
-            <option value="BASIC">BASIC</option>
-            <option value="BRONZE">BRONZE</option>
-            <option value="SILVER">SILVER</option>
-            <option value="GOLD">GOLD</option>
-            <option value="PLATINUM">PLATINUM</option>
-            <option value="DIAMOND">DIAMOND</option>
-          </select>
-        </div>
+        <div class="change-grid">
+          <div class="field">
+            <label>고객명</label>
+            <input :value="detail.customerName || '-'" disabled />
+          </div>
 
-        <div class="form-row">
-          <label>직원 코드</label>
-          <input v-model="membershipChange.employeeCode" placeholder="예: 10001" />
+          <div class="field">
+            <label>변경자(직원코드)</label>
+            <input v-model="membershipChange.employeeCode" placeholder="예) 10001" />
+          </div>
+
+          <div class="field">
+            <label>변경 등급</label>
+            <select v-model="membershipChange.membershipGradeCode">
+              <option value="">선택</option>
+              <option v-for="g in membershipGradeOptions" :key="g.value" :value="g.value">
+                {{ g.label }}
+              </option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>변경 상태</label>
+            <select v-model="membershipChange.membershipStatus">
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>만료일</label>
+            <input type="date" v-model="membershipChange.expiredAt" />
+          </div>
+
+          <div class="field full">
+            <label>변경 사유</label>
+            <textarea
+                v-model="membershipChange.changeReason"
+                placeholder="예) CS보상 / VIP 고객 대상 기준 상향 / 등급 재산정"
+            />
+          </div>
         </div>
 
         <p class="hint">
-          ※ 실제 PATCH 호출은 백엔드 DTO 필드 확정 후 연결 필요 (현재 UI/입력/검증만 완료)
+          * 저장 시: 고객 멤버십 변경 + 이력 적재가 되도록 PATCH API에 연결됩니다.
         </p>
       </div>
 
       <template #footer>
         <BaseButton type="ghost" size="sm" @click="showMembershipModal=false">취소</BaseButton>
-        <BaseButton type="primary" size="sm" @click="submitMembershipChange">저장</BaseButton>
+        <BaseButton type="primary" size="sm" :disabled="savingMembership" @click="submitMembershipChange">저장</BaseButton>
       </template>
     </BaseModal>
 
-    <!-- ✅ 카드 설정 모달 -->
+    <!-- 카드 설정 -->
     <BaseModal v-if="showCardSettingModal" title="카드 설정" @close="showCardSettingModal=false">
       <div class="modal-body">
-        <div class="card-setting-list">
-          <div v-for="c in cardSettingsDraft" :key="c.id" class="card-setting-item">
-            <label class="chk">
-              <input type="checkbox" v-model="c.enabled" />
-              <span>{{ c.label }}</span>
-            </label>
+        <div class="cs-wrap">
+          <div class="cs-col">
+            <div class="cs-title">왼쪽 영역</div>
 
-            <div class="pos">
-              <BaseButton
-                  type="ghost"
-                  size="sm"
-                  :disabled="!c.enabled"
-                  :class="{ active: c.column === 'left' }"
-                  @click="c.column = 'left'"
+            <div class="cs-list">
+              <div
+                  v-for="(c, idx) in draftLeft"
+                  :key="c.id"
+                  class="cs-item"
+                  :class="{
+                  disabled: !c.enabled,
+                  dragging: dragState.id === c.id,
+                  over: isOver('left', idx),
+                }"
+                  draggable="true"
+                  @dragstart="onDragStart($event, c.id, 'left')"
+                  @dragenter.prevent="onDragEnter('left', idx)"
+                  @dragover.prevent="onDragOver('left', idx)"
+                  @dragleave="onDragLeave('left', idx)"
+                  @drop="onDropAt('left', idx)"
+                  @dragend="onDragEnd"
               >
-                왼쪽
-              </BaseButton>
-              <BaseButton
-                  type="ghost"
-                  size="sm"
-                  :disabled="!c.enabled"
-                  :class="{ active: c.column === 'right' }"
-                  @click="c.column = 'right'"
+                <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
+
+                <label class="chk">
+                  <input type="checkbox" v-model="c.enabled" @change="onToggleEnabled('left')" />
+                  <span>{{ c.label }}</span>
+                </label>
+
+                <div v-if="showIndicator('left', idx)" class="drop-indicator" />
+              </div>
+
+              <div
+                  class="cs-dropzone"
+                  :class="{ over: isOver('left', draftLeft.length) }"
+                  @dragenter.prevent="onDragEnter('left', draftLeft.length)"
+                  @dragover.prevent="onDragOver('left', draftLeft.length)"
+                  @dragleave="onDragLeave('left', draftLeft.length)"
+                  @drop="onDropAt('left', draftLeft.length)"
               >
-                오른쪽
-              </BaseButton>
+                여기로 드롭하면 맨 아래로 이동
+                <div v-if="showIndicator('left', draftLeft.length)" class="drop-indicator" />
+              </div>
+            </div>
+          </div>
+
+          <div class="cs-col">
+            <div class="cs-title">오른쪽 영역</div>
+
+            <div class="cs-list">
+              <div
+                  v-for="(c, idx) in draftRight"
+                  :key="c.id"
+                  class="cs-item"
+                  :class="{
+                  disabled: !c.enabled,
+                  dragging: dragState.id === c.id,
+                  over: isOver('right', idx),
+                }"
+                  draggable="true"
+                  @dragstart="onDragStart($event, c.id, 'right')"
+                  @dragenter.prevent="onDragEnter('right', idx)"
+                  @dragover.prevent="onDragOver('right', idx)"
+                  @dragleave="onDragLeave('right', idx)"
+                  @drop="onDropAt('right', idx)"
+                  @dragend="onDragEnd"
+              >
+                <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
+
+                <label class="chk">
+                  <input type="checkbox" v-model="c.enabled" @change="onToggleEnabled('right')" />
+                  <span>{{ c.label }}</span>
+                </label>
+
+                <div v-if="showIndicator('right', idx)" class="drop-indicator" />
+              </div>
+
+              <div
+                  class="cs-dropzone"
+                  :class="{ over: isOver('right', draftRight.length) }"
+                  @dragenter.prevent="onDragEnter('right', draftRight.length)"
+                  @dragover.prevent="onDragOver('right', draftRight.length)"
+                  @dragleave="onDragLeave('right', draftRight.length)"
+                  @drop="onDropAt('right', draftRight.length)"
+              >
+                여기로 드롭하면 맨 아래로 이동
+                <div v-if="showIndicator('right', draftRight.length)" class="drop-indicator" />
+              </div>
             </div>
           </div>
         </div>
@@ -325,7 +386,6 @@
       </template>
     </BaseModal>
 
-    <!-- 타임라인 전체보기 모달 -->
     <BaseModal v-if="showTimelineAll" title="타임라인 전체보기" @close="showTimelineAll=false">
       <div class="modal-body">
         <ul class="timeline">
@@ -345,7 +405,6 @@
       </template>
     </BaseModal>
 
-    <!-- 예약 row 모달(더미) -->
     <BaseModal v-if="showReservationModal" title="예약 상세" @close="closeReservationModal">
       <div class="modal-body" v-if="selectedReservation">
         <p><b>예약번호:</b> {{ selectedReservation.reservationNo }}</p>
@@ -356,7 +415,6 @@
       </div>
     </BaseModal>
 
-    <!-- VOC row 모달(더미) -->
     <BaseModal v-if="showVocModal" title="문의/클레임 상세" @close="closeVocModal">
       <div class="modal-body" v-if="selectedVoc">
         <p><b>문의번호:</b> {{ selectedVoc.vocNo }}</p>
@@ -365,6 +423,20 @@
         <p><b>일자:</b> {{ selectedVoc.date }}</p>
       </div>
     </BaseModal>
+
+    <MembershipHistoryModal
+        :open="showMembershipHistoryModal"
+        :customerCode="customerCode"
+        :membership="membership"
+        @close="showMembershipHistoryModal = false"
+    />
+
+    <LoyaltyHistoryModal
+        :open="showLoyaltyHistoryModal"
+        :customerCode="customerCode"
+        :loyalty="loyalty"
+        @close="showLoyaltyHistoryModal = false"
+    />
   </div>
 </template>
 
@@ -376,10 +448,19 @@ import BaseButton from "@/components/common/button/BaseButton.vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import TableWithPaging from "@/components/common/table/TableWithPaging.vue";
 
-import CustomerMemoView from "@/views/customer/CustomerMemoView.vue";
+import CustomerMemoView from "@/views/customer/view/CustomerMemoView.vue";
+import MembershipHistoryModal from "@/views/customer/modal/MembershipHistoryModal.vue";
+import LoyaltyHistoryModal from "@/views/customer/modal/LoyaltyHistoryModal.vue";
 
-import { useAuthStore } from "@/stores/authStore";
-import { getCustomerDetailApi, getCustomerSnapshotApi, getCustomerTimelineApi } from "@/api/customer/customerApi";
+import { useAuthStore } from "@/stores/authStore.js";
+import { getCustomerDetailApi, getCustomerSnapshotApi, getCustomerTimelineApi } from "@/api/customer/customerApi.js";
+import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
+import api from "@/api/axios.js";
+
+const patchMembershipManually = async (customerCode, payload) => {
+  const res = await api.patch(`/memberships/customers/${customerCode}/manual`, payload);
+  return res.data?.data;
+};
 
 const route = useRoute();
 const router = useRouter();
@@ -388,7 +469,6 @@ const authStore = useAuthStore();
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 const customerCode = computed(() => Number(route.params.id));
 
-/* API state */
 const detail = ref({
   customerCode: null,
   customerName: "",
@@ -414,7 +494,6 @@ const snapshot = ref({
 
 const timelineItems = ref([]);
 
-/* badge/chip */
 const badges = computed(() => {
   const arr = [];
   if (detail.value.membership?.gradeName) arr.push(detail.value.membership.gradeName);
@@ -431,7 +510,6 @@ const chips = computed(() => {
   return arr.length ? arr : ["-"];
 });
 
-/* ✅ 전화 포맷 */
 const formatPhone = (v) => {
   const digits = (v ?? "").toString().replace(/\D/g, "");
   if (!digits) return "-";
@@ -440,7 +518,6 @@ const formatPhone = (v) => {
   return v;
 };
 
-/* primary contact fallback */
 const primaryPhoneRaw = computed(() => {
   const p = detail.value.contacts?.find((c) => c.contactType === "PHONE" && c.isPrimary);
   return p?.contactValue || detail.value.primaryPhone || "";
@@ -452,7 +529,6 @@ const primaryEmail = computed(() => {
   return p?.contactValue || detail.value.primaryEmail || "-";
 });
 
-/* membership/loyalty safe */
 const membership = computed(() => {
   return (
       detail.value.membership || {
@@ -476,10 +552,8 @@ const loyalty = computed(() => {
   );
 });
 
-/* ✅ 최근 5건만 */
 const timelineTop5 = computed(() => (timelineItems.value ?? []).slice(0, 5));
 
-/* API loaders */
 const loadDetail = async () => {
   if (!hotelGroupCode.value || !customerCode.value) return;
   const res = await getCustomerDetailApi({
@@ -522,18 +596,15 @@ const loadAll = async () => {
 
 onMounted(loadAll);
 
-/* handlers */
 const goBack = () => router.push({ name: "CustomerList" });
 
 const showContactModal = ref(false);
 const openContactModal = () => (showContactModal.value = true);
 
-/* ✅ 메모 변경 시 타임라인 즉시 반영 */
 const onMemoChanged = async () => {
   await loadTimeline();
 };
 
-/* 예약/문의 더미 */
 const reservationColumns = [
   { key: "reservationNo", label: "예약번호", sortable: true, align: "center" },
   { key: "roomType", label: "객실유형", sortable: true, align: "center" },
@@ -594,41 +665,115 @@ const closeVocModal = () => {
   selectedVoc.value = null;
 };
 
-/* ✅ 상단 버튼 모달 */
 const showDetailModal = ref(false);
 const onDetailView = () => (showDetailModal.value = true);
 
+/* 멤버십 변경 */
 const showMembershipModal = ref(false);
-const membershipChange = ref({ grade: "", employeeCode: "" });
-const onMembershipChange = () => {
-  membershipChange.value = { grade: "", employeeCode: "" };
+const savingMembership = ref(false);
+
+const membershipGrades = ref([]);
+const membershipGradeOptions = computed(() => {
+  return membershipGrades.value
+      .filter((g) => g?.membershipGradeStatus !== "INACTIVE")
+      .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode }));
+});
+
+const loadMembershipGrades = async () => {
+  try {
+    const list = await getMembershipGradeList();
+    membershipGrades.value = Array.isArray(list) ? list : [];
+  } catch (e) {
+    membershipGrades.value = [];
+  }
+};
+
+const membershipChange = ref({
+  membershipGradeCode: null,
+  membershipStatus: "ACTIVE",
+  expiredAt: "",
+  changeReason: "",
+  employeeCode: null,
+});
+
+const onMembershipChange = async () => {
+  await loadMembershipGrades();
+
+  const currentExpiredYmd = toYmd(membership.value?.expiredAt) || "";
+  membershipChange.value = {
+    membershipGradeCode: null,
+    membershipStatus: membership.value?.membershipStatus || "ACTIVE",
+    expiredAt: currentExpiredYmd,
+    changeReason: "",
+    employeeCode: null,
+  };
+
   showMembershipModal.value = true;
 };
 
-const submitMembershipChange = () => {
-  // TODO: 백엔드 MembershipManualChangeRequest 필드에 맞춰 실제 PATCH 연결 필요
-  console.log("멤버십 변경 요청(임시):", membershipChange.value, "customerCode:", customerCode.value);
-  showMembershipModal.value = false;
+const submitMembershipChange = async () => {
+  if (savingMembership.value) return;
+
+  savingMembership.value = true;
+  try {
+    const payload = {
+      membershipGradeCode: Number(membershipChange.value.membershipGradeCode),
+      membershipStatus: membershipChange.value.membershipStatus,
+      expiredAt: membershipChange.value.expiredAt ? `${membershipChange.value.expiredAt}T00:00:00` : null,
+      changeReason: (membershipChange.value.changeReason || "").trim(),
+      employeeCode: Number(membershipChange.value.employeeCode),
+    };
+
+    await patchMembershipManually(customerCode.value, payload);
+
+    alert("멤버십 변경 완료");
+    showMembershipModal.value = false;
+
+    await loadDetail();
+    await loadTimeline();
+  } catch (e) {
+    alert("멤버십 변경 실패(형식/값 확인)");
+  } finally {
+    savingMembership.value = false;
+  }
 };
 
+/* 카드 설정 */
 const showCardSettingModal = ref(false);
-const onCardSetting = () => {
-  cardSettingsDraft.value = JSON.parse(JSON.stringify(cardSettings.value));
-  showCardSettingModal.value = true;
+
+const LS_KEY = "customer_detail_card_setting_v2";
+
+const defaultCardSetting = () => [
+  { id: "snapshot", label: "고객 스냅샷", enabled: true, column: "left", order: 1 },
+  { id: "timeline", label: "최근 타임라인", enabled: true, column: "left", order: 2 },
+  { id: "reservation", label: "예약/이용(최근 5건)", enabled: true, column: "left", order: 3 },
+  { id: "voc", label: "문의/클레임(최근 3건)", enabled: true, column: "left", order: 4 },
+
+  { id: "memo", label: "고객 메모", enabled: true, column: "right", order: 1 },
+  { id: "membership", label: "멤버십", enabled: true, column: "right", order: 2 },
+  { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 3 },
+];
+
+const normalizeCardSetting = (list) => {
+  const arr = Array.isArray(list) ? list : [];
+  const left = arr.filter((x) => x.column === "left");
+  const right = arr.filter((x) => x.column === "right");
+
+  const fix = (items) => {
+    const hasOrder = items.every((x) => typeof x.order === "number");
+    if (hasOrder) return items;
+
+    return items.map((x, idx) => ({
+      ...x,
+      order: typeof x.order === "number" ? x.order : idx + 1,
+    }));
+  };
+
+  const fixedLeft = fix(left);
+  const fixedRight = fix(right);
+
+  return [...fixedLeft, ...fixedRight];
 };
-
-/* ✅ 카드 설정 */
-const LS_KEY = "customer_detail_card_setting_v1";
-
-const defaultCardSetting = () => ([
-  { id: "snapshot", label: "고객 스냅샷", enabled: true, column: "left" },
-  { id: "timeline", label: "최근 타임라인", enabled: true, column: "left" },
-  { id: "reservation", label: "예약/이용(최근 5건)", enabled: true, column: "left" },
-  { id: "voc", label: "문의/클레임(최근 3건)", enabled: true, column: "left" },
-  { id: "memo", label: "고객 메모", enabled: true, column: "right" },
-  { id: "membership", label: "멤버십", enabled: true, column: "right" },
-  { id: "loyalty", label: "로열티", enabled: true, column: "right" },
-]);
 
 const cardSettings = ref(defaultCardSetting());
 
@@ -636,45 +781,201 @@ const loadCardSetting = () => {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return;
+
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length) cardSettings.value = parsed;
-  } catch (e) {
-    // ignore
-  }
+    if (Array.isArray(parsed) && parsed.length) {
+      cardSettings.value = normalizeCardSetting(parsed);
+    }
+  } catch (e) {}
 };
 loadCardSetting();
 
 const cardSettingsDraft = ref(JSON.parse(JSON.stringify(cardSettings.value)));
 
 const leftCards = computed(() =>
-    cardSettings.value.filter((c) => c.enabled && c.column === "left")
+    cardSettings.value
+        .filter((c) => c.enabled && c.column === "left")
+        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
 );
 
 const rightCards = computed(() =>
-    cardSettings.value.filter((c) => c.enabled && c.column === "right")
+    cardSettings.value
+        .filter((c) => c.enabled && c.column === "right")
+        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
 );
 
+// enabled 먼저, disabled 아래 (draft에서만)
+const draftLeft = computed(() =>
+    cardSettingsDraft.value
+        .filter((c) => c.column === "left")
+        .slice()
+        .sort((a, b) => {
+          if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+          return (a.order ?? 999) - (b.order ?? 999);
+        })
+);
+
+const draftRight = computed(() =>
+    cardSettingsDraft.value
+        .filter((c) => c.column === "right")
+        .slice()
+        .sort((a, b) => {
+          if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+          return (a.order ?? 999) - (b.order ?? 999);
+        })
+);
+
+const onCardSetting = () => {
+  cardSettingsDraft.value = JSON.parse(JSON.stringify(cardSettings.value));
+  // 열기 전에 한 번 정렬 규칙 적용
+  reflowColumn("left");
+  reflowColumn("right");
+  showCardSettingModal.value = true;
+};
+
 const saveCardSetting = () => {
-  cardSettings.value = JSON.parse(JSON.stringify(cardSettingsDraft.value));
+  cardSettings.value = normalizeCardSetting(JSON.parse(JSON.stringify(cardSettingsDraft.value)));
   localStorage.setItem(LS_KEY, JSON.stringify(cardSettings.value));
   showCardSettingModal.value = false;
 };
 
 const resetCardSetting = () => {
   cardSettingsDraft.value = defaultCardSetting();
+  reflowColumn("left");
+  reflowColumn("right");
 };
 
-/* 타임라인 전체보기 */
+// enabled/disabled 정렬 규칙(체크 해제는 아래로)
+const reflowColumn = (column) => {
+  const list = cardSettingsDraft.value
+      .filter((x) => x.column === column)
+      .slice()
+      .sort((a, b) => {
+        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+        return (a.order ?? 999) - (b.order ?? 999);
+      });
+
+  list.forEach((item, idx) => {
+    item.order = idx + 1;
+  });
+};
+
+const onToggleEnabled = (column) => {
+  reflowColumn(column);
+};
+
+// drag UX
+const dragState = ref({ id: null, column: null });
+const overState = ref({ column: null, index: null });
+
+const isOver = (column, index) => {
+  return dragState.value.id && overState.value.column === column && overState.value.index === index;
+};
+
+const showIndicator = (column, index) => {
+  if (!dragState.value.id) return false;
+  return isOver(column, index);
+};
+
+const createDragGhost = (e) => {
+  try {
+    const target = e.currentTarget;
+    if (!target) return;
+
+    const ghost = target.cloneNode(true);
+    ghost.classList.add("drag-ghost");
+    ghost.style.width = `${target.getBoundingClientRect().width}px`;
+    document.body.appendChild(ghost);
+
+    const rect = target.getBoundingClientRect();
+    const offsetX = Math.min(24, rect.width / 4);
+    const offsetY = Math.min(18, rect.height / 2);
+    e.dataTransfer.setDragImage(ghost, offsetX, offsetY);
+
+    setTimeout(() => {
+      if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+    }, 0);
+  } catch (_) {}
+};
+
+const onDragStart = (e, id, column) => {
+  dragState.value = { id, column };
+  overState.value = { column, index: null };
+
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", String(id));
+
+  // 유령 프리뷰 깔끔하게
+  createDragGhost(e);
+};
+
+const onDragEnter = (column, index) => {
+  if (!dragState.value.id || dragState.value.column !== column) return;
+  overState.value = { column, index };
+};
+
+const onDragOver = (column, index) => {
+  if (!dragState.value.id || dragState.value.column !== column) return;
+  overState.value = { column, index };
+};
+
+const onDragLeave = (column, index) => {
+  if (!dragState.value.id) return;
+  if (overState.value.column === column && overState.value.index === index) {
+    overState.value = { column: dragState.value.column, index: null };
+  }
+};
+
+const applyOrder = (orderedList) => {
+  orderedList.forEach((item, idx) => {
+    item.order = idx + 1;
+  });
+};
+
+const onDropAt = (column, targetIndex) => {
+  const { id: dragId, column: dragCol } = dragState.value;
+  if (!dragId || dragCol !== column) return;
+
+  const list = (column === "left" ? draftLeft.value : draftRight.value).slice();
+  const fromIndex = list.findIndex((x) => x.id === dragId);
+  if (fromIndex < 0) return;
+
+  const toIndex = Math.max(0, Math.min(targetIndex, list.length));
+  const [moved] = list.splice(fromIndex, 1);
+
+  // 같은 자리로 드롭해도 정렬 규칙은 유지
+  list.splice(toIndex, 0, moved);
+
+  applyOrder(list);
+
+  // 체크 해제는 아래로 자동 정렬
+  reflowColumn(column);
+
+  overState.value = { column, index: null };
+};
+
+const onDragEnd = () => {
+  dragState.value = { id: null, column: null };
+  overState.value = { column: null, index: null };
+};
+
 const showTimelineAll = ref(false);
 const openTimelineAllModal = () => (showTimelineAll.value = true);
 
-/* 기타 버튼(기존 유지) */
-const onReservationAll = () => console.log("예약 전체보기");
-const onVocAll = () => console.log("VOC 전체보기");
-const onMembershipHistory = () => console.log("멤버십 이력");
-const onLoyaltyHistory = () => console.log("로열티 이력");
+const showMembershipHistoryModal = ref(false);
+const showLoyaltyHistoryModal = ref(false);
 
-/* utils */
+const onMembershipHistory = () => {
+  showMembershipHistoryModal.value = true;
+};
+
+const onLoyaltyHistory = () => {
+  showLoyaltyHistoryModal.value = true;
+};
+
+const onReservationAll = () => {};
+const onVocAll = () => {};
+
 const formatDate = (v) => {
   if (!v) return "-";
   const d = new Date(v);
@@ -693,10 +994,23 @@ const formatMoney = (v) => {
   if (Number.isNaN(n)) return String(v);
   return `${n.toLocaleString()}원`;
 };
+
+const toYmd = (v) => {
+  if (!v) return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 </script>
 
 <style scoped>
 .customer-detail-page {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Pretendard Variable", Pretendard, "Noto Sans KR",
+  "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color: #111827;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -724,7 +1038,8 @@ const formatMoney = (v) => {
 
 .name {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: -0.2px;
 }
 
 .badges {
@@ -735,7 +1050,7 @@ const formatMoney = (v) => {
 
 .badge {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 4px 8px;
   border-radius: 999px;
   background: #f3f4f6;
@@ -746,7 +1061,7 @@ const formatMoney = (v) => {
   margin-top: 6px;
   color: #6b7280;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .chips {
@@ -758,7 +1073,7 @@ const formatMoney = (v) => {
 
 .chip {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 4px 8px;
   border-radius: 10px;
   background: #eef6ff;
@@ -780,12 +1095,12 @@ const formatMoney = (v) => {
 
 .k {
   color: #6b7280;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .v {
   color: #111827;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .v-inline {
@@ -808,7 +1123,7 @@ const formatMoney = (v) => {
   background: #fff !important;
   border: 1px solid #e5e7eb !important;
   color: #2563eb !important;
-  font-weight: 900 !important;
+  font-weight: 600 !important;
 }
 
 .outline-wrap :deep(button:hover) {
@@ -839,9 +1154,10 @@ const formatMoney = (v) => {
 }
 
 .card-title {
-  font-size: 13px;
-  font-weight: 900;
+  font-size: 14px;
+  font-weight: 700;
   margin-bottom: 10px;
+  letter-spacing: -0.2px;
 }
 
 .card-head {
@@ -867,12 +1183,12 @@ const formatMoney = (v) => {
 .k2 {
   font-size: 12px;
   color: #6b7280;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .v2 {
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 700;
   margin-top: 6px;
 }
 
@@ -902,13 +1218,13 @@ const formatMoney = (v) => {
 
 .tl-text {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .tl-sub {
   font-size: 12px;
   color: #6b7280;
-  font-weight: 700;
+  font-weight: 500;
   margin-top: 2px;
 }
 
@@ -920,26 +1236,26 @@ const formatMoney = (v) => {
   font-size: 13px;
 }
 
-/* 멤버십/로열티 */
+/* membership / loyalty */
 .kv2 {
   display: grid;
   grid-template-columns: 120px 1fr;
   gap: 8px 10px;
-  font-size: 12px;
+  font-size: 13px;
   align-items: center;
 }
 
 .k3 {
   color: #6b7280;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .v3 {
   color: #111827;
-  font-weight: 800;
+  font-weight: 600;
 }
 
-/* 상세보기 모달 */
+/* detail modal */
 .detail-box {
   border: 1px solid #eef2f7;
   border-radius: 12px;
@@ -948,86 +1264,197 @@ const formatMoney = (v) => {
 }
 
 .detail-title {
-  font-weight: 900;
+  font-weight: 700;
   margin-bottom: 8px;
+  font-size: 13px;
 }
 
 .detail-grid {
   display: grid;
   grid-template-columns: 120px 1fr;
   gap: 8px 10px;
-  font-size: 12px;
+  font-size: 13px;
   align-items: center;
 }
 
 .k4 {
   color: #6b7280;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .v4 {
   color: #111827;
-  font-weight: 800;
+  font-weight: 600;
 }
 
-/* 멤버십 변경 모달 */
-.form-row {
+/* membership change modal */
+.change-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 14px;
+}
+
+.field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 10px;
 }
 
-.form-row label {
+.field.full {
+  grid-column: 1 / -1;
+}
+
+.field label {
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   color: #374151;
 }
 
-.form-row input,
-.form-row select {
+.field input,
+.field select,
+.field textarea {
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 8px 10px;
-  font-weight: 700;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.field textarea {
+  min-height: 90px;
+  resize: vertical;
 }
 
 .hint {
-  margin-top: 6px;
+  margin-top: 10px;
   font-size: 12px;
   color: #6b7280;
 }
 
-/* 카드설정 */
-.card-setting-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* contact modal */
+.contact-row {
+  margin: 6px 0;
+  font-size: 13px;
+}
+.primary {
+  margin-left: 8px;
+  font-weight: 700;
+}
+.optin {
+  margin-left: 8px;
+  color: #6b7280;
 }
 
-.card-setting-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* card setting */
+.cs-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cs-col {
   border: 1px solid #eef2f7;
   border-radius: 12px;
   padding: 10px;
+  background: #fafbfc;
+}
+
+.cs-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.cs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease;
+}
+
+.cs-item.disabled {
+  opacity: 0.6;
+}
+
+.cs-item.dragging {
+  border-color: #bfdbfe;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  transform: scale(0.995);
+}
+
+.cs-item.over {
+  border-color: #93c5fd;
+  background: #f8fbff;
+}
+
+.drag-handle {
+  width: 18px;
+  text-align: center;
+  color: #9ca3af;
+  cursor: grab;
+  user-select: none;
+  font-weight: 700;
 }
 
 .chk {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 900;
+  font-weight: 600;
   color: #374151;
 }
 
-.pos {
-  display: flex;
-  gap: 8px;
+.cs-dropzone {
+  position: relative;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+  color: #9ca3af;
+  font-size: 12px;
+  text-align: center;
+  background: #fff;
 }
 
-.pos :deep(button.active) {
-  border: 2px solid #2563eb !important;
+.cs-dropzone.over {
+  border-color: #93c5fd;
+  background: #f8fbff;
+}
+
+/* drop indicator line */
+.drop-indicator {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -6px;
+  height: 2px;
+  border-radius: 2px;
+  background: #93c5fd;
+}
+
+
+/* ghost element for drag preview */
+:global(.drag-ghost) {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  pointer-events: none;
+  opacity: 0.92;
+  transform: scale(1.01);
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  background: #ffffff;
 }
 </style>
