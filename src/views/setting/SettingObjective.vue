@@ -20,7 +20,9 @@
           </select>
         </div>
 
-        <BaseButton class="btn" @click="exportExcel">양식다운로드</BaseButton>
+        <BaseButton class="btn" @click="exportExcel">
+          {{ isDownloading ? '다운로드 중...' : '양식다운로드' }}
+        </BaseButton>
         <BaseButton class="btn" @click="showImportModal = true">엑셀입력</BaseButton>
       </div>
 
@@ -91,6 +93,8 @@ const initTargetsForKpis = () => {
 
 const showImportModal = ref(false)
 let importFile = ref(null)
+
+const isDownloading = ref(false)
 
 // period format: use hyphen (YYYY-MM) to match backend validatePeriod
 const formattedPeriod = computed(() => {
@@ -187,9 +191,28 @@ const resetForm = () => {
   kpis.value.forEach(k => (targets[k.code] = ''))
 }
 
-const exportExcel = () => {
-  // TODO: call backend template download or generate client-side
-  alert('양식 다운로드를 실행합니다. (구현 필요)')
+const exportExcel = async () => {
+  try {
+    isDownloading.value = true
+    const blob = await targetApi.downloadExcelTemplate({
+      hotelGroupCode,
+      periodType: periodType.value,
+      period: formattedPeriod.value // YYYY or YYYY-MM
+    })
+    const url = window.URL.createObjectURL(new Blob([blob]))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `KPI_Template_${periodType.value}_${formattedPeriod.value}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error(err)
+    alert('양식 다운로드에 실패했습니다.')
+  } finally {
+    isDownloading.value = false
+  }
 }
 
 const onFileChange = (e) => {
@@ -218,6 +241,7 @@ onMounted(async () => {
   await loadKpiMeta()
   await loadTargets()
 })
+
 </script>
 
 <style scoped>

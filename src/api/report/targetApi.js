@@ -49,3 +49,12 @@ export async function listKpiCodes(){
   // unwrap ApiResponse wrapper used by backend:
   return res.data?.data ?? res.data ?? res
 }
+
+// 세팅 - 목표관리 엑셀 양식 다운받기
+export async function downloadExcelTemplate({ hotelGroupCode, periodType, period }) {
+  const res = await api.get('/setting/objective/template', {
+    params: { hotelGroupCode, periodType, period },
+    responseType: 'blob'
+  });
+  return res.data; // Blob
+}
