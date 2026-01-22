@@ -1,5 +1,7 @@
+<!-- src/views/customer/CustomerDetailView.vue -->
 <template>
   <div class="customer-detail-page">
+    <!-- HEADER -->
     <section class="card header-card">
       <div class="h-left">
         <div class="name-row">
@@ -52,8 +54,10 @@
     </section>
 
     <div class="grid">
+      <!-- LEFT -->
       <div class="col">
         <template v-for="card in leftCards" :key="card.id">
+          <!-- SNAPSHOT -->
           <section v-if="card.id === 'snapshot'" class="card">
             <div class="card-title">고객 스냅샷</div>
 
@@ -77,6 +81,7 @@
             </div>
           </section>
 
+          <!-- TIMELINE -->
           <section v-else-if="card.id === 'timeline'" class="card">
             <div class="card-head">
               <div class="card-title">최근 타임라인</div>
@@ -98,6 +103,7 @@
             </ul>
           </section>
 
+          <!-- RESERVATION -->
           <section v-else-if="card.id === 'reservation'" class="card">
             <div class="card-head">
               <div class="card-title">예약/이용 (최근 5건)</div>
@@ -106,7 +112,11 @@
               </div>
             </div>
 
+            <div v-if="reservationLoading" class="empty">예약 데이터를 불러오는 중...</div>
+            <div v-else-if="reservationRows.length === 0" class="empty">예약 데이터가 없습니다.</div>
+
             <TableWithPaging
+                v-else
                 :columns="reservationColumns"
                 :rows="reservationRows"
                 :pageSize="5"
@@ -114,19 +124,30 @@
             />
           </section>
 
+          <!-- INQUIRY -->
           <section v-else-if="card.id === 'voc'" class="card">
             <div class="card-head">
               <div class="card-title">문의/클레임 (최근 3건)</div>
               <div class="outline-wrap">
-                <BaseButton type="ghost" size="sm" @click="onVocAll">전체보기</BaseButton>
+                <BaseButton type="ghost" size="sm" @click="onInquiryAll">전체보기</BaseButton>
               </div>
             </div>
 
-            <TableWithPaging :columns="vocColumns" :rows="vocRows" :pageSize="5" @row-click="openVocModal" />
+            <div v-if="inquiryLoading" class="empty">문의 데이터를 불러오는 중...</div>
+            <div v-else-if="inquiryRows.length === 0" class="empty">문의 데이터가 없습니다.</div>
+
+            <TableWithPaging
+                v-else
+                :columns="inquiryColumns"
+                :rows="inquiryRows"
+                :pageSize="3"
+                @row-click="openInquiryModal"
+            />
           </section>
         </template>
       </div>
 
+      <!-- RIGHT -->
       <div class="col">
         <template v-for="card in rightCards" :key="card.id">
           <CustomerMemoView v-if="card.id === 'memo'" :customerCode="customerCode" @changed="onMemoChanged" />
@@ -167,6 +188,7 @@
       </div>
     </div>
 
+    <!-- CONTACT MODAL -->
     <BaseModal v-if="showContactModal" title="연락처 전체보기" @close="showContactModal = false">
       <div class="modal-body">
         <div v-if="(detail.contacts?.length || 0) === 0">연락처 데이터가 없습니다.</div>
@@ -186,6 +208,7 @@
       </template>
     </BaseModal>
 
+    <!-- DETAIL MODAL -->
     <BaseModal v-if="showDetailModal" title="고객 상세보기" @close="showDetailModal=false">
       <div class="modal-body">
         <div class="detail-box">
@@ -228,6 +251,7 @@
       </template>
     </BaseModal>
 
+    <!-- MEMBERSHIP CHANGE MODAL -->
     <BaseModal v-if="showMembershipModal" title="멤버십 변경" @close="showMembershipModal=false">
       <div class="modal-body">
         <div class="change-grid">
@@ -284,7 +308,7 @@
       </template>
     </BaseModal>
 
-    <!-- 카드 설정 -->
+    <!-- CARD SETTING MODAL -->
     <BaseModal v-if="showCardSettingModal" title="카드 설정" @close="showCardSettingModal=false">
       <div class="modal-body">
         <div class="cs-wrap">
@@ -386,42 +410,116 @@
       </template>
     </BaseModal>
 
-    <BaseModal v-if="showTimelineAll" title="타임라인 전체보기" @close="showTimelineAll=false">
+    <!-- ✅ RESERVATION ALL MODAL (스크린샷 스타일) -->
+    <BaseModal v-if="showReservationAllModal" title="예약 / 이용 전체" @close="closeReservationAllModal">
       <div class="modal-body">
-        <ul class="timeline">
-          <li v-for="(t, idx) in timelineItems" :key="idx" class="tl-item">
-            <div class="dot" />
-            <div class="tl-body">
-              <div class="tl-text">{{ t.text }}</div>
-              <div class="tl-sub">{{ t.at }} · {{ t.type }}</div>
-            </div>
-          </li>
+        <div class="range-bar">
+          <div class="range-left">
+            <button class="pill" :class="{ active: reservationRange.months === 1 }" @click="setReservationMonths(1)">1개월</button>
+            <button class="pill" :class="{ active: reservationRange.months === 3 }" @click="setReservationMonths(3)">3개월</button>
+            <button class="pill" :class="{ active: reservationRange.months === 6 }" @click="setReservationMonths(6)">6개월</button>
+            <button class="pill" :class="{ active: reservationRange.months === 12 }" @click="setReservationMonths(12)">12개월</button>
+          </div>
 
-          <li v-if="timelineItems.length === 0" class="empty">타임라인 데이터가 없습니다.</li>
-        </ul>
+          <div class="range-right">
+            <input class="date" type="date" v-model="reservationRange.from" />
+            <span class="sep">~</span>
+            <input class="date" type="date" v-model="reservationRange.to" />
+            <BaseButton type="ghost" size="sm" @click="resetReservationRange">초기화</BaseButton>
+            <BaseButton type="primary" size="sm" @click="applyReservationRange">적용</BaseButton>
+          </div>
+        </div>
+
+        <div v-if="reservationAllLoading" class="empty">불러오는 중...</div>
+        <div v-else-if="reservationAllRows.length === 0" class="empty">예약 데이터가 없습니다.</div>
+
+        <TableWithPaging
+            v-else
+            :columns="reservationColumns"
+            :rows="reservationAllRows"
+            :pageSize="20"
+        />
       </div>
-      <template #footer>
-        <BaseButton type="ghost" size="sm" @click="showTimelineAll=false">닫기</BaseButton>
-      </template>
     </BaseModal>
 
+    <!-- ✅ INQUIRY ALL MODAL (스크린샷 스타일) -->
+    <BaseModal v-if="showInquiryAllModal" title="문의 / 클레임 전체" @close="closeInquiryAllModal">
+      <div class="modal-body">
+        <div class="range-bar">
+          <div class="range-left">
+            <button class="pill" :class="{ active: inquiryRange.months === 1 }" @click="setInquiryMonths(1)">1개월</button>
+            <button class="pill" :class="{ active: inquiryRange.months === 3 }" @click="setInquiryMonths(3)">3개월</button>
+            <button class="pill" :class="{ active: inquiryRange.months === 6 }" @click="setInquiryMonths(6)">6개월</button>
+            <button class="pill" :class="{ active: inquiryRange.months === 12 }" @click="setInquiryMonths(12)">12개월</button>
+          </div>
+
+          <div class="range-right">
+            <input class="date" type="date" v-model="inquiryRange.from" />
+            <span class="sep">~</span>
+            <input class="date" type="date" v-model="inquiryRange.to" />
+            <BaseButton type="ghost" size="sm" @click="resetInquiryRange">초기화</BaseButton>
+            <BaseButton type="primary" size="sm" @click="applyInquiryRange">적용</BaseButton>
+          </div>
+        </div>
+
+        <div v-if="inquiryAllLoading" class="empty">불러오는 중...</div>
+        <div v-else-if="inquiryAllRows.length === 0" class="empty">문의 데이터가 없습니다.</div>
+
+        <TableWithPaging
+            v-else
+            :columns="inquiryColumns"
+            :rows="inquiryAllRows"
+            :pageSize="20"
+        />
+      </div>
+    </BaseModal>
+
+    <TimelineAllModal
+        :open="showTimelineAllModal"
+        :items="timelineItems"
+        @close="closeTimelineAllModal"
+    />
+
+
+    <!-- RESERVATION DETAIL MODAL -->
     <BaseModal v-if="showReservationModal" title="예약 상세" @close="closeReservationModal">
-      <div class="modal-body" v-if="selectedReservation">
-        <p><b>예약번호:</b> {{ selectedReservation.reservationNo }}</p>
-        <p><b>객실유형:</b> {{ selectedReservation.roomType }}</p>
-        <p><b>투숙기간:</b> {{ selectedReservation.checkin }} ~ {{ selectedReservation.checkout }}</p>
-        <p><b>예약상태:</b> {{ selectedReservation.status }}</p>
-        <p><b>채널:</b> {{ selectedReservation.channel }}</p>
+      <div class="modal-body" v-if="selectedReservationDetail">
+        <p><b>예약번호:</b> {{ selectedReservationDetail.reservationCode }}</p>
+        <p><b>예약상태:</b> {{ selectedReservationDetail.reservationStatus }}</p>
+        <p><b>채널:</b> {{ selectedReservationDetail.reservationChannel }}</p>
+        <p><b>투숙기간:</b> {{ selectedReservationDetail.checkinDate }} ~ {{ selectedReservationDetail.checkoutDate }}</p>
+        <p><b>객실:</b> {{ selectedReservationDetail.roomLabel }}</p>
+        <p><b>인원:</b> {{ selectedReservationDetail.guestCount }} ({{ selectedReservationDetail.guestType }})</p>
+        <p><b>총금액:</b> {{ selectedReservationDetail.totalPrice }}</p>
       </div>
+      <div class="modal-body" v-else>불러오는 중...</div>
     </BaseModal>
 
-    <BaseModal v-if="showVocModal" title="문의/클레임 상세" @close="closeVocModal">
-      <div class="modal-body" v-if="selectedVoc">
-        <p><b>문의번호:</b> {{ selectedVoc.vocNo }}</p>
-        <p><b>제목:</b> {{ selectedVoc.title }}</p>
-        <p><b>상태:</b> {{ selectedVoc.status }}</p>
-        <p><b>일자:</b> {{ selectedVoc.date }}</p>
+    <!-- INQUIRY DETAIL MODAL -->
+    <BaseModal v-if="showInquiryModal" title="문의/클레임 상세" @close="closeInquiryModal">
+      <div class="modal-body" v-if="selectedInquiryDetail">
+        <p><b>문의번호:</b> {{ selectedInquiryDetail.inquiryCode }}</p>
+        <p><b>상태:</b> {{ selectedInquiryDetail.inquiryStatus }}</p>
+        <p><b>카테고리:</b> {{ selectedInquiryDetail.inquiryCategoryName }}</p>
+        <p><b>제목:</b> {{ selectedInquiryDetail.inquiryTitle }}</p>
+        <p><b>접수일:</b> {{ selectedInquiryDetail.createdAt }}</p>
+        <p><b>수정일:</b> {{ selectedInquiryDetail.updatedAt }}</p>
+
+        <div class="detail-box" style="margin-top: 10px;">
+          <div class="detail-title">문의 내용</div>
+          <div style="white-space: pre-wrap; font-size: 13px;">{{ selectedInquiryDetail.inquiryContent }}</div>
+        </div>
+
+        <div class="detail-box" v-if="selectedInquiryDetail.answerContent">
+          <div class="detail-title">답변</div>
+          <div style="white-space: pre-wrap; font-size: 13px;">{{ selectedInquiryDetail.answerContent }}</div>
+        </div>
+
+        <p v-if="selectedInquiryDetail.linkedIncidentCode">
+          <b>연결 사건코드:</b> {{ selectedInquiryDetail.linkedIncidentCode }}
+        </p>
       </div>
+      <div class="modal-body" v-else>불러오는 중...</div>
     </BaseModal>
 
     <MembershipHistoryModal
@@ -451,17 +549,44 @@ import TableWithPaging from "@/components/common/table/TableWithPaging.vue";
 import CustomerMemoView from "@/views/customer/view/CustomerMemoView.vue";
 import MembershipHistoryModal from "@/views/customer/modal/MembershipHistoryModal.vue";
 import LoyaltyHistoryModal from "@/views/customer/modal/LoyaltyHistoryModal.vue";
+import TimelineAllModal from "@/views/customer/modal/TimelineAllModal.vue";
 
 import { useAuthStore } from "@/stores/authStore.js";
 import { getCustomerDetailApi, getCustomerSnapshotApi, getCustomerTimelineApi } from "@/api/customer/customerApi.js";
 import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
 import api from "@/api/axios.js";
 
+/* =========================
+   API
+   ========================= */
 const patchMembershipManually = async (customerCode, payload) => {
   const res = await api.patch(`/memberships/customers/${customerCode}/manual`, payload);
   return res.data?.data;
 };
 
+const getReservationsByCustomerApi = async ({ customerCode, size = 5, offset = 0 }) => {
+  const res = await api.get("/reservations", { params: { customerCode, size, offset } });
+  return res.data?.data;
+};
+
+const getReservationDetailApi = async (reservationCode) => {
+  const res = await api.get(`/reservations/detail/${reservationCode}`);
+  return res.data?.data;
+};
+
+const getInquiryListApi = async (params) => {
+  const res = await api.get("/inquiries", { params });
+  return res.data?.data;
+};
+
+const getInquiryDetailApi = async (inquiryCode) => {
+  const res = await api.get(`/inquiries/${inquiryCode}`);
+  return res.data?.data;
+};
+
+/* =========================
+   router/store
+   ========================= */
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
@@ -469,6 +594,9 @@ const authStore = useAuthStore();
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 const customerCode = computed(() => Number(route.params.id));
 
+/* =========================
+   state
+   ========================= */
 const detail = ref({
   customerCode: null,
   customerName: "",
@@ -492,8 +620,12 @@ const snapshot = ref({
   unresolvedInquiryCount: 0,
 });
 
+// ✅ timeline: occurredAt 원본도 보관(기간 필터용)
 const timelineItems = ref([]);
 
+/* =========================
+   computed UI
+   ========================= */
 const badges = computed(() => {
   const arr = [];
   if (detail.value.membership?.gradeName) arr.push(detail.value.membership.gradeName);
@@ -554,6 +686,9 @@ const loyalty = computed(() => {
 
 const timelineTop5 = computed(() => (timelineItems.value ?? []).slice(0, 5));
 
+/* =========================
+   loaders
+   ========================= */
 const loadDetail = async () => {
   if (!hotelGroupCode.value || !customerCode.value) return;
   const res = await getCustomerDetailApi({
@@ -583,6 +718,7 @@ const loadTimeline = async () => {
   const data = res.data?.data;
   const items = data?.items ?? [];
   timelineItems.value = items.map((it) => ({
+    occurredAtRaw: it.occurredAt, // ✅ 기간필터용
     at: formatDate(it.occurredAt),
     type: it.eventType || "-",
     text: `${it.title || "-"} · ${it.summary || ""}`.trim(),
@@ -590,12 +726,156 @@ const loadTimeline = async () => {
   }));
 };
 
-const loadAll = async () => {
-  await Promise.all([loadDetail(), loadSnapshot(), loadTimeline()]);
+/* =========================
+   ✅ reservations (API)
+   ========================= */
+const reservationColumns = [
+  { key: "reservationNo", label: "예약번호", sortable: true, align: "center" },
+  { key: "roomType", label: "객실유형", sortable: false, align: "center" },
+  { key: "checkin", label: "투숙예정일", sortable: true, align: "center" },
+  { key: "checkout", label: "투숙종료일", sortable: true, align: "center" },
+  { key: "status", label: "예약상태", sortable: true, align: "center" },
+  { key: "channel", label: "예약채널", sortable: true, align: "center" },
+];
+
+const reservationLoading = ref(false);
+const reservationRows = ref([]);
+
+const formatYmdSlash = (v) => {
+  if (!v) return "-";
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s.replaceAll("-", "/");
+
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return s;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
 };
 
+const loadReservationsTop5 = async () => {
+  if (!customerCode.value) return;
+
+  reservationLoading.value = true;
+  try {
+    const pageData = await getReservationsByCustomerApi({
+      customerCode: customerCode.value,
+      size: 5,
+      offset: 0,
+    });
+
+    const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
+    if (!items.length) {
+      reservationRows.value = [];
+      return;
+    }
+
+    const codes = items
+        .map((r) => Number(r.reservationCode))
+        .filter((v) => Number.isFinite(v));
+
+    const detailResults = await Promise.all(
+        codes.map(async (code) => {
+          try {
+            const d = await getReservationDetailApi(code);
+            const room = d?.roomInfo ?? d?.room ?? {};
+            return { code, roomTypeName: room?.roomTypeName ?? null };
+          } catch (_) {
+            return { code, roomTypeName: null };
+          }
+        })
+    );
+
+    const roomTypeMap = new Map(detailResults.map((x) => [x.code, x.roomTypeName]));
+
+    reservationRows.value = items.map((r) => {
+      const code = Number(r.reservationCode);
+      const roomTypeName = roomTypeMap.get(code) || "-";
+
+      return {
+        id: r.reservationCode,
+        reservationNo: String(r.reservationCode ?? "-"),
+        roomType: roomTypeName,
+        checkin: formatYmdSlash(r.checkinDate),
+        checkout: formatYmdSlash(r.checkoutDate),
+        status: r.reservationStatus ?? "-",
+        channel: r.reservationChannel ?? "-",
+        _raw: r,
+      };
+    });
+  } catch (e) {
+    reservationRows.value = [];
+  } finally {
+    reservationLoading.value = false;
+  }
+};
+
+/* =========================
+   ✅ inquiries (API)
+   ========================= */
+const inquiryColumns = [
+  { key: "inquiryNo", label: "문의 번호", sortable: true, align: "center" },
+  { key: "title", label: "제목", sortable: false },
+  { key: "status", label: "상태", sortable: true, align: "center" },
+  { key: "date", label: "일자", sortable: true, align: "center" },
+];
+
+const inquiryLoading = ref(false);
+const inquiryRows = ref([]);
+
+const mapInquiryStatusLabel = (s) => {
+  if (!s) return "-";
+  if (s === "IN_PROGRESS") return "InProgress";
+  if (s === "ANSWERED") return "Answered";
+  return s;
+};
+
+// ✅ 메인카드: 최근 3건
+const loadInquiriesTop3 = async () => {
+  if (!customerCode.value) return;
+
+  inquiryLoading.value = true;
+  try {
+    const pageData = await getInquiryListApi({
+      size: 50,
+      offset: 0,
+      sortBy: "created_at",
+      direction: "DESC",
+      customerCode: customerCode.value, // 서버가 무시해도 OK(프론트에서 필터)
+    });
+
+    const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
+    const filtered = items
+        .filter((x) => Number(x?.customerCode) === Number(customerCode.value))
+        .slice(0, 3);
+
+    inquiryRows.value = filtered.map((x) => ({
+      id: x.inquiryCode,
+      inquiryNo: String(x.inquiryCode ?? "-"),
+      title: x.inquiryTitle ?? "-",
+      status: mapInquiryStatusLabel(x.inquiryStatus),
+      date: formatYmdSlash(x.createdAt),
+      _raw: x,
+    }));
+  } catch (e) {
+    inquiryRows.value = [];
+  } finally {
+    inquiryLoading.value = false;
+  }
+};
+
+/* =========================
+   mount
+   ========================= */
+const loadAll = async () => {
+  await Promise.all([loadDetail(), loadSnapshot(), loadTimeline(), loadReservationsTop5(), loadInquiriesTop3()]);
+};
 onMounted(loadAll);
 
+/* =========================
+   header actions
+   ========================= */
 const goBack = () => router.push({ name: "CustomerList" });
 
 const showContactModal = ref(false);
@@ -605,70 +885,110 @@ const onMemoChanged = async () => {
   await loadTimeline();
 };
 
-const reservationColumns = [
-  { key: "reservationNo", label: "예약번호", sortable: true, align: "center" },
-  { key: "roomType", label: "객실유형", sortable: true, align: "center" },
-  { key: "checkin", label: "투숙예정일", sortable: true, align: "center" },
-  { key: "checkout", label: "투숙종료일", sortable: true, align: "center" },
-  { key: "status", label: "예약상태", sortable: true, align: "center" },
-  { key: "channel", label: "예약채널", sortable: true, align: "center" },
-];
-
-const reservationRows = ref(
-    Array.from({ length: 7 }).map((_, i) => ({
-      id: i + 1,
-      reservationNo: String(1000 + i),
-      roomType: i % 2 ? "스위트" : "디럭스",
-      checkin: "2025/12/27",
-      checkout: "2025/12/28",
-      status: ["RESERVED", "CHECKIN", "CHECKOUT"][i % 3],
-      channel: ["WEB", "OFFLINE", "OTA"][i % 3],
-    }))
-);
-
-const vocColumns = [
-  { key: "vocNo", label: "문의 번호", sortable: true, align: "center" },
-  { key: "title", label: "제목", sortable: false },
-  { key: "status", label: "상태", sortable: true, align: "center" },
-  { key: "date", label: "일자", sortable: true, align: "center" },
-];
-
-const vocRows = ref(
-    Array.from({ length: 3 }).map((_, i) => ({
-      id: i + 1,
-      vocNo: String(i + 1),
-      title: ["소음 관련 문의", "객실 청결 문의", "체크인 시간 문의"][i % 3],
-      status: ["Open", "InProgress", "Closed"][i % 3],
-      date: `2025/12/${String(28 - i).padStart(2, "0")}`,
-    }))
-);
-
+/* =========================
+   reservation detail modal
+   ========================= */
 const showReservationModal = ref(false);
-const selectedReservation = ref(null);
-const openReservationModal = (row) => {
-  selectedReservation.value = row;
+const selectedReservationDetail = ref(null);
+
+const openReservationModal = async (row) => {
   showReservationModal.value = true;
+  selectedReservationDetail.value = null;
+
+  try {
+    const reservationCode = Number(row?.id ?? row?.reservationNo);
+    const detailRes = await getReservationDetailApi(reservationCode);
+
+    const info = detailRes?.reservationInfo ?? detailRes?.reservation ?? detailRes?.info ?? {};
+    const room = detailRes?.roomInfo ?? detailRes?.room ?? {};
+
+    selectedReservationDetail.value = {
+      reservationCode: info.reservationCode ?? row?.reservationNo ?? "-",
+      reservationStatus: info.reservationStatus ?? row?.status ?? "-",
+      reservationChannel: info.reservationChannel ?? row?.channel ?? "-",
+      checkinDate: formatYmdSlash(info.checkinDate ?? row?.checkin),
+      checkoutDate: formatYmdSlash(info.checkoutDate ?? row?.checkout),
+      guestCount: info.guestCount ?? "-",
+      guestType: info.guestType ?? "-",
+      totalPrice: info.totalPrice !== undefined ? formatMoney(info.totalPrice) : "-",
+      roomLabel: room.roomTypeName
+          ? `${room.roomTypeName}${room.roomNumber ? ` (${room.roomNumber})` : ""}`
+          : row?.roomType ?? "-",
+    };
+  } catch (e) {
+    selectedReservationDetail.value = {
+      reservationCode: row?.reservationNo ?? "-",
+      reservationStatus: row?.status ?? "-",
+      reservationChannel: row?.channel ?? "-",
+      checkinDate: row?.checkin ?? "-",
+      checkoutDate: row?.checkout ?? "-",
+      guestCount: "-",
+      guestType: "-",
+      totalPrice: "-",
+      roomLabel: row?.roomType ?? "-",
+    };
+  }
 };
+
 const closeReservationModal = () => {
   showReservationModal.value = false;
-  selectedReservation.value = null;
+  selectedReservationDetail.value = null;
 };
 
-const showVocModal = ref(false);
-const selectedVoc = ref(null);
-const openVocModal = (row) => {
-  selectedVoc.value = row;
-  showVocModal.value = true;
-};
-const closeVocModal = () => {
-  showVocModal.value = false;
-  selectedVoc.value = null;
+/* =========================
+   inquiry detail modal
+   ========================= */
+const showInquiryModal = ref(false);
+const selectedInquiryDetail = ref(null);
+
+const openInquiryModal = async (row) => {
+  showInquiryModal.value = true;
+  selectedInquiryDetail.value = null;
+
+  try {
+    const inquiryCode = Number(row?.id ?? row?.inquiryNo);
+    const d = await getInquiryDetailApi(inquiryCode);
+
+    selectedInquiryDetail.value = {
+      inquiryCode: d?.inquiryCode ?? row?.inquiryNo ?? "-",
+      inquiryStatus: mapInquiryStatusLabel(d?.inquiryStatus ?? row?.status),
+      inquiryTitle: d?.inquiryTitle ?? row?.title ?? "-",
+      inquiryContent: d?.inquiryContent ?? "-",
+      answerContent: d?.answerContent ?? "",
+      inquiryCategoryName: d?.inquiryCategoryName ?? "-",
+      createdAt: formatDate(d?.createdAt),
+      updatedAt: formatDate(d?.updatedAt),
+      linkedIncidentCode: d?.linkedIncidentCode ?? null,
+    };
+  } catch (e) {
+    selectedInquiryDetail.value = {
+      inquiryCode: row?.inquiryNo ?? "-",
+      inquiryStatus: row?.status ?? "-",
+      inquiryTitle: row?.title ?? "-",
+      inquiryContent: "-",
+      answerContent: "",
+      inquiryCategoryName: "-",
+      createdAt: "-",
+      updatedAt: "-",
+      linkedIncidentCode: null,
+    };
+  }
 };
 
+const closeInquiryModal = () => {
+  showInquiryModal.value = false;
+  selectedInquiryDetail.value = null;
+};
+
+/* =========================
+   detail modal
+   ========================= */
 const showDetailModal = ref(false);
 const onDetailView = () => (showDetailModal.value = true);
 
-/* 멤버십 변경 */
+/* =========================
+   membership change
+   ========================= */
 const showMembershipModal = ref(false);
 const savingMembership = ref(false);
 
@@ -738,9 +1058,10 @@ const submitMembershipChange = async () => {
   }
 };
 
-/* 카드 설정 */
+/* =========================
+   card setting
+   ========================= */
 const showCardSettingModal = ref(false);
-
 const LS_KEY = "customer_detail_card_setting_v2";
 
 const defaultCardSetting = () => [
@@ -748,7 +1069,6 @@ const defaultCardSetting = () => [
   { id: "timeline", label: "최근 타임라인", enabled: true, column: "left", order: 2 },
   { id: "reservation", label: "예약/이용(최근 5건)", enabled: true, column: "left", order: 3 },
   { id: "voc", label: "문의/클레임(최근 3건)", enabled: true, column: "left", order: 4 },
-
   { id: "memo", label: "고객 메모", enabled: true, column: "right", order: 1 },
   { id: "membership", label: "멤버십", enabled: true, column: "right", order: 2 },
   { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 3 },
@@ -769,10 +1089,7 @@ const normalizeCardSetting = (list) => {
     }));
   };
 
-  const fixedLeft = fix(left);
-  const fixedRight = fix(right);
-
-  return [...fixedLeft, ...fixedRight];
+  return [...fix(left), ...fix(right)];
 };
 
 const cardSettings = ref(defaultCardSetting());
@@ -781,7 +1098,6 @@ const loadCardSetting = () => {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return;
-
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length) {
       cardSettings.value = normalizeCardSetting(parsed);
@@ -804,7 +1120,6 @@ const rightCards = computed(() =>
         .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
 );
 
-// enabled 먼저, disabled 아래 (draft에서만)
 const draftLeft = computed(() =>
     cardSettingsDraft.value
         .filter((c) => c.column === "left")
@@ -827,7 +1142,6 @@ const draftRight = computed(() =>
 
 const onCardSetting = () => {
   cardSettingsDraft.value = JSON.parse(JSON.stringify(cardSettings.value));
-  // 열기 전에 한 번 정렬 규칙 적용
   reflowColumn("left");
   reflowColumn("right");
   showCardSettingModal.value = true;
@@ -845,7 +1159,6 @@ const resetCardSetting = () => {
   reflowColumn("right");
 };
 
-// enabled/disabled 정렬 규칙(체크 해제는 아래로)
 const reflowColumn = (column) => {
   const list = cardSettingsDraft.value
       .filter((x) => x.column === column)
@@ -864,7 +1177,9 @@ const onToggleEnabled = (column) => {
   reflowColumn(column);
 };
 
-// drag UX
+/* =========================
+   drag UX
+   ========================= */
 const dragState = ref({ id: null, column: null });
 const overState = ref({ column: null, index: null });
 
@@ -904,8 +1219,6 @@ const onDragStart = (e, id, column) => {
 
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", String(id));
-
-  // 유령 프리뷰 깔끔하게
   createDragGhost(e);
 };
 
@@ -942,13 +1255,9 @@ const onDropAt = (column, targetIndex) => {
 
   const toIndex = Math.max(0, Math.min(targetIndex, list.length));
   const [moved] = list.splice(fromIndex, 1);
-
-  // 같은 자리로 드롭해도 정렬 규칙은 유지
   list.splice(toIndex, 0, moved);
 
   applyOrder(list);
-
-  // 체크 해제는 아래로 자동 정렬
   reflowColumn(column);
 
   overState.value = { column, index: null };
@@ -959,23 +1268,294 @@ const onDragEnd = () => {
   overState.value = { column: null, index: null };
 };
 
-const showTimelineAll = ref(false);
-const openTimelineAllModal = () => (showTimelineAll.value = true);
-
+/* =========================
+   membership/loyalty history
+   ========================= */
 const showMembershipHistoryModal = ref(false);
 const showLoyaltyHistoryModal = ref(false);
+const onMembershipHistory = () => (showMembershipHistoryModal.value = true);
+const onLoyaltyHistory = () => (showLoyaltyHistoryModal.value = true);
 
-const onMembershipHistory = () => {
-  showMembershipHistoryModal.value = true;
+/* =========================
+   ✅ 전체보기 모달들 (Reservation/Inquiry/Timeline)
+   ========================= */
+// 공통: months -> from/to 세팅
+const todayYmd = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
 
-const onLoyaltyHistory = () => {
-  showLoyaltyHistoryModal.value = true;
+const addMonthsFromTodayYmd = (monthsAgo) => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - monthsAgo);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
 
-const onReservationAll = () => {};
-const onVocAll = () => {};
+const parseYmdDate = (ymd) => {
+  if (!ymd) return null;
+  const d = new Date(`${ymd}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+};
 
+const inRange = (dateValue, fromYmd, toYmd) => {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return false;
+
+  const from = parseYmdDate(fromYmd);
+  const to = parseYmdDate(toYmd);
+  if (!from || !to) return true;
+
+  const end = new Date(to);
+  end.setDate(end.getDate() + 1); // to inclusive
+  return d >= from && d < end;
+};
+
+/** -------------------------
+ * Reservation All
+ * ------------------------- */
+const showReservationAllModal = ref(false);
+const reservationAllLoading = ref(false);
+const reservationAllRaw = ref([]);
+const reservationAllRows = ref([]);
+
+const reservationRange = ref({
+  months: 3,
+  from: addMonthsFromTodayYmd(3),
+  to: todayYmd(),
+});
+
+const loadReservationsAllRaw = async () => {
+  if (!customerCode.value) return;
+  reservationAllLoading.value = true;
+  try {
+    const pageData = await getReservationsByCustomerApi({
+      customerCode: customerCode.value,
+      size: 200,
+      offset: 0,
+    });
+    const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
+    reservationAllRaw.value = Array.isArray(items) ? items : [];
+  } catch (e) {
+    reservationAllRaw.value = [];
+  } finally {
+    reservationAllLoading.value = false;
+  }
+};
+
+const buildReservationAllRows = async () => {
+  // 기간 필터: checkinDate 기준
+  const filtered = (reservationAllRaw.value ?? []).filter((r) => {
+    const checkin = r?.checkinDate ?? r?.checkin ?? r?.checkin_at;
+    if (!checkin) return true;
+    return inRange(checkin, reservationRange.value.from, reservationRange.value.to);
+  });
+
+  // roomTypeName 맵핑(detail API 병렬)
+  const codes = filtered
+      .map((r) => Number(r.reservationCode))
+      .filter((v) => Number.isFinite(v));
+
+  const detailResults = await Promise.all(
+      codes.map(async (code) => {
+        try {
+          const d = await getReservationDetailApi(code);
+          const room = d?.roomInfo ?? d?.room ?? {};
+          return { code, roomTypeName: room?.roomTypeName ?? null };
+        } catch (_) {
+          return { code, roomTypeName: null };
+        }
+      })
+  );
+
+  const roomTypeMap = new Map(detailResults.map((x) => [x.code, x.roomTypeName]));
+
+  reservationAllRows.value = filtered.map((r) => {
+    const code = Number(r.reservationCode);
+    const roomTypeName = roomTypeMap.get(code) || "-";
+    return {
+      id: r.reservationCode,
+      reservationNo: String(r.reservationCode ?? "-"),
+      roomType: roomTypeName,
+      checkin: formatYmdSlash(r.checkinDate),
+      checkout: formatYmdSlash(r.checkoutDate),
+      status: r.reservationStatus ?? "-",
+      channel: r.reservationChannel ?? "-",
+      _raw: r,
+    };
+  });
+};
+
+const setReservationMonths = (m) => {
+  reservationRange.value.months = m;
+  reservationRange.value.from = addMonthsFromTodayYmd(m);
+  reservationRange.value.to = todayYmd();
+};
+
+const resetReservationRange = () => {
+  setReservationMonths(3);
+};
+
+const applyReservationRange = async () => {
+  await buildReservationAllRows();
+};
+
+const onReservationAll = async () => {
+  showReservationAllModal.value = true;
+  setReservationMonths(reservationRange.value.months || 3);
+  await loadReservationsAllRaw();
+  await buildReservationAllRows();
+};
+
+const closeReservationAllModal = () => {
+  showReservationAllModal.value = false;
+};
+
+/** -------------------------
+ * Inquiry All
+ * ------------------------- */
+const showInquiryAllModal = ref(false);
+const inquiryAllLoading = ref(false);
+const inquiryAllRaw = ref([]);
+const inquiryAllRows = ref([]);
+
+const inquiryRange = ref({
+  months: 3,
+  from: addMonthsFromTodayYmd(3),
+  to: todayYmd(),
+});
+
+const loadInquiriesAllRaw = async () => {
+  inquiryAllLoading.value = true;
+  try {
+    const pageData = await getInquiryListApi({
+      size: 200,
+      offset: 0,
+      sortBy: "created_at",
+      direction: "DESC",
+      customerCode: customerCode.value,
+    });
+    const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
+    inquiryAllRaw.value = Array.isArray(items) ? items : [];
+  } catch (e) {
+    inquiryAllRaw.value = [];
+  } finally {
+    inquiryAllLoading.value = false;
+  }
+};
+
+const buildInquiryAllRows = () => {
+  const items = (inquiryAllRaw.value ?? [])
+      .filter((x) => Number(x?.customerCode) === Number(customerCode.value))
+      .filter((x) => {
+        const created = x?.createdAt ?? x?.created_at;
+        if (!created) return true;
+        return inRange(created, inquiryRange.value.from, inquiryRange.value.to);
+      });
+
+  inquiryAllRows.value = items.map((x) => ({
+    id: x.inquiryCode,
+    inquiryNo: String(x.inquiryCode ?? "-"),
+    title: x.inquiryTitle ?? "-",
+    status: mapInquiryStatusLabel(x.inquiryStatus),
+    date: formatYmdSlash(x.createdAt),
+    _raw: x,
+  }));
+};
+
+const setInquiryMonths = (m) => {
+  inquiryRange.value.months = m;
+  inquiryRange.value.from = addMonthsFromTodayYmd(m);
+  inquiryRange.value.to = todayYmd();
+};
+
+const resetInquiryRange = () => {
+  setInquiryMonths(3);
+};
+
+const applyInquiryRange = () => {
+  buildInquiryAllRows();
+};
+
+const onInquiryAll = async () => {
+  showInquiryAllModal.value = true;
+  setInquiryMonths(inquiryRange.value.months || 3);
+  await loadInquiriesAllRaw();
+  buildInquiryAllRows();
+};
+
+const closeInquiryAllModal = () => {
+  showInquiryAllModal.value = false;
+};
+
+/** -------------------------
+ * Timeline All
+ * ------------------------- */
+const showTimelineAllModal = ref(false);
+const timelineColumns = [
+  { key: "at", label: "일시", sortable: true, align: "center" },
+  { key: "type", label: "유형", sortable: true, align: "center" },
+  { key: "text", label: "내용", sortable: false },
+];
+
+const timelineRange = ref({
+  months: 3,
+  from: addMonthsFromTodayYmd(3),
+  to: todayYmd(),
+});
+
+const timelineAllRows = ref([]);
+
+const buildTimelineAllRows = () => {
+  const filtered = (timelineItems.value ?? []).filter((t) => {
+    const raw = t?.occurredAtRaw;
+    if (!raw) return true;
+    return inRange(raw, timelineRange.value.from, timelineRange.value.to);
+  });
+
+  // TableWithPaging용 row
+  timelineAllRows.value = filtered.map((t, idx) => ({
+    id: idx + 1,
+    at: t.at,
+    type: t.type,
+    text: t.text,
+    _raw: t,
+  }));
+};
+
+const setTimelineMonths = (m) => {
+  timelineRange.value.months = m;
+  timelineRange.value.from = addMonthsFromTodayYmd(m);
+  timelineRange.value.to = todayYmd();
+};
+
+const resetTimelineRange = () => {
+  setTimelineMonths(3);
+};
+
+const applyTimelineRange = () => {
+  buildTimelineAllRows();
+};
+
+const openTimelineAllModal = () => {
+  showTimelineAllModal.value = true;
+  setTimelineMonths(timelineRange.value.months || 3);
+  buildTimelineAllRows();
+};
+
+const closeTimelineAllModal = () => {
+  showTimelineAllModal.value = false;
+};
+
+/* =========================
+   utils
+   ========================= */
 const formatDate = (v) => {
   if (!v) return "-";
   const d = new Date(v);
@@ -1432,7 +2012,6 @@ const toYmd = (v) => {
   background: #f8fbff;
 }
 
-/* drop indicator line */
 .drop-indicator {
   position: absolute;
   left: 10px;
@@ -1443,8 +2022,6 @@ const toYmd = (v) => {
   background: #93c5fd;
 }
 
-
-/* ghost element for drag preview */
 :global(.drag-ghost) {
   position: fixed;
   top: -9999px;
@@ -1456,5 +2033,60 @@ const toYmd = (v) => {
   border: 1px solid #bfdbfe;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   background: #ffffff;
+}
+
+/*  전체보기 모달 상단 */
+.range-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.range-left {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  cursor: pointer;
+}
+
+.pill.active {
+  background: #eef6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.range-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.date {
+  height: 30px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.sep {
+  color: #6b7280;
+  font-weight: 700;
 }
 </style>
