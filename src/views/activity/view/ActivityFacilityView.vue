@@ -21,6 +21,7 @@
           :pageSize="pageSize"
           :total="total"
           :filters="filters"
+          :searchTypes="searchTypes"
           show-search
           @filter="onFilter"
           @search="onSearch"
@@ -83,7 +84,7 @@ const filters = computed(() => [
 ])
 
 const onFilter = async (values) => {
-  // 🚫 전체 선택 방지 → 첫 지점으로 강제
+  // 전체 선택 방지 → 첫 지점으로 강제
   if (values.propertyCode === '') {
     filterValues.propertyCode = firstPropertyCode.value
     return
@@ -147,6 +148,11 @@ const detail = reactive({
   stayCode: null,
 })
 
+const searchTypes = [
+  { label: '검색선택', value: '' },
+  { label: '고객명', value: 'customerName' },
+  { label: '투숙코드', value: 'stayCode' },
+]
 const onSearch = async ({ key, value }) => {
   page.value = 1
   detail.customerName = null
@@ -228,7 +234,7 @@ onMounted(async () => {
   firstPropertyCode.value = String(list[0].propertyCode)
 
   propertyOptions.value = [
-    { label: '전체 지점', value: '' },
+    { label: '지점 선택', value: '' },
     ...list.map(p => ({
       label: p.propertyName,
       value: String(p.propertyCode),
