@@ -30,11 +30,9 @@ const OPERATION_SORT_KEY_MAP = {
 export const getOperationBoardApi = ({
                                          page = 1,
                                          size = 10,
-
                                          filters = {},
                                          detail = {},
                                          sort = {},
-
                                          summaryType,
                                      }) => {
     return api.get('/reservations/operations', {
@@ -43,7 +41,7 @@ export const getOperationBoardApi = ({
             size,
 
             /* =====================
-             * Summary Filter
+             * Summary
              * ===================== */
             summaryType: summaryType ?? undefined,
 
@@ -61,16 +59,27 @@ export const getOperationBoardApi = ({
                     : undefined,
 
             /* =====================
-             * Detail Search
+             * 전체검색 (핵심)
+             * ===================== */
+            keyword:
+                detail.keyword && detail.keyword.trim() !== ''
+                    ? detail.keyword
+                    : undefined,
+
+            /* =====================
+             * 고객명 (해시 검색)
              * ===================== */
             customerName:
                 detail.customerName && detail.customerName.trim() !== ''
                     ? detail.customerName
                     : undefined,
 
+            /* =====================
+             * 예약번호 (LIKE)
+             * ===================== */
             reservationCode:
                 detail.reservationCode != null && detail.reservationCode !== ''
-                    ? Number(detail.reservationCode)
+                    ? detail.reservationCode   // ❗ Number로 강제하지 마도 됨
                     : undefined,
 
             /* =====================
@@ -123,26 +132,17 @@ export const getTodayOperationListApi = ({
 
             propertyCode: propertyCode ?? undefined,
 
-            customerName:
-                detail.customerName && detail.customerName.trim() !== ''
-                    ? detail.customerName
-                    : undefined,
+            //  검색 (중요)
+            customerName: detail.customerName || undefined,
+            reservationCode: detail.reservationCode || undefined,
 
-            /* =====================
-             * Sort
-             * ===================== */
+            // 정렬
             sortBy:
                 sort.sortBy && TODAY_SORT_KEY_MAP[sort.sortBy]
                     ? TODAY_SORT_KEY_MAP[sort.sortBy]
                     : undefined,
 
             direction: sort.direction || undefined,
-
-
-            reservationCode:
-                detail.reservationCode != null && detail.reservationCode !== ''
-                    ? Number(detail.reservationCode)
-                    : undefined,
         },
     })
 }

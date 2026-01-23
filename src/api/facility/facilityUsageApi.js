@@ -21,19 +21,27 @@ export const getFacilityUsageListApi = ({
             size,
 
             // sorting
-            sortBy: sort?.sortBy,
-            direction: sort?.direction,
+            sortBy: sort?.sortBy ?? undefined,
+            direction: sort?.direction ?? undefined,
 
             // filters
             propertyCode: propertyCode ?? undefined,
             facilityCode: facilityCode ?? undefined,
 
-            // search
-            customerName: detail?.customerName ?? undefined,
-            stayCode: detail?.stayCode ?? undefined,
+            // 검색
+            customerName:
+                detail?.customerName && detail.customerName.trim() !== ''
+                    ? detail.customerName
+                    : undefined,
+
+            stayCodeLike:
+                detail?.stayCode && detail.stayCode !== ''
+                    ? detail.stayCode
+                    : undefined,
         },
     })
 }
+
 
 /**
  * ============================

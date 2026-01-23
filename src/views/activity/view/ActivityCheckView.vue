@@ -20,6 +20,7 @@
         :pageSize="pageSize"
         :total="total"
         :filters="filters"
+        :searchTypes="searchTypes"
         show-search
         @filter="onFilter"
         @search="onSearch"
@@ -232,6 +233,13 @@ const onSelectSummary = async (type) => {
 }
 
 
+const searchTypes = [
+  { label: '검색선택', value: '' },
+  { label: '고객명', value: 'customerName' },
+  { label: '예약번호', value: 'reservationCode' },
+]
+
+
 const onSearch = async ({ key, value }) => {
   page.value = 1
   detail.customerName = null
@@ -244,7 +252,7 @@ const onSearch = async ({ key, value }) => {
   }
 
   if (key === 'reservationCode') {
-    detail.reservationCode = Number(value)
+    detail.reservationCode = value
   }
 
   await loadList()
