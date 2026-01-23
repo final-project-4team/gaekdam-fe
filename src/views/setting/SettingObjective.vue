@@ -51,10 +51,19 @@
       <div class="import-body">
         <input type="file" accept=".xlsx,.xls" @change="onFileChange" />
         <p class="import-hint">양식에 맞는 엑셀 파일을 업로드해주세요.</p>
+        
+        <div v-if="importResult" class="import-result">
+          <p>생성: {{ importResult.created }}, 업데이트: {{ importResult.updated }}, 스킵: {{ importResult.skipped }}</p>
+          <ul v-if="importResult.errors && importResult.errors.length">
+            <li v-for="err in importResult.errors" :key="err.row">시트/행 {{ err.row }}: {{ err.message }}</li>
+          </ul>
+        </div>
       </div>
       <template #footer>
         <BaseButton @click="showImportModal = false">취소</BaseButton>
-        <BaseButton type="primary" @click="handleImport">업로드</BaseButton>
+        <BaseButton type="primary" :disabled="uploadLoading" @click="handleImport">
+          {{ uploadLoading ? '업로드 중...' : '업로드' }}
+        </BaseButton>
       </template>
     </BaseModal>
   </div>
@@ -95,6 +104,8 @@ const showImportModal = ref(false)
 let importFile = ref(null)
 
 const isDownloading = ref(false)
+const uploadLoading = ref(false)
+const importResult = ref(null)
 
 // period format: use hyphen (YYYY-MM) to match backend validatePeriod
 const formattedPeriod = computed(() => {
@@ -137,7 +148,10 @@ const loadTargets = async () => {
 
     // populate UI values
     kpis.value.forEach(k => {
-      targets[k.code] = existingTargets.value[k.code]?.targetValue ?? ''
+      const rawVal = existingTargets.value[k.code]?.targetValue
+      targets[k.code] = (rawVal === null || rawVal === undefined || rawVal === '') 
+        ? '' 
+        : Number(rawVal).toFixed(2)
     })
 
     console.log(items.map(i => ({ kpiCode: i.kpiCode, period: i.periodValue, targetValue: i.targetValue})))
@@ -197,12 +211,12 @@ const exportExcel = async () => {
     const blob = await targetApi.downloadExcelTemplate({
       hotelGroupCode,
       periodType: periodType.value,
-      period: formattedPeriod.value // YYYY or YYYY-MM
+      periodValue: formattedPeriod.value // YYYY or YYYY-MM
     })
     const url = window.URL.createObjectURL(new Blob([blob]))
     const a = document.createElement('a')
     a.href = url
-    a.download = `KPI_Template_${periodType.value}_${formattedPeriod.value}.xlsx`
+    a.download = `KPI_Template.xlsx`
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -222,14 +236,35 @@ const onFileChange = (e) => {
 
 const handleImport = async () => {
   if (!importFile.value) { alert('파일 선택 필요'); return }
+  const fd = new FormData()
+  fd.append('file', importFile.value)
+  fd.append('hotelGroupCode', hotelGroupCode)
+  fd.append('periodType', periodType.value)
+  fd.append('periodValue', formattedPeriod.value)
+
+  uploadLoading.value = true
+  importResult.value = null
   try {
-    await targetApi.importTargets(importFile.value, { periodType: periodType.value, period: formattedPeriod.value })
-    showImportModal.value = false
+    const res = await targetApi.uploadExcelTemplate(fd)
+    importResult.value = res
+
+    // 항상 백엔드 반영 결과를 반영하기 위해 최신값 재조회
     await loadTargets()
-    alert('업로드 완료')
-  } catch (e) {
-    console.error(e)
+
+    // 오류가 있으면 모달을 열어 결과 표시(기본적으로 모달은 열려있음)
+    if (res && res.errors && res.errors.length > 0) {
+      alert('일부 항목에서 오류가 발생했습니다. 상세 정보를 확인하세요.')
+      // 모달을 닫지 않고 importResult를 보여줍니다.
+    } else {
+      // 성공 시 모달 닫고 알림
+      showImportModal.value = false
+      alert('업로드가 완료되었습니다.')
+    }
+  } catch (err) {
+    console.error(err)
     alert('업로드 실패')
+  } finally {
+    uploadLoading.value = false
   }
 }
 

@@ -51,10 +51,16 @@ export async function listKpiCodes(){
 }
 
 // 세팅 - 목표관리 엑셀 양식 다운받기
-export async function downloadExcelTemplate({ hotelGroupCode, periodType, period }) {
+export async function downloadExcelTemplate({ hotelGroupCode, periodType, periodValue }) {
   const res = await api.get('/setting/objective/template', {
-    params: { hotelGroupCode, periodType, period },
+    params: { hotelGroupCode, periodType, periodValue },
     responseType: 'blob'
   });
   return res.data; // Blob
+}
+
+export function uploadExcelTemplate(formData) {
+  return api.post('/setting/objective/template/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(res => res.data);
 }
