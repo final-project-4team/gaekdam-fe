@@ -131,12 +131,13 @@ const onPageChange = async (p) => {
 const columns = [
   { key: 'facilityUsageCode', label: '번호' },
   { key: 'customerName', label: '고객명' },
-  { key: 'stayCode', label: '투숙코드' },
   { key: 'roomNumber', label: '객실번호' },
   { key: 'facilityName', label: '시설명' },
   { key: 'facilityType', label: '시설유형' },
   { key: 'usageAt', label: '이용일시', sortable: true },
   { key: 'usageQuantity', label: '이용횟수' },
+  { key: 'usedPersonCount', label: '사용인원' },
+  { key: 'priceSource', label: '결제구분' },
   { key: 'usageType', label: '이용구분' },
 ]
 
