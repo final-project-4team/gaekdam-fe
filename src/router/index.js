@@ -39,7 +39,7 @@ const routes = [
                 path: 'customers',
                 component: CustomerLayout,
                 children: [
-                    { path: '', redirect: { name: 'CustomerList' } },
+                    { path: '', redirect: '/customers/all' },
                     { path: 'all', name: 'CustomerList', component: () => import('@/views/customer/view/CustomerListView.vue') },
                     { path: ':id', name: 'CustomerDetail', component: () => import('@/views/customer/view/CustomerDetailView.vue') },
                 ],
@@ -50,8 +50,8 @@ const routes = [
                 component: VocLayout,
                 children: [
                     { path: '', redirect: '/voc/inquiries' },
-                    { path: 'inquiries', name: 'InquiryList', component: () => import('@/views/voc/InquiryListView.vue'),},
-                    { path: 'inquiries/:inquiryCode', name: 'InquiryDetail', component: () => import('@/views/voc/InquiryDetailView.vue'),},
+                    { path: 'inquiries', name: 'InquiryList', component: () => import('@/views/voc/view/InquiryListView.vue'),},
+                    { path: 'incidents', name: 'IncidentList', component: () => import('@/views/voc/view/IncidentListView.vue') },
                 ]
             },
 
