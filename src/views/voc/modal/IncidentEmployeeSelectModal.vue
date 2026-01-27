@@ -2,7 +2,11 @@
   <BaseModal title="직원 검색" @close="$emit('close')">
     <div class="wrap">
       <div class="search">
-        <input v-model="keyword" placeholder="이름/아이디로 검색" @keyup.enter="search" />
+        <input
+            v-model="keyword"
+            placeholder="이름으로 검색(정확히)"
+            @keyup.enter="search"
+        />
         <BaseButton type="primary" size="sm" @click="search">검색</BaseButton>
       </div>
 
@@ -21,7 +25,7 @@
       </div>
 
       <div class="paging">
-        <BaseButton type="ghost" size="sm" :disabled="page<=1" @click="prev">이전</BaseButton>
+        <BaseButton type="ghost" size="sm" :disabled="page <= 1" @click="prev">이전</BaseButton>
         <span class="p">{{ page }}</span>
         <BaseButton type="ghost" size="sm" :disabled="rows.length < size" @click="next">다음</BaseButton>
       </div>
@@ -33,7 +37,7 @@
 import { ref } from "vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import BaseButton from "@/components/common/button/BaseButton.vue";
-import { getEmployeeList } from "@/api/setting/employeeApi"; // ✅ 기존 파일 그대로 사용
+import { getEmployeeList } from "@/api/setting/employeeApi"; // 기존 파일 그대로 사용
 
 const emit = defineEmits(["close", "select"]);
 
@@ -49,11 +53,14 @@ const search = async () => {
 };
 
 const load = async () => {
+  const name = keyword.value?.trim();
+
   const data = await getEmployeeList({
     page: page.value,
     size: size.value,
-    detail: { keyword: keyword.value }, // ✅ 기존 employeeApi가 name: detail.employeeName || detail.keyword 로 매핑
     filters: {},
+    // 이름 정확 일치 검색만 사용 (employeeApi 내부에서 name: detail.employeeName || detail.keyword)
+    detail: { employeeName: name || undefined },
     sort: { sortBy: "created_at", direction: "DESC" },
   });
 
