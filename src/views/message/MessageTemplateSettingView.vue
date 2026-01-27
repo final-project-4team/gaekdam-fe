@@ -39,7 +39,7 @@
 import { ref, onMounted } from 'vue'
 import MessageTemplateCard from './components/MessageTemplateCard.vue'
 import MessageTemplateModal from './components/MessageTemplateModal.vue'
-import { getMessageTemplateSettingApi } from '@/api/message/messageTemplateApi'
+import {getMessageTemplateApi, getMessageTemplateSettingApi} from '@/api/message/messageTemplateApi'
 
 const stages = ref([])
 const visitorTypes = ['FIRST', 'REPEAT']
@@ -66,11 +66,14 @@ const openCreate = ({ stage, visitorType }) => {
   showModal.value = true
 }
 
-const openEdit = ({ stage, template, visitorType }) => {
+const openEdit = async ({ stage, template, visitorType }) => {
   modalMode.value = 'edit'
   selectedStage.value = stage
-  selectedTemplate.value = template
   selectedVisitorType.value = visitorType
+
+  const res = await getMessageTemplateApi(template.templateCode)
+  selectedTemplate.value = res.data.data
+
   showModal.value = true
 }
 

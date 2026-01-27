@@ -85,12 +85,11 @@ export const updateMessageTemplateApi = (
     })
 }
 
-/**
- * =================================================
- * 메시지 템플릿 비활성화
- * PATCH /api/v1/message-templates/{templateCode}/disable
- * =================================================
- */
-export const disableMessageTemplateApi = (templateCode) => {
-    return api.patch(`/message-templates/${templateCode}/disable`)
+
+
+// 템플릿 상세조회
+export const getMessageTemplateApi = (templateCode) => {
+    return api.get(`/message-templates/${templateCode}`)
 }
+
+
