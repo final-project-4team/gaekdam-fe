@@ -16,3 +16,7 @@ export const getIncidentActionsApi = (incidentCode) =>
 // 조치 추가
 export const createIncidentActionApi = (incidentCode, payload) =>
     api.post(`/incidents/${incidentCode}/actions`, payload);
+
+// 직원 자동완성 검색
+export const searchIncidentEmployeesApi = (params) =>
+    api.get("/incidents/employees/search", { params });
