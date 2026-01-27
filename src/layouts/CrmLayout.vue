@@ -8,12 +8,24 @@
         <router-view />
       </div>
     </div>
+
+    <!-- 챗봇 위젯: 로그인 상태일때만 보임 -->
+    <ChatbotWidget v-if="auth.isLoggedIn" />
   </div>
 </template>
 
 <script setup>
 import TopBar from '@/components/layoutComponents/TopBar.vue'
 import SideMenu from '@/components/layoutComponents/SideMenu.vue'
+
+import { defineAsyncComponent } from 'vue'
+import { useAuthStore } from '@/stores/authStore' // 경로/이름이 다르면 조정
+
+// 챗봇 지연로드
+const ChatbotWidget = defineAsyncComponent(() => import('@/components/ai/ChatbotWidget.vue'))
+
+// Pinia auth store 사용
+const auth = useAuthStore()
 </script>
 
 <style scoped>
