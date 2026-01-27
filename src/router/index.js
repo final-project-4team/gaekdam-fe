@@ -68,7 +68,22 @@ const routes = [
                 ],
             },
 
-            { path: 'messages', component: MessageLayout },
+
+            {
+                path: 'messages',
+                component: MessageLayout,
+                children: [
+                    {
+                        path: 'templates',
+                        component: () => import('@/views/message/MessageTemplateSettingView.vue')
+                    },
+                    {
+                        path: 'histories',
+                        component: () => import('@/views/message/MessageHistoryView.vue')
+                    }
+                ]
+            },
+
 
 
             { path: 'setting',

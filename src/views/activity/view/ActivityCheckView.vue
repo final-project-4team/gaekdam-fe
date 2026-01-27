@@ -268,6 +268,7 @@ const onRowClick = (row) => {
 
   if (!row || !row.customerCode) return
   openCustomerModal(row.customerCode)
+
 }
 
 const showCustomerModal = ref(false)
