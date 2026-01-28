@@ -410,7 +410,7 @@
       </template>
     </BaseModal>
 
-    <!-- ✅ RESERVATION ALL MODAL (스크린샷 스타일) -->
+    <!-- ✅ Reservation / Inquiry 전체 모달들은 기존 composable(useCustomerReservations/useCustomerInquiries) 그대로 -->
     <BaseModal v-if="showReservationAllModal" title="예약 / 이용 전체" @close="closeReservationAllModal">
       <div class="modal-body">
         <div class="range-bar">
@@ -433,16 +433,10 @@
         <div v-if="reservationAllLoading" class="empty">불러오는 중...</div>
         <div v-else-if="reservationAllRows.length === 0" class="empty">예약 데이터가 없습니다.</div>
 
-        <TableWithPaging
-            v-else
-            :columns="reservationColumns"
-            :rows="reservationAllRows"
-            :pageSize="20"
-        />
+        <TableWithPaging v-else :columns="reservationColumns" :rows="reservationAllRows" :pageSize="20" />
       </div>
     </BaseModal>
 
-    <!-- ✅ INQUIRY ALL MODAL (스크린샷 스타일) -->
     <BaseModal v-if="showInquiryAllModal" title="문의 / 클레임 전체" @close="closeInquiryAllModal">
       <div class="modal-body">
         <div class="range-bar">
@@ -465,21 +459,11 @@
         <div v-if="inquiryAllLoading" class="empty">불러오는 중...</div>
         <div v-else-if="inquiryAllRows.length === 0" class="empty">문의 데이터가 없습니다.</div>
 
-        <TableWithPaging
-            v-else
-            :columns="inquiryColumns"
-            :rows="inquiryAllRows"
-            :pageSize="20"
-        />
+        <TableWithPaging v-else :columns="inquiryColumns" :rows="inquiryAllRows" :pageSize="20" />
       </div>
     </BaseModal>
 
-    <TimelineAllModal
-        :open="showTimelineAllModal"
-        :items="timelineItems"
-        @close="closeTimelineAllModal"
-    />
-
+    <TimelineAllModal :open="showTimelineAllModal" :items="timelineItems" @close="closeTimelineAllModal" />
 
     <!-- RESERVATION DETAIL MODAL -->
     <BaseModal v-if="showReservationModal" title="예약 상세" @close="closeReservationModal">
@@ -552,12 +536,50 @@ import LoyaltyHistoryModal from "@/views/customer/modal/LoyaltyHistoryModal.vue"
 import TimelineAllModal from "@/views/customer/modal/TimelineAllModal.vue";
 
 import { useAuthStore } from "@/stores/authStore.js";
-import { getCustomerDetailApi, getCustomerSnapshotApi, getCustomerTimelineApi } from "@/api/customer/customerApi.js";
-import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
 import api from "@/api/axios.js";
+import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
+
+//  utils (공통으로 빼둔 것 사용)
+import { formatDate, formatMoney, formatPhone, toYmd } from "@/views/customer/utils/customerDetail.utils.js";
+
+//  핵심: 페이지 데이터 로직 통째로 composable로 이동
+import { useCustomerDetailPage } from "@/views/customer/composables/useCustomerDetailPage.js";
+
+// 기존 composables 유지
+import { useCustomerReservations } from "@/views/customer/composables/useCustomerReservations.js";
+import { useCustomerInquiries } from "@/views/customer/composables/useCustomerInquiries.js";
+import { useCardSettingDnd } from "@/views/customer/composables/useCardSettingDnd.js";
+
+/* router/store */
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
+
+const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
+const customerCode = computed(() => Number(route.params.id));
+
+/*  detail/snapshot/timeline + header 표시값(배지/칩/대표연락처/이메일/멤버십/로열티) */
+const {
+  detail,
+  snapshot,
+  timelineItems,
+  badges,
+  chips,
+  primaryPhone,
+  primaryEmail,
+  membership,
+  loyalty,
+  loadAll,
+  loadTimeline,
+} = useCustomerDetailPage({
+  hotelGroupCode,
+  customerCode,
+});
+
+const timelineTop5 = computed(() => (timelineItems.value ?? []).slice(0, 5));
 
 /* =========================
-   API
+   API (기존 그대로)
    ========================= */
 const patchMembershipManually = async (customerCode, payload) => {
   const res = await api.patch(`/memberships/customers/${customerCode}/manual`, payload);
@@ -585,296 +607,109 @@ const getInquiryDetailApi = async (inquiryCode) => {
 };
 
 /* =========================
-   router/store
+   composables wiring (기존 그대로)
    ========================= */
-const route = useRoute();
-const router = useRouter();
-const authStore = useAuthStore();
+// reservations
+const {
+  reservationColumns,
+  reservationLoading,
+  reservationRows,
+  loadReservationsTop5,
 
-const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
-const customerCode = computed(() => Number(route.params.id));
+  showReservationModal,
+  selectedReservationDetail,
+  openReservationModal,
+  closeReservationModal,
 
-/* =========================
-   state
-   ========================= */
-const detail = ref({
-  customerCode: null,
-  customerName: "",
-  status: "",
-  nationalityType: "",
-  contractType: "",
-  inflowChannel: "",
-  primaryPhone: "",
-  primaryEmail: "",
-  member: null,
-  membership: null,
-  loyalty: null,
-  contacts: [],
+  showReservationAllModal,
+  reservationAllLoading,
+  reservationAllRows,
+  onReservationAll,
+  closeReservationAllModal,
+
+  reservationRange,
+  setReservationMonths,
+  resetReservationRange,
+  applyReservationRange,
+} = useCustomerReservations({
+  customerCodeRef: customerCode,
+  getReservationsByCustomerApi,
+  getReservationDetailApi,
 });
 
-const snapshot = ref({
-  customerCode: null,
-  totalStayCount: 0,
-  ltvAmount: null,
-  lastUsedAt: null,
-  unresolvedInquiryCount: 0,
+// inquiries
+const {
+  inquiryColumns,
+  inquiryLoading,
+  inquiryRows,
+  loadInquiriesTop3,
+
+  showInquiryModal,
+  selectedInquiryDetail,
+  openInquiryModal,
+  closeInquiryModal,
+
+  showInquiryAllModal,
+  inquiryAllLoading,
+  inquiryAllRows,
+  onInquiryAll,
+  closeInquiryAllModal,
+
+  inquiryRange,
+  setInquiryMonths,
+  resetInquiryRange,
+  applyInquiryRange,
+} = useCustomerInquiries({
+  customerCodeRef: customerCode,
+  getInquiryListApi,
+  getInquiryDetailApi,
 });
 
-// ✅ timeline: occurredAt 원본도 보관(기간 필터용)
-const timelineItems = ref([]);
-
-/* =========================
-   computed UI
-   ========================= */
-const badges = computed(() => {
-  const arr = [];
-  if (detail.value.membership?.gradeName) arr.push(detail.value.membership.gradeName);
-  if (detail.value.loyalty?.gradeName) arr.push(detail.value.loyalty.gradeName);
-  if (detail.value.status) arr.push(detail.value.status);
-  return arr.length ? arr : ["-"];
-});
-
-const chips = computed(() => {
-  const arr = [];
-  if (detail.value.contractType) arr.push(detail.value.contractType);
-  if (detail.value.nationalityType) arr.push(detail.value.nationalityType);
-  if (detail.value.inflowChannel) arr.push(detail.value.inflowChannel);
-  return arr.length ? arr : ["-"];
-});
-
-const formatPhone = (v) => {
-  const digits = (v ?? "").toString().replace(/\D/g, "");
-  if (!digits) return "-";
-  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  return v;
-};
-
-const primaryPhoneRaw = computed(() => {
-  const p = detail.value.contacts?.find((c) => c.contactType === "PHONE" && c.isPrimary);
-  return p?.contactValue || detail.value.primaryPhone || "";
-});
-const primaryPhone = computed(() => formatPhone(primaryPhoneRaw.value) || "-");
-
-const primaryEmail = computed(() => {
-  const p = detail.value.contacts?.find((c) => c.contactType === "EMAIL" && c.isPrimary);
-  return p?.contactValue || detail.value.primaryEmail || "-";
-});
-
-const membership = computed(() => {
-  return (
-      detail.value.membership || {
-        gradeName: "미가입",
-        membershipStatus: null,
-        joinedAt: null,
-        calculatedAt: null,
-        expiredAt: null,
-      }
-  );
-});
-
-const loyalty = computed(() => {
-  return (
-      detail.value.loyalty || {
-        gradeName: null,
-        loyaltyStatus: null,
-        joinedAt: null,
-        calculatedAt: null,
-      }
-  );
-});
-
-const timelineTop5 = computed(() => (timelineItems.value ?? []).slice(0, 5));
-
-/* =========================
-   loaders
-   ========================= */
-const loadDetail = async () => {
-  if (!hotelGroupCode.value || !customerCode.value) return;
-  const res = await getCustomerDetailApi({
-    customerCode: customerCode.value,
-    hotelGroupCode: hotelGroupCode.value,
-  });
-  detail.value = res.data?.data ?? detail.value;
-};
-
-const loadSnapshot = async () => {
-  if (!hotelGroupCode.value || !customerCode.value) return;
-  const res = await getCustomerSnapshotApi({
-    customerCode: customerCode.value,
-    hotelGroupCode: hotelGroupCode.value,
-  });
-  snapshot.value = res.data?.data ?? snapshot.value;
-};
-
-const loadTimeline = async () => {
-  if (!hotelGroupCode.value || !customerCode.value) return;
-  const res = await getCustomerTimelineApi({
-    customerCode: customerCode.value,
-    hotelGroupCode: hotelGroupCode.value,
-    limit: 50,
-  });
-
-  const data = res.data?.data;
-  const items = data?.items ?? [];
-  timelineItems.value = items.map((it) => ({
-    occurredAtRaw: it.occurredAt, // ✅ 기간필터용
-    at: formatDate(it.occurredAt),
-    type: it.eventType || "-",
-    text: `${it.title || "-"} · ${it.summary || ""}`.trim(),
-    refId: it.refId,
-  }));
-};
-
-/* =========================
-   ✅ reservations (API)
-   ========================= */
-const reservationColumns = [
-  { key: "reservationNo", label: "예약번호", sortable: true, align: "center" },
-  { key: "roomType", label: "객실유형", sortable: false, align: "center" },
-  { key: "checkin", label: "투숙예정일", sortable: true, align: "center" },
-  { key: "checkout", label: "투숙종료일", sortable: true, align: "center" },
-  { key: "status", label: "예약상태", sortable: true, align: "center" },
-  { key: "channel", label: "예약채널", sortable: true, align: "center" },
+// card setting dnd
+const LS_KEY = "customer_detail_card_setting_v2";
+const defaultCardSetting = () => [
+  { id: "snapshot", label: "고객 스냅샷", enabled: true, column: "left", order: 1 },
+  { id: "timeline", label: "최근 타임라인", enabled: true, column: "left", order: 2 },
+  { id: "reservation", label: "예약/이용(최근 5건)", enabled: true, column: "left", order: 3 },
+  { id: "voc", label: "문의/클레임(최근 3건)", enabled: true, column: "left", order: 4 },
+  { id: "memo", label: "고객 메모", enabled: true, column: "right", order: 1 },
+  { id: "membership", label: "멤버십", enabled: true, column: "right", order: 2 },
+  { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 3 },
 ];
 
-const reservationLoading = ref(false);
-const reservationRows = ref([]);
+const {
+  showCardSettingModal,
+  onCardSetting,
+  saveCardSetting,
+  resetCardSetting,
 
-const formatYmdSlash = (v) => {
-  if (!v) return "-";
-  const s = String(v);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s.replaceAll("-", "/");
+  leftCards,
+  rightCards,
+  draftLeft,
+  draftRight,
 
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return s;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}/${m}/${day}`;
-};
-
-const loadReservationsTop5 = async () => {
-  if (!customerCode.value) return;
-
-  reservationLoading.value = true;
-  try {
-    const pageData = await getReservationsByCustomerApi({
-      customerCode: customerCode.value,
-      size: 5,
-      offset: 0,
-    });
-
-    const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
-    if (!items.length) {
-      reservationRows.value = [];
-      return;
-    }
-
-    const codes = items
-        .map((r) => Number(r.reservationCode))
-        .filter((v) => Number.isFinite(v));
-
-    const detailResults = await Promise.all(
-        codes.map(async (code) => {
-          try {
-            const d = await getReservationDetailApi(code);
-            const room = d?.roomInfo ?? d?.room ?? {};
-            return { code, roomTypeName: room?.roomTypeName ?? null };
-          } catch (_) {
-            return { code, roomTypeName: null };
-          }
-        })
-    );
-
-    const roomTypeMap = new Map(detailResults.map((x) => [x.code, x.roomTypeName]));
-
-    reservationRows.value = items.map((r) => {
-      const code = Number(r.reservationCode);
-      const roomTypeName = roomTypeMap.get(code) || "-";
-
-      return {
-        id: r.reservationCode,
-        reservationNo: String(r.reservationCode ?? "-"),
-        roomType: roomTypeName,
-        checkin: formatYmdSlash(r.checkinDate),
-        checkout: formatYmdSlash(r.checkoutDate),
-        status: r.reservationStatus ?? "-",
-        channel: r.reservationChannel ?? "-",
-        _raw: r,
-      };
-    });
-  } catch (e) {
-    reservationRows.value = [];
-  } finally {
-    reservationLoading.value = false;
-  }
-};
+  onToggleEnabled,
+  dragState,
+  isOver,
+  showIndicator,
+  onDragStart,
+  onDragEnter,
+  onDragOver,
+  onDragLeave,
+  onDropAt,
+  onDragEnd,
+} = useCardSettingDnd({ lsKey: LS_KEY, defaultCardSetting });
 
 /* =========================
-   ✅ inquiries (API)
+   mount (동작 동일)
    ========================= */
-const inquiryColumns = [
-  { key: "inquiryNo", label: "문의 번호", sortable: true, align: "center" },
-  { key: "title", label: "제목", sortable: false },
-  { key: "status", label: "상태", sortable: true, align: "center" },
-  { key: "date", label: "일자", sortable: true, align: "center" },
-];
-
-const inquiryLoading = ref(false);
-const inquiryRows = ref([]);
-
-const mapInquiryStatusLabel = (s) => {
-  if (!s) return "-";
-  if (s === "IN_PROGRESS") return "InProgress";
-  if (s === "ANSWERED") return "Answered";
-  return s;
+const loadPage = async () => {
+  await Promise.all([loadAll(), loadReservationsTop5(), loadInquiriesTop3()]);
 };
-
-// ✅ 메인카드: 최근 3건
-const loadInquiriesTop3 = async () => {
-  if (!customerCode.value) return;
-
-  inquiryLoading.value = true;
-  try {
-    const pageData = await getInquiryListApi({
-      size: 50,
-      offset: 0,
-      sortBy: "created_at",
-      direction: "DESC",
-      customerCode: customerCode.value, // 서버가 무시해도 OK(프론트에서 필터)
-    });
-
-    const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
-    const filtered = items
-        .filter((x) => Number(x?.customerCode) === Number(customerCode.value))
-        .slice(0, 3);
-
-    inquiryRows.value = filtered.map((x) => ({
-      id: x.inquiryCode,
-      inquiryNo: String(x.inquiryCode ?? "-"),
-      title: x.inquiryTitle ?? "-",
-      status: mapInquiryStatusLabel(x.inquiryStatus),
-      date: formatYmdSlash(x.createdAt),
-      _raw: x,
-    }));
-  } catch (e) {
-    inquiryRows.value = [];
-  } finally {
-    inquiryLoading.value = false;
-  }
-};
+onMounted(loadPage);
 
 /* =========================
-   mount
-   ========================= */
-const loadAll = async () => {
-  await Promise.all([loadDetail(), loadSnapshot(), loadTimeline(), loadReservationsTop5(), loadInquiriesTop3()]);
-};
-onMounted(loadAll);
-
-/* =========================
-   header actions
+   header actions / modals
    ========================= */
 const goBack = () => router.push({ name: "CustomerList" });
 
@@ -882,128 +717,31 @@ const showContactModal = ref(false);
 const openContactModal = () => (showContactModal.value = true);
 
 const onMemoChanged = async () => {
-  await loadTimeline();
+  await loadTimeline(); // ✅ 타임라인 즉시 반영 (기존 동작 동일)
 };
 
-/* =========================
-   reservation detail modal
-   ========================= */
-const showReservationModal = ref(false);
-const selectedReservationDetail = ref(null);
-
-const openReservationModal = async (row) => {
-  showReservationModal.value = true;
-  selectedReservationDetail.value = null;
-
-  try {
-    const reservationCode = Number(row?.id ?? row?.reservationNo);
-    const detailRes = await getReservationDetailApi(reservationCode);
-
-    const info = detailRes?.reservationInfo ?? detailRes?.reservation ?? detailRes?.info ?? {};
-    const room = detailRes?.roomInfo ?? detailRes?.room ?? {};
-
-    selectedReservationDetail.value = {
-      reservationCode: info.reservationCode ?? row?.reservationNo ?? "-",
-      reservationStatus: info.reservationStatus ?? row?.status ?? "-",
-      reservationChannel: info.reservationChannel ?? row?.channel ?? "-",
-      checkinDate: formatYmdSlash(info.checkinDate ?? row?.checkin),
-      checkoutDate: formatYmdSlash(info.checkoutDate ?? row?.checkout),
-      guestCount: info.guestCount ?? "-",
-      guestType: info.guestType ?? "-",
-      totalPrice: info.totalPrice !== undefined ? formatMoney(info.totalPrice) : "-",
-      roomLabel: room.roomTypeName
-          ? `${room.roomTypeName}${room.roomNumber ? ` (${room.roomNumber})` : ""}`
-          : row?.roomType ?? "-",
-    };
-  } catch (e) {
-    selectedReservationDetail.value = {
-      reservationCode: row?.reservationNo ?? "-",
-      reservationStatus: row?.status ?? "-",
-      reservationChannel: row?.channel ?? "-",
-      checkinDate: row?.checkin ?? "-",
-      checkoutDate: row?.checkout ?? "-",
-      guestCount: "-",
-      guestType: "-",
-      totalPrice: "-",
-      roomLabel: row?.roomType ?? "-",
-    };
-  }
-};
-
-const closeReservationModal = () => {
-  showReservationModal.value = false;
-  selectedReservationDetail.value = null;
-};
-
-/* =========================
-   inquiry detail modal
-   ========================= */
-const showInquiryModal = ref(false);
-const selectedInquiryDetail = ref(null);
-
-const openInquiryModal = async (row) => {
-  showInquiryModal.value = true;
-  selectedInquiryDetail.value = null;
-
-  try {
-    const inquiryCode = Number(row?.id ?? row?.inquiryNo);
-    const d = await getInquiryDetailApi(inquiryCode);
-
-    selectedInquiryDetail.value = {
-      inquiryCode: d?.inquiryCode ?? row?.inquiryNo ?? "-",
-      inquiryStatus: mapInquiryStatusLabel(d?.inquiryStatus ?? row?.status),
-      inquiryTitle: d?.inquiryTitle ?? row?.title ?? "-",
-      inquiryContent: d?.inquiryContent ?? "-",
-      answerContent: d?.answerContent ?? "",
-      inquiryCategoryName: d?.inquiryCategoryName ?? "-",
-      createdAt: formatDate(d?.createdAt),
-      updatedAt: formatDate(d?.updatedAt),
-      linkedIncidentCode: d?.linkedIncidentCode ?? null,
-    };
-  } catch (e) {
-    selectedInquiryDetail.value = {
-      inquiryCode: row?.inquiryNo ?? "-",
-      inquiryStatus: row?.status ?? "-",
-      inquiryTitle: row?.title ?? "-",
-      inquiryContent: "-",
-      answerContent: "",
-      inquiryCategoryName: "-",
-      createdAt: "-",
-      updatedAt: "-",
-      linkedIncidentCode: null,
-    };
-  }
-};
-
-const closeInquiryModal = () => {
-  showInquiryModal.value = false;
-  selectedInquiryDetail.value = null;
-};
-
-/* =========================
-   detail modal
-   ========================= */
+/* detail modal */
 const showDetailModal = ref(false);
 const onDetailView = () => (showDetailModal.value = true);
 
 /* =========================
-   membership change
+   membership change (기존 로직 유지)
    ========================= */
 const showMembershipModal = ref(false);
 const savingMembership = ref(false);
 
 const membershipGrades = ref([]);
-const membershipGradeOptions = computed(() => {
-  return membershipGrades.value
-      .filter((g) => g?.membershipGradeStatus !== "INACTIVE")
-      .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode }));
-});
+const membershipGradeOptions = computed(() =>
+    membershipGrades.value
+        .filter((g) => g?.membershipGradeStatus !== "INACTIVE")
+        .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode }))
+);
 
 const loadMembershipGrades = async () => {
   try {
     const list = await getMembershipGradeList();
     membershipGrades.value = Array.isArray(list) ? list : [];
-  } catch (e) {
+  } catch {
     membershipGrades.value = [];
   }
 };
@@ -1049,8 +787,7 @@ const submitMembershipChange = async () => {
     alert("멤버십 변경 완료");
     showMembershipModal.value = false;
 
-    await loadDetail();
-    await loadTimeline();
+    await loadAll();
   } catch (e) {
     alert("멤버십 변경 실패(형식/값 확인)");
   } finally {
@@ -1058,535 +795,20 @@ const submitMembershipChange = async () => {
   }
 };
 
-/* =========================
-   card setting
-   ========================= */
-const showCardSettingModal = ref(false);
-const LS_KEY = "customer_detail_card_setting_v2";
-
-const defaultCardSetting = () => [
-  { id: "snapshot", label: "고객 스냅샷", enabled: true, column: "left", order: 1 },
-  { id: "timeline", label: "최근 타임라인", enabled: true, column: "left", order: 2 },
-  { id: "reservation", label: "예약/이용(최근 5건)", enabled: true, column: "left", order: 3 },
-  { id: "voc", label: "문의/클레임(최근 3건)", enabled: true, column: "left", order: 4 },
-  { id: "memo", label: "고객 메모", enabled: true, column: "right", order: 1 },
-  { id: "membership", label: "멤버십", enabled: true, column: "right", order: 2 },
-  { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 3 },
-];
-
-const normalizeCardSetting = (list) => {
-  const arr = Array.isArray(list) ? list : [];
-  const left = arr.filter((x) => x.column === "left");
-  const right = arr.filter((x) => x.column === "right");
-
-  const fix = (items) => {
-    const hasOrder = items.every((x) => typeof x.order === "number");
-    if (hasOrder) return items;
-
-    return items.map((x, idx) => ({
-      ...x,
-      order: typeof x.order === "number" ? x.order : idx + 1,
-    }));
-  };
-
-  return [...fix(left), ...fix(right)];
-};
-
-const cardSettings = ref(defaultCardSetting());
-
-const loadCardSetting = () => {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length) {
-      cardSettings.value = normalizeCardSetting(parsed);
-    }
-  } catch (e) {}
-};
-loadCardSetting();
-
-const cardSettingsDraft = ref(JSON.parse(JSON.stringify(cardSettings.value)));
-
-const leftCards = computed(() =>
-    cardSettings.value
-        .filter((c) => c.enabled && c.column === "left")
-        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
-);
-
-const rightCards = computed(() =>
-    cardSettings.value
-        .filter((c) => c.enabled && c.column === "right")
-        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
-);
-
-const draftLeft = computed(() =>
-    cardSettingsDraft.value
-        .filter((c) => c.column === "left")
-        .slice()
-        .sort((a, b) => {
-          if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-          return (a.order ?? 999) - (b.order ?? 999);
-        })
-);
-
-const draftRight = computed(() =>
-    cardSettingsDraft.value
-        .filter((c) => c.column === "right")
-        .slice()
-        .sort((a, b) => {
-          if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-          return (a.order ?? 999) - (b.order ?? 999);
-        })
-);
-
-const onCardSetting = () => {
-  cardSettingsDraft.value = JSON.parse(JSON.stringify(cardSettings.value));
-  reflowColumn("left");
-  reflowColumn("right");
-  showCardSettingModal.value = true;
-};
-
-const saveCardSetting = () => {
-  cardSettings.value = normalizeCardSetting(JSON.parse(JSON.stringify(cardSettingsDraft.value)));
-  localStorage.setItem(LS_KEY, JSON.stringify(cardSettings.value));
-  showCardSettingModal.value = false;
-};
-
-const resetCardSetting = () => {
-  cardSettingsDraft.value = defaultCardSetting();
-  reflowColumn("left");
-  reflowColumn("right");
-};
-
-const reflowColumn = (column) => {
-  const list = cardSettingsDraft.value
-      .filter((x) => x.column === column)
-      .slice()
-      .sort((a, b) => {
-        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
-        return (a.order ?? 999) - (b.order ?? 999);
-      });
-
-  list.forEach((item, idx) => {
-    item.order = idx + 1;
-  });
-};
-
-const onToggleEnabled = (column) => {
-  reflowColumn(column);
-};
-
-/* =========================
-   drag UX
-   ========================= */
-const dragState = ref({ id: null, column: null });
-const overState = ref({ column: null, index: null });
-
-const isOver = (column, index) => {
-  return dragState.value.id && overState.value.column === column && overState.value.index === index;
-};
-
-const showIndicator = (column, index) => {
-  if (!dragState.value.id) return false;
-  return isOver(column, index);
-};
-
-const createDragGhost = (e) => {
-  try {
-    const target = e.currentTarget;
-    if (!target) return;
-
-    const ghost = target.cloneNode(true);
-    ghost.classList.add("drag-ghost");
-    ghost.style.width = `${target.getBoundingClientRect().width}px`;
-    document.body.appendChild(ghost);
-
-    const rect = target.getBoundingClientRect();
-    const offsetX = Math.min(24, rect.width / 4);
-    const offsetY = Math.min(18, rect.height / 2);
-    e.dataTransfer.setDragImage(ghost, offsetX, offsetY);
-
-    setTimeout(() => {
-      if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-    }, 0);
-  } catch (_) {}
-};
-
-const onDragStart = (e, id, column) => {
-  dragState.value = { id, column };
-  overState.value = { column, index: null };
-
-  e.dataTransfer.effectAllowed = "move";
-  e.dataTransfer.setData("text/plain", String(id));
-  createDragGhost(e);
-};
-
-const onDragEnter = (column, index) => {
-  if (!dragState.value.id || dragState.value.column !== column) return;
-  overState.value = { column, index };
-};
-
-const onDragOver = (column, index) => {
-  if (!dragState.value.id || dragState.value.column !== column) return;
-  overState.value = { column, index };
-};
-
-const onDragLeave = (column, index) => {
-  if (!dragState.value.id) return;
-  if (overState.value.column === column && overState.value.index === index) {
-    overState.value = { column: dragState.value.column, index: null };
-  }
-};
-
-const applyOrder = (orderedList) => {
-  orderedList.forEach((item, idx) => {
-    item.order = idx + 1;
-  });
-};
-
-const onDropAt = (column, targetIndex) => {
-  const { id: dragId, column: dragCol } = dragState.value;
-  if (!dragId || dragCol !== column) return;
-
-  const list = (column === "left" ? draftLeft.value : draftRight.value).slice();
-  const fromIndex = list.findIndex((x) => x.id === dragId);
-  if (fromIndex < 0) return;
-
-  const toIndex = Math.max(0, Math.min(targetIndex, list.length));
-  const [moved] = list.splice(fromIndex, 1);
-  list.splice(toIndex, 0, moved);
-
-  applyOrder(list);
-  reflowColumn(column);
-
-  overState.value = { column, index: null };
-};
-
-const onDragEnd = () => {
-  dragState.value = { id: null, column: null };
-  overState.value = { column: null, index: null };
-};
-
-/* =========================
-   membership/loyalty history
-   ========================= */
+// membership/loyalty history
 const showMembershipHistoryModal = ref(false);
 const showLoyaltyHistoryModal = ref(false);
 const onMembershipHistory = () => (showMembershipHistoryModal.value = true);
 const onLoyaltyHistory = () => (showLoyaltyHistoryModal.value = true);
 
-/* =========================
-   ✅ 전체보기 모달들 (Reservation/Inquiry/Timeline)
-   ========================= */
-// 공통: months -> from/to 세팅
-const todayYmd = () => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-
-const addMonthsFromTodayYmd = (monthsAgo) => {
-  const d = new Date();
-  d.setMonth(d.getMonth() - monthsAgo);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-
-const parseYmdDate = (ymd) => {
-  if (!ymd) return null;
-  const d = new Date(`${ymd}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
-};
-
-const inRange = (dateValue, fromYmd, toYmd) => {
-  const d = new Date(dateValue);
-  if (Number.isNaN(d.getTime())) return false;
-
-  const from = parseYmdDate(fromYmd);
-  const to = parseYmdDate(toYmd);
-  if (!from || !to) return true;
-
-  const end = new Date(to);
-  end.setDate(end.getDate() + 1); // to inclusive
-  return d >= from && d < end;
-};
-
-/** -------------------------
- * Reservation All
- * ------------------------- */
-const showReservationAllModal = ref(false);
-const reservationAllLoading = ref(false);
-const reservationAllRaw = ref([]);
-const reservationAllRows = ref([]);
-
-const reservationRange = ref({
-  months: 3,
-  from: addMonthsFromTodayYmd(3),
-  to: todayYmd(),
-});
-
-const loadReservationsAllRaw = async () => {
-  if (!customerCode.value) return;
-  reservationAllLoading.value = true;
-  try {
-    const pageData = await getReservationsByCustomerApi({
-      customerCode: customerCode.value,
-      size: 200,
-      offset: 0,
-    });
-    const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
-    reservationAllRaw.value = Array.isArray(items) ? items : [];
-  } catch (e) {
-    reservationAllRaw.value = [];
-  } finally {
-    reservationAllLoading.value = false;
-  }
-};
-
-const buildReservationAllRows = async () => {
-  // 기간 필터: checkinDate 기준
-  const filtered = (reservationAllRaw.value ?? []).filter((r) => {
-    const checkin = r?.checkinDate ?? r?.checkin ?? r?.checkin_at;
-    if (!checkin) return true;
-    return inRange(checkin, reservationRange.value.from, reservationRange.value.to);
-  });
-
-  // roomTypeName 맵핑(detail API 병렬)
-  const codes = filtered
-      .map((r) => Number(r.reservationCode))
-      .filter((v) => Number.isFinite(v));
-
-  const detailResults = await Promise.all(
-      codes.map(async (code) => {
-        try {
-          const d = await getReservationDetailApi(code);
-          const room = d?.roomInfo ?? d?.room ?? {};
-          return { code, roomTypeName: room?.roomTypeName ?? null };
-        } catch (_) {
-          return { code, roomTypeName: null };
-        }
-      })
-  );
-
-  const roomTypeMap = new Map(detailResults.map((x) => [x.code, x.roomTypeName]));
-
-  reservationAllRows.value = filtered.map((r) => {
-    const code = Number(r.reservationCode);
-    const roomTypeName = roomTypeMap.get(code) || "-";
-    return {
-      id: r.reservationCode,
-      reservationNo: String(r.reservationCode ?? "-"),
-      roomType: roomTypeName,
-      checkin: formatYmdSlash(r.checkinDate),
-      checkout: formatYmdSlash(r.checkoutDate),
-      status: r.reservationStatus ?? "-",
-      channel: r.reservationChannel ?? "-",
-      _raw: r,
-    };
-  });
-};
-
-const setReservationMonths = (m) => {
-  reservationRange.value.months = m;
-  reservationRange.value.from = addMonthsFromTodayYmd(m);
-  reservationRange.value.to = todayYmd();
-};
-
-const resetReservationRange = () => {
-  setReservationMonths(3);
-};
-
-const applyReservationRange = async () => {
-  await buildReservationAllRows();
-};
-
-const onReservationAll = async () => {
-  showReservationAllModal.value = true;
-  setReservationMonths(reservationRange.value.months || 3);
-  await loadReservationsAllRaw();
-  await buildReservationAllRows();
-};
-
-const closeReservationAllModal = () => {
-  showReservationAllModal.value = false;
-};
-
-/** -------------------------
- * Inquiry All
- * ------------------------- */
-const showInquiryAllModal = ref(false);
-const inquiryAllLoading = ref(false);
-const inquiryAllRaw = ref([]);
-const inquiryAllRows = ref([]);
-
-const inquiryRange = ref({
-  months: 3,
-  from: addMonthsFromTodayYmd(3),
-  to: todayYmd(),
-});
-
-const loadInquiriesAllRaw = async () => {
-  inquiryAllLoading.value = true;
-  try {
-    const pageData = await getInquiryListApi({
-      size: 200,
-      offset: 0,
-      sortBy: "created_at",
-      direction: "DESC",
-      customerCode: customerCode.value,
-    });
-    const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
-    inquiryAllRaw.value = Array.isArray(items) ? items : [];
-  } catch (e) {
-    inquiryAllRaw.value = [];
-  } finally {
-    inquiryAllLoading.value = false;
-  }
-};
-
-const buildInquiryAllRows = () => {
-  const items = (inquiryAllRaw.value ?? [])
-      .filter((x) => Number(x?.customerCode) === Number(customerCode.value))
-      .filter((x) => {
-        const created = x?.createdAt ?? x?.created_at;
-        if (!created) return true;
-        return inRange(created, inquiryRange.value.from, inquiryRange.value.to);
-      });
-
-  inquiryAllRows.value = items.map((x) => ({
-    id: x.inquiryCode,
-    inquiryNo: String(x.inquiryCode ?? "-"),
-    title: x.inquiryTitle ?? "-",
-    status: mapInquiryStatusLabel(x.inquiryStatus),
-    date: formatYmdSlash(x.createdAt),
-    _raw: x,
-  }));
-};
-
-const setInquiryMonths = (m) => {
-  inquiryRange.value.months = m;
-  inquiryRange.value.from = addMonthsFromTodayYmd(m);
-  inquiryRange.value.to = todayYmd();
-};
-
-const resetInquiryRange = () => {
-  setInquiryMonths(3);
-};
-
-const applyInquiryRange = () => {
-  buildInquiryAllRows();
-};
-
-const onInquiryAll = async () => {
-  showInquiryAllModal.value = true;
-  setInquiryMonths(inquiryRange.value.months || 3);
-  await loadInquiriesAllRaw();
-  buildInquiryAllRows();
-};
-
-const closeInquiryAllModal = () => {
-  showInquiryAllModal.value = false;
-};
-
-/** -------------------------
- * Timeline All
- * ------------------------- */
+// timeline modal
 const showTimelineAllModal = ref(false);
-const timelineColumns = [
-  { key: "at", label: "일시", sortable: true, align: "center" },
-  { key: "type", label: "유형", sortable: true, align: "center" },
-  { key: "text", label: "내용", sortable: false },
-];
-
-const timelineRange = ref({
-  months: 3,
-  from: addMonthsFromTodayYmd(3),
-  to: todayYmd(),
-});
-
-const timelineAllRows = ref([]);
-
-const buildTimelineAllRows = () => {
-  const filtered = (timelineItems.value ?? []).filter((t) => {
-    const raw = t?.occurredAtRaw;
-    if (!raw) return true;
-    return inRange(raw, timelineRange.value.from, timelineRange.value.to);
-  });
-
-  // TableWithPaging용 row
-  timelineAllRows.value = filtered.map((t, idx) => ({
-    id: idx + 1,
-    at: t.at,
-    type: t.type,
-    text: t.text,
-    _raw: t,
-  }));
-};
-
-const setTimelineMonths = (m) => {
-  timelineRange.value.months = m;
-  timelineRange.value.from = addMonthsFromTodayYmd(m);
-  timelineRange.value.to = todayYmd();
-};
-
-const resetTimelineRange = () => {
-  setTimelineMonths(3);
-};
-
-const applyTimelineRange = () => {
-  buildTimelineAllRows();
-};
-
-const openTimelineAllModal = () => {
-  showTimelineAllModal.value = true;
-  setTimelineMonths(timelineRange.value.months || 3);
-  buildTimelineAllRows();
-};
-
-const closeTimelineAllModal = () => {
-  showTimelineAllModal.value = false;
-};
-
-/* =========================
-   utils
-   ========================= */
-const formatDate = (v) => {
-  if (!v) return "-";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return String(v);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${day} ${hh}:${mm}`;
-};
-
-const formatMoney = (v) => {
-  if (v === null || v === undefined || v === "") return "-";
-  const n = Number(v);
-  if (Number.isNaN(n)) return String(v);
-  return `${n.toLocaleString()}원`;
-};
-
-const toYmd = (v) => {
-  if (!v) return "";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return "";
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
+const openTimelineAllModal = () => (showTimelineAllModal.value = true);
+const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 </script>
 
 <style scoped>
+/* ✅ style은 기존 그대로 유지 (UI 동일) */
 .customer-detail-page {
   font-family: ui-sans-serif, system-ui, -apple-system, "Pretendard Variable", Pretendard, "Noto Sans KR",
   "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
@@ -1597,104 +819,23 @@ const toYmd = (v) => {
   padding-top: 10px;
 }
 
-.card {
-  background: #fff;
-  border: 1px solid #eef2f7;
-  border-radius: 14px;
-  padding: 12px;
-}
+.card { background: #fff; border: 1px solid #eef2f7; border-radius: 14px; padding: 12px; }
+.header-card { display: grid; grid-template-columns: 1.2fr 1.2fr 0.7fr; gap: 12px; }
+.name-row { display: flex; align-items: center; gap: 10px; }
+.name { font-size: 18px; font-weight: 700; letter-spacing: -0.2px; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 999px; background: #f3f4f6; border: 1px solid #e5e7eb; }
+.sub-row { margin-top: 6px; color: #6b7280; font-size: 12px; font-weight: 500; }
+.chips { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 10px; background: #eef6ff; border: 1px solid #dbeafe; }
 
-.header-card {
-  display: grid;
-  grid-template-columns: 1.2fr 1.2fr 0.7fr;
-  gap: 12px;
-}
+.h-mid { display: flex; flex-direction: column; gap: 8px; }
+.kv { display: grid; grid-template-columns: 90px 1fr; gap: 10px; font-size: 13px; }
+.k { color: #6b7280; font-weight: 500; }
+.v { color: #111827; font-weight: 600; }
+.v-inline { display: flex; align-items: center; gap: 10px; }
 
-.name-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.name {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-}
-
-.badges {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-}
-
-.sub-row {
-  margin-top: 6px;
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.chips {
-  margin-top: 10px;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.chip {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 10px;
-  background: #eef6ff;
-  border: 1px solid #dbeafe;
-}
-
-.h-mid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.kv {
-  display: grid;
-  grid-template-columns: 90px 1fr;
-  gap: 10px;
-  font-size: 13px;
-}
-
-.k {
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.v {
-  color: #111827;
-  font-weight: 600;
-}
-
-.v-inline {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.h-right {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-end;
-}
+.h-right { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 
 .outline-wrap :deep(button) {
   height: 30px !important;
@@ -1705,388 +846,76 @@ const toYmd = (v) => {
   color: #2563eb !important;
   font-weight: 600 !important;
 }
+.outline-wrap :deep(button:hover) { background: #f3f4f6 !important; }
+.outline-wrap.inline :deep(button) { height: 26px !important; padding: 0 10px !important; font-size: 12px !important; }
+.h-right :deep(button) { min-width: 110px; justify-content: center; }
 
-.outline-wrap :deep(button:hover) {
-  background: #f3f4f6 !important;
-}
-
-.outline-wrap.inline :deep(button) {
-  height: 26px !important;
-  padding: 0 10px !important;
-  font-size: 12px !important;
-}
-
-.h-right :deep(button) {
-  min-width: 110px;
-  justify-content: center;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 12px;
-}
-
-.col {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.card-title {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 10px;
-  letter-spacing: -0.2px;
-}
-
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
+.grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.card-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.2px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 
 /* snapshot */
-.snap-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.snap {
-  border: 1px solid #eef2f7;
-  border-radius: 12px;
-  padding: 10px;
-}
-
-.k2 {
-  font-size: 12px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.v2 {
-  font-size: 14px;
-  font-weight: 700;
-  margin-top: 6px;
-}
+.snap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.snap { border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; }
+.k2 { font-size: 12px; color: #6b7280; font-weight: 500; }
+.v2 { font-size: 14px; font-weight: 700; margin-top: 6px; }
 
 /* timeline */
-.timeline {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tl-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #2563eb;
-  margin-top: 6px;
-}
-
-.tl-text {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.tl-sub {
-  font-size: 12px;
-  color: #6b7280;
-  font-weight: 500;
-  margin-top: 2px;
-}
-
-.empty {
-  padding: 10px;
-  border: 1px dashed #e5e7eb;
-  border-radius: 12px;
-  color: #6b7280;
-  font-size: 13px;
-}
+.timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.tl-item { display: flex; gap: 10px; align-items: flex-start; }
+.dot { width: 8px; height: 8px; border-radius: 999px; background: #2563eb; margin-top: 6px; }
+.tl-text { font-size: 13px; font-weight: 600; }
+.tl-sub { font-size: 12px; color: #6b7280; font-weight: 500; margin-top: 2px; }
+.empty { padding: 10px; border: 1px dashed #e5e7eb; border-radius: 12px; color: #6b7280; font-size: 13px; }
 
 /* membership / loyalty */
-.kv2 {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 10px;
-  font-size: 13px;
-  align-items: center;
-}
-
-.k3 {
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.v3 {
-  color: #111827;
-  font-weight: 600;
-}
+.kv2 { display: grid; grid-template-columns: 120px 1fr; gap: 8px 10px; font-size: 13px; align-items: center; }
+.k3 { color: #6b7280; font-weight: 500; }
+.v3 { color: #111827; font-weight: 600; }
 
 /* detail modal */
-.detail-box {
-  border: 1px solid #eef2f7;
-  border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 10px;
-}
-
-.detail-title {
-  font-weight: 700;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 10px;
-  font-size: 13px;
-  align-items: center;
-}
-
-.k4 {
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.v4 {
-  color: #111827;
-  font-weight: 600;
-}
+.detail-box { border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+.detail-title { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+.detail-grid { display: grid; grid-template-columns: 120px 1fr; gap: 8px 10px; font-size: 13px; align-items: center; }
+.k4 { color: #6b7280; font-weight: 500; }
+.v4 { color: #111827; font-weight: 600; }
 
 /* membership change modal */
-.change-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 14px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field.full {
-  grid-column: 1 / -1;
-}
-
-.field label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.field input,
-.field select,
-.field textarea {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.field textarea {
-  min-height: 90px;
-  resize: vertical;
-}
-
-.hint {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #6b7280;
-}
+.change-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: 12px; font-weight: 600; color: #374151; }
+.field input, .field select, .field textarea { border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; font-weight: 500; font-size: 13px; }
+.field textarea { min-height: 90px; resize: vertical; }
+.hint { margin-top: 10px; font-size: 12px; color: #6b7280; }
 
 /* contact modal */
-.contact-row {
-  margin: 6px 0;
-  font-size: 13px;
-}
-.primary {
-  margin-left: 8px;
-  font-weight: 700;
-}
-.optin {
-  margin-left: 8px;
-  color: #6b7280;
-}
+.contact-row { margin: 6px 0; font-size: 13px; }
+.primary { margin-left: 8px; font-weight: 700; }
+.optin { margin-left: 8px; color: #6b7280; }
 
-/* card setting */
-.cs-wrap {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
+/* card setting (기존 그대로) */
+.cs-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cs-col { border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; background: #fafbfc; }
+.cs-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.cs-list { display: flex; flex-direction: column; gap: 8px; }
+.cs-item { position: relative; display: flex; align-items: center; gap: 10px; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; background: #fff; transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease; }
+.cs-item.disabled { opacity: 0.6; }
+.cs-item.dragging { border-color: #bfdbfe; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); transform: scale(0.995); }
+.cs-item.over { border-color: #93c5fd; background: #f8fbff; }
+.drag-handle { width: 18px; text-align: center; color: #9ca3af; cursor: grab; user-select: none; font-weight: 700; }
+.chk { display: flex; align-items: center; gap: 10px; font-weight: 600; color: #374151; }
+.cs-dropzone { position: relative; margin-top: 6px; padding: 10px; border: 1px dashed #e5e7eb; border-radius: 12px; color: #9ca3af; font-size: 12px; text-align: center; background: #fff; }
+.cs-dropzone.over { border-color: #93c5fd; background: #f8fbff; }
+.drop-indicator { position: absolute; left: 10px; right: 10px; bottom: -6px; height: 2px; border-radius: 2px; background: #93c5fd; }
 
-.cs-col {
-  border: 1px solid #eef2f7;
-  border-radius: 12px;
-  padding: 10px;
-  background: #fafbfc;
-}
-
-.cs-title {
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.cs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cs-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid #eef2f7;
-  border-radius: 12px;
-  padding: 10px;
-  background: #fff;
-  transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease;
-}
-
-.cs-item.disabled {
-  opacity: 0.6;
-}
-
-.cs-item.dragging {
-  border-color: #bfdbfe;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-  transform: scale(0.995);
-}
-
-.cs-item.over {
-  border-color: #93c5fd;
-  background: #f8fbff;
-}
-
-.drag-handle {
-  width: 18px;
-  text-align: center;
-  color: #9ca3af;
-  cursor: grab;
-  user-select: none;
-  font-weight: 700;
-}
-
-.chk {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.cs-dropzone {
-  position: relative;
-  margin-top: 6px;
-  padding: 10px;
-  border: 1px dashed #e5e7eb;
-  border-radius: 12px;
-  color: #9ca3af;
-  font-size: 12px;
-  text-align: center;
-  background: #fff;
-}
-
-.cs-dropzone.over {
-  border-color: #93c5fd;
-  background: #f8fbff;
-}
-
-.drop-indicator {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -6px;
-  height: 2px;
-  border-radius: 2px;
-  background: #93c5fd;
-}
-
-:global(.drag-ghost) {
-  position: fixed;
-  top: -9999px;
-  left: -9999px;
-  pointer-events: none;
-  opacity: 0.92;
-  transform: scale(1.01);
-  border-radius: 12px;
-  border: 1px solid #bfdbfe;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-  background: #ffffff;
-}
-
-/*  전체보기 모달 상단 */
-.range-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.range-left {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.pill {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  color: #374151;
-  cursor: pointer;
-}
-
-.pill.active {
-  background: #eef6ff;
-  border-color: #bfdbfe;
-  color: #2563eb;
-}
-
-.range-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.date {
-  height: 30px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.sep {
-  color: #6b7280;
-  font-weight: 700;
-}
+/* range bar */
+.range-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.range-left { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid #e5e7eb; background: #fff; font-size: 12px; font-weight: 700; color: #374151; cursor: pointer; }
+.pill.active { background: #eef6ff; border-color: #bfdbfe; color: #2563eb; }
+.range-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.date { height: 30px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 10px; font-size: 12px; font-weight: 600; color: #111827; }
+.sep { color: #6b7280; font-weight: 700; }
 </style>
