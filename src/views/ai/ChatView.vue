@@ -37,7 +37,7 @@ async function onSend() {
 
 <style scoped>
 /* 간단 스타일 */
-.chat { max-width:720px; margin:0 auto }
+.chat { max-width:720px; margin:0 auto; }
 .messages { min-height:300px; border:1px solid #ddd; padding:8px; overflow:auto }
 .user { text-align:right; background:#e6f7ff; margin:6px; padding:8px; border-radius:6px }
 .bot { text-align:left; background:#fff; margin:6px; padding:8px; border-radius:6px }
