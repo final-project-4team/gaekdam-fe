@@ -80,7 +80,7 @@ const onLogin = async () => {
   loading.value = false;
 
   if (!result.success) {
-    errorMessage.value = "아이디 또는 비밀번호가 올바르지 않습니다.";
+    errorMessage.value = result.message || "아이디 또는 비밀번호가 올바르지 않습니다.";
     return;
   }
 
