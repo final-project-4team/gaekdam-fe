@@ -20,3 +20,8 @@ export const deletePermission = async (permissionCode) => {
   const res = await api.delete("/permission/" + permissionCode);
   return res.data.data;
 };
+
+export const getPermissionNameList = async () => {
+  const res = await api.get("/permission/name");
+  return res.data.data;
+};

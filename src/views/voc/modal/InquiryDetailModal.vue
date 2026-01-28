@@ -1,23 +1,51 @@
 <template>
   <BaseModal title="문의 상세" @close="$emit('close')">
-    <div class="inquiry-modal">
+    <div class="modal">
       <div v-if="loading" class="state">불러오는 중...</div>
-      <div v-else-if="error" class="state error">{{ error }}</div>
+      <div v-else-if="error" class="state state--error">{{ error }}</div>
 
-      <div v-else class="scroll">
+      <div v-else class="body">
         <!-- 기본정보 -->
-        <div class="card">
-          <div class="card-title">기본정보</div>
+        <section class="card">
+          <header class="card-head">
+            <div class="card-title">기본정보</div>
+          </header>
 
           <div class="grid">
-            <div class="row"><span class="k">문의번호</span><span class="v">{{ detail?.inquiryCode ?? "-" }}</span></div>
-            <div class="row"><span class="k">고객명</span><span class="v">{{ detail?.customerName ?? "-" }}</span></div>
+            <!-- 제목을 기본정보 최상단(첫번째)로 이동 -->
+            <div class="row span2">
+              <span class="k">제목</span>
+              <span class="v">{{ detail?.inquiryTitle ?? "-" }}</span>
+            </div>
 
-            <div class="row"><span class="k">접수일시</span><span class="v">{{ fmt(detail?.createdAt) }}</span></div>
-            <div class="row"><span class="k">연락처</span><span class="v">-</span></div>
+            <div class="row">
+              <span class="k">문의번호</span>
+              <span class="v mono">{{ detail?.inquiryCode ?? "-" }}</span>
+            </div>
 
-            <div class="row"><span class="k">문의유형</span><span class="v">{{ detail?.inquiryCategoryName ?? "-" }}</span></div>
-            <div class="row"><span class="k">처리상태</span>
+            <div class="row">
+              <span class="k">접수일시</span>
+              <span class="v mono">{{ fmt(detail?.createdAt) }}</span>
+            </div>
+
+            <div class="row">
+              <span class="k">고객명</span>
+              <span class="v">{{ detail?.customerName ?? "-" }}</span>
+            </div>
+
+            <div class="row">
+              <span class="k">연락처</span>
+              <span class="v">-</span>
+            </div>
+
+            <div class="row">
+              <span class="k">문의유형</span>
+              <span class="v">{{ detail?.inquiryCategoryName ?? "-" }}</span>
+            </div>
+
+            <!-- 처리상태만 남김(상단 우측 배지 제거) -->
+            <div class="row">
+              <span class="k">처리상태</span>
               <span class="v">
                 <span class="badge" :class="badgeClass(detail?.inquiryStatus)">
                   {{ statusLabel(detail?.inquiryStatus) }}
@@ -25,39 +53,47 @@
               </span>
             </div>
 
-            <!-- 담당자 표시: 담당자명 / 담당자ID -->
-            <div class="row"><span class="k">담당자명</span><span class="v">{{ employeeNameLabel }}</span></div>
-            <div class="row"><span class="k">담당자ID</span><span class="v">{{ employeeLoginIdLabel }}</span></div>
+            <div class="row">
+              <span class="k">담당자명</span>
+              <span class="v">{{ employeeNameLabel }}</span>
+            </div>
 
-            <!-- 상세에서만 있을 때 표시 -->
-            <div v-if="detail?.linkedIncidentCode" class="row">
+            <div class="row">
+              <span class="k">담당자ID</span>
+              <span class="v mono">{{ employeeLoginIdLabel }}</span>
+            </div>
+
+            <div v-if="detail?.linkedIncidentCode" class="row span2">
               <span class="k">연결된 사건</span>
-              <span class="v link">{{ detail.linkedIncidentCode }}</span>
+              <span class="v link mono">{{ detail.linkedIncidentCode }}</span>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- 문의내용 -->
-        <div class="card">
-          <div class="card-title">문의내용</div>
-          <div class="box">
-            <div class="headline">{{ detail?.inquiryTitle ?? "-" }}</div>
+        <!-- 문의내용 (제목은 위로 올렸으니 내용만) -->
+        <section class="card">
+          <header class="card-head">
+            <div class="card-title">문의내용</div>
+          </header>
+
+          <div class="panel">
             <pre class="content">{{ detail?.inquiryContent ?? "-" }}</pre>
           </div>
-        </div>
+        </section>
 
-        <!-- 답변(처리)내용 -->
-        <div class="card">
-          <div class="card-title">답변(처리)내용</div>
-          <div class="box">
+        <!-- 답변 -->
+        <section class="card">
+          <header class="card-head">
+            <div class="card-title">답변(처리)내용</div>
+          </header>
+
+          <div class="panel">
             <pre class="content">{{ detail?.answerContent ?? "답변이 없습니다." }}</pre>
           </div>
-        </div>
+        </section>
       </div>
 
-      <div class="footer">
-        <BaseButton type="ghost" size="md" @click="$emit('close')">확인</BaseButton>
-      </div>
+      <!-- 모달 안 닫기 버튼 제거 (BaseModal 공통 닫기 사용) -->
     </div>
   </BaseModal>
 </template>
@@ -65,13 +101,11 @@
 <script setup>
 import { ref, watch, computed } from "vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
-import BaseButton from "@/components/common/button/BaseButton.vue";
 import { getInquiryDetailApi } from "@/api/voc/inquiryApi";
 
 const props = defineProps({
   inquiryCode: { type: [Number, String], required: true },
 });
-
 defineEmits(["close"]);
 
 const detail = ref(null);
@@ -87,7 +121,7 @@ const statusLabel = (v) => {
 const badgeClass = (v) => {
   if (v === "IN_PROGRESS") return "badge--in";
   if (v === "ANSWERED") return "badge--done";
-  return "";
+  return "badge--neutral";
 };
 
 const fmt = (iso) => {
@@ -95,15 +129,8 @@ const fmt = (iso) => {
   return String(iso).replace("T", " ").slice(0, 16);
 };
 
-const employeeNameLabel = computed(() => {
-  const name = (detail.value?.employeeName ?? "").trim();
-  return name ? name : "미지정";
-});
-
-const employeeLoginIdLabel = computed(() => {
-  const id = (detail.value?.employeeLoginId ?? "").trim();
-  return id ? id : "-";
-});
+const employeeNameLabel = computed(() => (detail.value?.employeeName ?? "").trim() || "미지정");
+const employeeLoginIdLabel = computed(() => (detail.value?.employeeLoginId ?? "").trim() || "-");
 
 const fetchDetail = async () => {
   loading.value = true;
@@ -120,21 +147,26 @@ const fetchDetail = async () => {
   }
 };
 
-watch(
-    () => props.inquiryCode,
-    () => fetchDetail(),
-    { immediate: true }
-);
+watch(() => props.inquiryCode, fetchDetail, { immediate: true });
 </script>
 
 <style scoped>
-.inquiry-modal {
+.modal {
+  --bg: #ffffff;
+  --line: #e7edf4;
+  --muted: #6b7280;
+  --text: #111827;
+
+  --r: 14px;
+  --pad: 16px;
+
   display: flex;
   flex-direction: column;
   gap: 12px;
+  color: var(--text);
 }
 
-.scroll {
+.body {
   max-height: 70vh;
   overflow-y: auto;
   padding-right: 6px;
@@ -142,32 +174,40 @@ watch(
 
 .state {
   padding: 14px;
-  border: 1px solid #e7edf4;
-  border-radius: 12px;
-  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg);
   text-align: center;
   color: #374151;
+  font-size: 14px;
 }
 
-.state.error {
+.state--error {
   color: #b91c1c;
   border-color: #fecaca;
   background: #fff5f5;
 }
 
 .card {
-  background: #fff;
-  border: 1px solid #e7edf4;
-  border-radius: 14px;
-  padding: 16px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--pad);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
 .card-title {
-  text-align: center;
   font-weight: 800;
-  margin-bottom: 10px;
+  font-size: 15px;
+  letter-spacing: -0.2px;
 }
 
 .grid {
@@ -176,31 +216,62 @@ watch(
   gap: 10px 22px;
 }
 
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .span2 {
+    grid-column: auto;
+  }
+}
+
 .row {
   display: flex;
   gap: 10px;
   align-items: center;
   font-size: 14px;
+  line-height: 1.4;
+}
+
+.span2 {
+  grid-column: 1 / -1;
 }
 
 .k {
   width: 90px;
   font-weight: 800;
   color: #374151;
+  flex: 0 0 auto;
 }
 
 .v {
-  color: #111827;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.link {
+  color: #1d4ed8;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .badge {
   display: inline-flex;
-  padding: 4px 10px;
+  align-items: center;
+  padding: 5px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
+  color: #374151;
 }
 
 .badge--in {
@@ -215,33 +286,24 @@ watch(
   color: #15803d;
 }
 
-.link {
-  color: #1d4ed8;
-  font-weight: 800;
+.badge--neutral {
+  border-color: #e5e7eb;
+  background: #f9fafb;
+  color: #374151;
 }
 
-.box {
-  border: 1px solid #e7edf4;
+.panel {
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 12px 14px;
   background: #fafbfc;
 }
 
-.headline {
-  text-align: center;
-  font-weight: 800;
-  margin-bottom: 10px;
-}
-
 .content {
   margin: 0;
   white-space: pre-wrap;
-  line-height: 1.55;
-}
-
-.footer {
-  display: flex;
-  justify-content: center;
-  padding-top: 4px;
+  line-height: 1.6;
+  font-size: 14px;
+  color: #111827;
 }
 </style>

@@ -4,7 +4,7 @@
         v-for="tab in tabs"
         :key="tab.path"
         class="tab"
-        :class="{ active: isActive(tab.path) }"
+        :class="{ active: isActive(tab) }"
         @click="go(tab.path)"
     >
       {{ tab.label }}
@@ -26,7 +26,12 @@ const router = useRouter()
 const route = useRoute()
 
 const go = (path) => router.push(path)
-const isActive = (path) => route.path === path
+const isActive = (tab) => {
+  if (tab.activeMatches) {
+    return tab.activeMatches.some(match => route.path.startsWith(match))
+  }
+  return route.path === tab.path
+}
 </script>
 
 <style scoped>
