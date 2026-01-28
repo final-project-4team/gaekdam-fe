@@ -1,5 +1,5 @@
-import {createRouter, createWebHistory} from 'vue-router'
-import {useAuthStore} from '@/stores/authStore'
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 
 import CrmLayout from '@/layouts/CrmLayout.vue'
 import ActivityLayout from '@/views/activity/view/ActivityLayout.vue'
@@ -137,7 +137,22 @@ const routes = [
         ],
       },
 
-      {path: 'messages', component: MessageLayout},
+
+            {
+                path: 'messages',
+                component: MessageLayout,
+                children: [
+                    {
+                        path: 'templates',
+                        component: () => import('@/views/message/MessageTemplateSettingView.vue')
+                    },
+                    {
+                        path: 'histories',
+                        component: () => import('@/views/message/MessageHistoryView.vue')
+                    }
+                ]
+            },
+
 
       {
         path: 'setting',
