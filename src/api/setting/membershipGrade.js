@@ -1,7 +1,7 @@
 import api from "@/api/axios.js";
 
-export const getMembershipGradeList = async () => {
-  const res = await api.get("/membership-grade");
+export const getMembershipGradeList = async (params = {}) => {
+  const res = await api.get("/membership-grade", { params });
   return res.data.data;
 };
 
@@ -14,8 +14,8 @@ export const createMembershipGrade = async (membershipGradeDetail) => {
   return res.data.data;
 };
 
-export const updateMembershipGrade = async (membershipGradeDetail) => {
-  const res = await api.put("/membership-grade", membershipGradeDetail);
+export const updateMembershipGrade = async (membershipGradeCode, membershipGradeDetail) => {
+  const res = await api.put("/membership-grade/" + membershipGradeCode, membershipGradeDetail);
   return res.data.data;
 };
 

@@ -1,7 +1,7 @@
 <template>
   <div class="activity-all-page">
     <div class="page-header">
-      <BaseButton type="primary" @click="openCreateModal">직원 등록</BaseButton>
+      <BaseButton type="primary" @click="openCreateModal"   :disabled="!auth.hasPermission('EMPLOYEE_CREATE')">직원 등록</BaseButton>
     </div>
     <ListView
         :columns="columns"
@@ -65,8 +65,16 @@
     <EmployeeDetailModal
         v-if="showRowModal"
         :employeeCode="selectedEmployee?.employeeCode"
+        :reason="currentReason"
         @close="closeRowModal"
         @refresh="loadEmployeeList"
+    />
+
+    <!-- 사유 입력 모달 -->
+    <ReasonRequestModal
+        v-if="showReasonModal"
+        @close="closeReasonModal"
+        @confirm="onReasonConfirmed"
     />
 
     <!-- 비밀번호 초기화 결과 모달 -->
@@ -131,15 +139,24 @@ import {ref, onMounted, watch} from 'vue'
 import ListView from '@/components/common/ListView.vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
-import {getEmployeeList, updateEmployeeStatus, resetEmployeePassword, unlockEmployee} from '@/api/setting/employeeApi.js'
+import {
+  getEmployeeList,
+  updateEmployeeStatus,
+  resetEmployeePassword,
+  unlockEmployee,
+  lockEmployee
+} from '@/api/setting/employeeApi.js'
 import EmployeeDetailModal from "@/views/setting/modal/EmployeeDetailModal.vue";
-
+import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
+import {useAuthStore} from "@/stores/authStore.js";
+const auth = useAuthStore()
 // ... (intermediate code)
 
 const columns = [
   { key: 'employeeNumber', label: '사번', align: 'center',sortable: true, width: '100px' },
-  { key: 'departmentName', label: '부서',sortable: true, width: '100px' },
-  { key: 'hotelPositionName', label: '직책', align: 'center',sortable: true, width: '100px' },
+  // { key: 'departmentName', label: '부서',sortable: true, width: '100px' }, // 제거
+  // { key: 'hotelPositionName', label: '직책', align: 'center',sortable: true, width: '100px' }, // 제거
+  { key: 'permissionName', label: '권한', align: 'center', sortable: true, width: '120px' }, // 추가
   { key: 'employeeName', label: '이름', align: 'center' ,sortable: true, width: '100px' },
   { key: 'phoneNumber', label: '전화번호', align: 'center' ,sortable: true, width: '140px' },
   { key: 'loginId', label: '아이디', align: 'center' ,sortable: true, width: '100px' },
@@ -327,22 +344,47 @@ const onDetailReset = () => {
 
 const showRowModal = ref(false)
 const selectedEmployee = ref(null)
+const currentReason = ref('')
+
+const showReasonModal = ref(false)
+const pendingRow = ref(null)
 
 const openRowModal = (row) => {
-  console.log("Open Detail", row)
-  selectedEmployee.value = row
-  showRowModal.value = true
+  // 생성 모드가 아닌 조회/수정 모드일 때만 사유 입력
+  // row가 있으면 기존 회원 조회
+  if (row && row.employeeCode) {
+    pendingRow.value = row
+    currentReason.value = ''
+    showReasonModal.value = true
+  } else {
+    // 혹시 모를 예외 처리 (row 없이 호출 시)
+    selectedEmployee.value = row
+    showRowModal.value = true
+  }
 }
 
 const openCreateModal = () => {
   selectedEmployee.value = { employeeCode: null } // Create Mode
+  currentReason.value = ''
   showRowModal.value = true
 }
 
+const closeReasonModal = () => {
+  showReasonModal.value = false
+  pendingRow.value = null
+}
+
+const onReasonConfirmed = (reason) => {
+  currentReason.value = reason
+  selectedEmployee.value = pendingRow.value
+  showReasonModal.value = false
+  showRowModal.value = true
+}
 
 const closeRowModal = () => {
   showRowModal.value = false
   selectedEmployee.value = null;
+  currentReason.value = ''
 }
 
 /* ===================== */
@@ -385,7 +427,7 @@ const handleAction = async (action, row) => {
   try {
     if (action === 'lock') {
       if (!confirm(`${row.employeeName} 님을 잠금 처리하시겠습니까?`)) return
-      await updateEmployeeStatus(row.employeeCode, 'LOCKED')
+      await lockEmployee(row.employeeCode)
       alert('잠금 처리되었습니다.')
     } else if (action === 'activate') {
       if (!confirm(`${row.employeeName} 님을 활성화하시겠습니까?`)) return
@@ -394,17 +436,7 @@ const handleAction = async (action, row) => {
     } else if (action === 'resetPassword') {
       if (!confirm(`${row.employeeName} 님의 비밀번호를 초기화하시겠습니까?`)) return
       const res = await resetEmployeePassword(row.employeeCode)
-      // API response assumed to contain the password directly or in a field.
-      // User said "response looks like this so show it", implying the response body IS the data needed.
-      // Adjusting based on common patterns: res might be 'newPass' or { password: '...' }
-      // Since I don't see the exact structure, and the user said "response looks like this",
-      // typically they mean the JSON response. I will display the whole res if string, or res.password if object.
-      // Safe fallback: JSON.stringify if object and unknown structure.
-      // However, to look good, I will assume it's a string or a simple object.
-      // Let's assume it returns the password string directly or inside a field.
-      // I'll try to handle both.
-
-      resetPasswordResult.value = (typeof res === 'object' && res.password) ? res.password : res
+      resetPasswordResult.value = res?.data ?? res
       showResetModal.value = true
     }
 

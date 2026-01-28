@@ -9,7 +9,7 @@
 
     <ListView
         :columns="columns"
-        :rows="filteredMembershipList"
+        :rows="membershipGradeList"
         :filters="filters"
         :showSearch="false"
         show-detail
@@ -173,18 +173,23 @@ const filters = [
   }
 ]
 
-const filteredMembershipList = computed(() => {
-    let result = membershipGradeList.value;
+// 1. filteredMembershipList 삭제하고 바로 membershipGradeList 사용하도록 변경
+// const filteredMembershipList = computed(() => { ... }); (삭제)
 
-    if (activeFilters.value.membershipGradeStatus) {
-        result = result.filter(item => item.membershipGradeStatus === activeFilters.value.membershipGradeStatus);
-    }
-    
-    return result;
-});
+const fetchMemberships = async (status = '') => {
+    // API 요청 파라미터 매핑
+    const params = {
+        sortBy: 'gradeName',
+        direction: 'ASC',
+        status: status || 'ALL' // 값이 없으면 ALL
+    };
+    membershipGradeList.value = await getMembershipGradeList(params);
+}
 
 const handleFilter = (filterValues) => {
     activeFilters.value = filterValues;
+    const status = filterValues.membershipGradeStatus;
+    fetchMemberships(status);
 }
 
 const showRowModal = ref(false)
@@ -192,6 +197,7 @@ const showActionModal = ref(false)
 const selectedRow = ref(null)
 
 const newMembership = ref({
+  membershipGradeCode:'',
     gradeName: '',
     tierLevel: '',
     tierComment: '',
@@ -282,8 +288,9 @@ const closeActionModal = () => {
 const saveMembership = async () => {
     try {
         const payload = {
-            ...newMembership.value,
+            gradeName: newMembership.value.gradeName,
             tierLevel: Number(newMembership.value.tierLevel),
+            tierComment: String(newMembership.value.tierComment || ''),
             calculationAmount: Number(newMembership.value.calculationAmount),
             calculationCount: Number(newMembership.value.calculationCount),
             calculationTermMonth: Number(newMembership.value.calculationTermMonth),
@@ -291,7 +298,8 @@ const saveMembership = async () => {
         }
 
         if (isEditMode.value) {
-            await updateMembershipGrade(payload)
+            const id = newMembership.value.membershipGradeCode;
+            await updateMembershipGrade(id, payload)
             alert(`[성공] ${newMembership.value.gradeName} 등급이 수정되었습니다.`)
         } else {
             await createMembershipGrade(payload)
@@ -302,12 +310,12 @@ const saveMembership = async () => {
         closeActionModal()
     } catch (error) {
         console.error('멤버십 저장 실패:', error)
-       // alert('작업 중 오류가 발생했습니다.')
+        alert('작업 중 오류가 발생했습니다.')
     }
 }
 
 onMounted(async () => {
-  membershipGradeList.value = await getMembershipGradeList();
+  await fetchMemberships();
 });
 </script>
 

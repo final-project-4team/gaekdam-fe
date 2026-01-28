@@ -42,8 +42,14 @@ export const getEmployeeList = async ({
 };
 
 
-export const getEmployeeDetail = async (employeeCode) => {
-  const res = await api.get("/employee/detail/" + employeeCode);
+export const getEmployeeDetail = async (employeeCode, reason) => {
+  const res = await api.get("/employee/detail/" + employeeCode, {
+    params: { reason }
+  });
+  return res.data.data;
+};
+export const getMyPage = async () => {
+  const res = await api.get("/employee/detail");
   return res.data.data;
 };
 
@@ -54,13 +60,17 @@ export const updateEmployeeStatus = async (employeeCode, status) => {
   return res.data;
 };
 
+export const lockEmployee = async (employeeCode) => {
+  const res = await api.patch(`/employee/lock/${employeeCode}`);
+  return res.data;
+};
 export const unlockEmployee = async (employeeCode) => {
-  const res = await api.put(`/employee/unlock/${employeeCode}`);
+  const res = await api.patch(`/employee/unlock/${employeeCode}`);
   return res.data;
 };
 
 export const resetEmployeePassword = async (employeeCode) => {
-  const res = await api.put(`/employee/password-reset/${employeeCode}`);
+  const res = await api.patch(`/employee/password-reset/${employeeCode}`);
   return res.data;
 };
 
@@ -72,4 +82,9 @@ export const updateEmployee = async (employeeCode, data) => {
 export const createEmployee = async (data) => {
   const res = await api.post("/employee/add", data);
   return res.data;
+};
+
+export const getDepartmentList = async () => {
+  const res = await api.get("/department");
+  return res.data.data;
 };
