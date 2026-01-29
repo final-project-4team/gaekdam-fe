@@ -150,7 +150,9 @@ import {
   updateLoyaltyGrade,
   deleteLoyaltyGrade
 } from "@/api/setting/loyaltyGrade.js"
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
+const { withPermission } = usePermissionGuard();
 const loyaltyList = ref([])
 const loyaltyGradeDetail = ref(null)
 const activeFilters = ref({}) // 현재 적용된 필터
@@ -225,12 +227,14 @@ const newPolicy = ref({
 })
 
 // 상세 모달 열기
-const openRowModal = async (row) => {
-  selectedRow.value = row
-  showRowModal.value = true
-  
-  // API Call
-  loyaltyGradeDetail.value = await getLoyaltyGradeDetail(row.loyaltyGradeCode)
+const openRowModal =  (row) => {
+  withPermission('LOYALTY_POLICY_READ', async () => {
+    selectedRow.value = row
+    showRowModal.value = true
+
+    // API Call
+    loyaltyGradeDetail.value = await getLoyaltyGradeDetail(row.loyaltyGradeCode)
+  });
 }
 
 const closeRowModal = () => {
@@ -241,8 +245,9 @@ const closeRowModal = () => {
 
 // 등록 모달 열기
 const openActionModal = () => {
-  isEditMode.value = false
-  newPolicy.value = {
+  withPermission('LOYALTY_POLICY_CREATE',  () => {
+    isEditMode.value = false
+    newPolicy.value = {
       loyaltyGradeCode: null,
       loyaltyGradeName: '',
       loyaltyTierLevel: '',
@@ -251,24 +256,27 @@ const openActionModal = () => {
       loyaltyCalculationCount: '',
       loyaltyCalculationTermMonth: '',
       loyaltyCalculationRenewalDay: ''
-  }
-  showActionModal.value = true
+    }
+    showActionModal.value = true
+  });
 }
 
 // 수정 모달 열기
 const openEditModal = (row) => {
+  withPermission('LOYALTY_POLICY_UPDATE',  () => {
     isEditMode.value = true
     newPolicy.value = {
-        loyaltyGradeCode: row.loyaltyGradeCode,
-        loyaltyGradeName: row.loyaltyGradeName,
-        loyaltyTierLevel: row.loyaltyTierLevel,
-        loyaltyTierComment: row.loyaltyTierComment,
-        loyaltyCalculationAmount: row.loyaltyCalculationAmount,
-        loyaltyCalculationCount: row.loyaltyCalculationCount,
-        loyaltyCalculationTermMonth: row.loyaltyCalculationTermMonth,
-        loyaltyCalculationRenewalDay: row.loyaltyCalculationRenewalDay
+      loyaltyGradeCode: row.loyaltyGradeCode,
+      loyaltyGradeName: row.loyaltyGradeName,
+      loyaltyTierLevel: row.loyaltyTierLevel,
+      loyaltyTierComment: row.loyaltyTierComment,
+      loyaltyCalculationAmount: row.loyaltyCalculationAmount,
+      loyaltyCalculationCount: row.loyaltyCalculationCount,
+      loyaltyCalculationTermMonth: row.loyaltyCalculationTermMonth,
+      loyaltyCalculationRenewalDay: row.loyaltyCalculationRenewalDay
     }
     showActionModal.value = true
+  });
 }
 
 const closeActionModal = () => {
@@ -305,20 +313,22 @@ const savePolicy = async () => {
 }
 
 // 비활성화/삭제 (List Action)
-const deactivateLoyalty = async (row) => {
-  if (!confirm('정말로 이 정책을 비활성화(삭제) 하시겠습니까?')) return
+const deactivateLoyalty =  (row) => {
+  withPermission('LOYALTY_POLICY_DELETE', async () => {
+    if (!confirm('정말로 이 정책을 비활성화(삭제) 하시겠습니까?')) return
 
-  try {
-    await deleteLoyaltyGrade(row.loyaltyGradeCode)
-    alert('정책이 비활성화되었습니다.')
-    
-    // Refresh
-    loyaltyList.value = await getLoyaltyGradeList()
-    closeRowModal()
-  } catch (error) {
+    try {
+      await deleteLoyaltyGrade(row.loyaltyGradeCode)
+      alert('정책이 비활성화되었습니다.')
+
+      // Refresh
+      loyaltyList.value = await getLoyaltyGradeList()
+      closeRowModal()
+    } catch (error) {
       console.error('로열티 정책 비활성화 실패:', error)
-   //   alert('작업 중 오류가 발생했습니다.')
-  }
+      //   alert('작업 중 오류가 발생했습니다.')
+    }
+  });
 }
 
 // 상세 모달 내부 삭제 (Deprecated but kept for now compatibility)

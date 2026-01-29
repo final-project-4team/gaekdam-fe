@@ -527,6 +527,9 @@ import { useCustomerDetailPage } from "@/views/customer/composables/useCustomerD
 import { useCustomerReservations } from "@/views/customer/composables/useCustomerReservations.js";
 import { useCustomerInquiries } from "@/views/customer/composables/useCustomerInquiries.js";
 import { useCardSettingDnd } from "@/views/customer/composables/useCardSettingDnd.js";
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
 
 /* router/store */
 const route = useRoute();
@@ -753,8 +756,8 @@ const savingMembership = ref(false);
 const membershipGrades = ref([]);
 const membershipGradeOptions = computed(() =>
     membershipGrades.value
-        .filter((g) => g?.membershipGradeStatus !== "INACTIVE")
-        .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode }))
+    .filter((g) => g?.membershipGradeStatus !== "INACTIVE")
+    .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode }))
 );
 
 const loadMembershipGrades = async () => {
@@ -774,19 +777,21 @@ const membershipChange = ref({
   employeeCode: null,
 });
 
-const onMembershipChange = async () => {
-  await loadMembershipGrades();
+const onMembershipChange =  () => {
+  withPermission('CUSTOMER_UPDATE', async () => {
+    await loadMembershipGrades();
 
-  const currentExpiredYmd = toYmd(membership.value?.expiredAt) || "";
-  membershipChange.value = {
-    membershipGradeCode: null,
-    membershipStatus: membership.value?.membershipStatus || "ACTIVE",
-    expiredAt: currentExpiredYmd,
-    changeReason: "",
-    employeeCode: null,
-  };
+    const currentExpiredYmd = toYmd(membership.value?.expiredAt) || "";
+    membershipChange.value = {
+      membershipGradeCode: null,
+      membershipStatus: membership.value?.membershipStatus || "ACTIVE",
+      expiredAt: currentExpiredYmd,
+      changeReason: "",
+      employeeCode: null,
+    };
 
-  showMembershipModal.value = true;
+    showMembershipModal.value = true;
+  });
 };
 
 const submitMembershipChange = async () => {

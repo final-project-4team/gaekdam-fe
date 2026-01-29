@@ -1,7 +1,7 @@
 <template>
   <div class="activity-all-page">
     <div class="page-header">
-      <BaseButton type="primary" @click="openCreateModal"   :disabled="!auth.hasPermission('EMPLOYEE_CREATE')">직원 등록</BaseButton>
+      <BaseButton type="primary" @click="openCreateModal">직원 등록</BaseButton>
     </div>
     <ListView
         :columns="columns"
@@ -24,7 +24,7 @@
         <span>{{ row.statusText }}</span>
       </template>
 
-      <!-- Context Menu Column -->
+
       <template #cell-actions="{ row }">
         <div class="menu-container">
           <button class="kebab-btn" @click.stop="toggleMenu(row, $event)">
@@ -148,21 +148,21 @@ import {
 } from '@/api/setting/employeeApi.js'
 import EmployeeDetailModal from "@/views/setting/modal/EmployeeDetailModal.vue";
 import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
-import {useAuthStore} from "@/stores/authStore.js";
-const auth = useAuthStore()
-// ... (intermediate code)
+import {usePermissionGuard} from '@/composables/usePermissionGuard';
+// ...
+const {withPermission} = usePermissionGuard();
 
 const columns = [
-  { key: 'employeeNumber', label: '사번', align: 'center',sortable: true, width: '100px' },
+  {key: 'employeeNumber', label: '사번', align: 'center', sortable: true, width: '100px'},
   // { key: 'departmentName', label: '부서',sortable: true, width: '100px' }, // 제거
   // { key: 'hotelPositionName', label: '직책', align: 'center',sortable: true, width: '100px' }, // 제거
-  { key: 'permissionName', label: '권한', align: 'center', sortable: true, width: '120px' }, // 추가
-  { key: 'employeeName', label: '이름', align: 'center' ,sortable: true, width: '100px' },
-  { key: 'phoneNumber', label: '전화번호', align: 'center' ,sortable: true, width: '140px' },
-  { key: 'loginId', label: '아이디', align: 'center' ,sortable: true, width: '100px' },
-  { key: 'email', label: '이메일', align: 'center' ,sortable: true, width: '200px' },
-  { key: 'employeeStatus', label: '상태', align: 'center' ,sortable: true, width: '100px' },
-  { key: 'actions', label: '', align: 'center', sortable: false, width: '60px' },
+  {key: 'permissionName', label: '권한', align: 'center', sortable: true, width: '120px'}, // 추가
+  {key: 'employeeName', label: '이름', align: 'center', sortable: true, width: '100px'},
+  {key: 'phoneNumber', label: '전화번호', align: 'center', sortable: true, width: '140px'},
+  {key: 'loginId', label: '아이디', align: 'center', sortable: true, width: '100px'},
+  {key: 'email', label: '이메일', align: 'center', sortable: true, width: '200px'},
+  {key: 'employeeStatus', label: '상태', align: 'center', sortable: true, width: '100px'},
+  {key: 'actions', label: '', align: 'center', sortable: false, width: '60px'},
 ]
 
 const rows = ref([])
@@ -176,23 +176,21 @@ const filterValues = ref({
 
 const sortState = ref({})
 
-
-
 const searchTypes = [
-  { label: '전체', value: '' },
-  { label: '부서', value: 'departmentName' },
-  { label: '직책', value: 'hotelPositionName' },
-  { label: '이름', value: 'employeeName' }
+  {label: '전체', value: ''},
+  {label: '부서', value: 'departmentName'},
+  {label: '직책', value: 'hotelPositionName'},
+  {label: '이름', value: 'employeeName'}
 ]
 
 const filters = [
   {
     key: 'employeeStatus',
     options: [
-      { label: '상태', value: '' },
-      { label: 'ACTIVE', value: 'ACTIVE' },
-      { label: 'LOCKED', value: 'LOCKED' },
-      { label: 'DORMANCY', value: 'DORMANCY' },
+      {label: '상태', value: ''},
+      {label: 'ACTIVE', value: 'ACTIVE'},
+      {label: 'LOCKED', value: 'LOCKED'},
+      {label: 'DORMANCY', value: 'DORMANCY'},
     ],
   }
 ]
@@ -205,14 +203,12 @@ const quickSearch = ref({
   hotelPositionName: null
 })
 
-
 const detailForm = ref({
   employeeName: null,
   employeeNumber: null,
   phoneNumber: null,
   email: null,
 })
-
 
 const loadEmployeeList = async () => {
   try {
@@ -250,7 +246,6 @@ const loadEmployeeList = async () => {
   }
 }
 
-
 const onSearch = (payload) => {
   page.value = 1
 
@@ -283,7 +278,6 @@ const onSearch = (payload) => {
   loadEmployeeList()
 }
 
-
 /* ===================== */
 /* 상세검색 watch (모달 전용) */
 /* ===================== */
@@ -291,7 +285,9 @@ watch(
     () => ({...detailForm.value}),
     (v) => {
       // 값이 하나라도 있으면 검색 수행
-      if (!v.employeeName && !v.employeeNumber && !v.phoneNumber && !v.email) return
+      if (!v.employeeName && !v.employeeNumber && !v.phoneNumber && !v.email) {
+        return
+      }
 
       //  상세검색 시 기본검색 무효화 (필요시)
       // quickSearch.value.keyword = null
@@ -300,7 +296,6 @@ watch(
       loadEmployeeList()
     }
 )
-
 
 const onFilter = (values) => {
   filterValues.value = {
@@ -341,7 +336,6 @@ const onDetailReset = () => {
   loadEmployeeList()
 }
 
-
 const showRowModal = ref(false)
 const selectedEmployee = ref(null)
 const currentReason = ref('')
@@ -352,21 +346,25 @@ const pendingRow = ref(null)
 const openRowModal = (row) => {
   // 생성 모드가 아닌 조회/수정 모드일 때만 사유 입력
   // row가 있으면 기존 회원 조회
-  if (row && row.employeeCode) {
-    pendingRow.value = row
-    currentReason.value = ''
-    showReasonModal.value = true
-  } else {
-    // 혹시 모를 예외 처리 (row 없이 호출 시)
-    selectedEmployee.value = row
-    showRowModal.value = true
-  }
+  withPermission('EMPLOYEE_READ', () => {
+    if (row && row.employeeCode) {
+      pendingRow.value = row
+      currentReason.value = ''
+      showReasonModal.value = true
+    } else {
+      // 혹시 모를 예외 처리 (row 없이 호출 시)
+      selectedEmployee.value = row
+      showRowModal.value = true
+    }
+  });
 }
 
 const openCreateModal = () => {
-  selectedEmployee.value = { employeeCode: null } // Create Mode
-  currentReason.value = ''
-  showRowModal.value = true
+  withPermission('EMPLOYEE_CREATE', () => {
+    selectedEmployee.value = {employeeCode: null} // Create Mode
+    currentReason.value = ''
+    showRowModal.value = true
+  });
 }
 
 const closeReasonModal = () => {
@@ -391,10 +389,12 @@ const closeRowModal = () => {
 /* Context Menu */
 /* ===================== */
 const activeMenuRow = ref(null)
-const menuStyle = ref({ top: '0px', left: '0px' })
+const menuStyle = ref({top: '0px', left: '0px'})
 
 const toggleMenu = (row, event) => {
-  if (event) event.stopPropagation() // 행 클릭 방지
+  if (event) {
+    event.stopPropagation()
+  } // 행 클릭 방지
 
   if (activeMenuRow.value && activeMenuRow.value.employeeCode === row.employeeCode) {
     activeMenuRow.value = null
@@ -416,38 +416,45 @@ const toggleMenu = (row, event) => {
 // 메뉴 외부 클릭 시 닫기 (Optional: 전역 클릭 이벤트 추가 필요하지만 간단히 구현)
 // 실제로는 global click listener가 필요하나, 여기서는 다른 행 클릭 시 닫히는 것으로 대체될 수 있음.
 
-const handleAction = async (action, row) => {
-  activeMenuRow.value = null // 메뉴 닫기
+const handleAction = (action, row) => {
+  withPermission('EMPLOYEE_UPDATE', async () => {
+    activeMenuRow.value = null // 메뉴 닫기
 
-  if (action === 'edit') {
-    openRowModal(row)
-    return
-  }
-
-  try {
-    if (action === 'lock') {
-      if (!confirm(`${row.employeeName} 님을 잠금 처리하시겠습니까?`)) return
-      await lockEmployee(row.employeeCode)
-      alert('잠금 처리되었습니다.')
-    } else if (action === 'activate') {
-      if (!confirm(`${row.employeeName} 님을 활성화하시겠습니까?`)) return
-      await unlockEmployee(row.employeeCode)
-      alert('활성화되었습니다.')
-    } else if (action === 'resetPassword') {
-      if (!confirm(`${row.employeeName} 님의 비밀번호를 초기화하시겠습니까?`)) return
-      const res = await resetEmployeePassword(row.employeeCode)
-      resetPasswordResult.value = res?.data ?? res
-      showResetModal.value = true
+    if (action === 'edit') {
+      openRowModal(row)
+      return
     }
 
-    // 리스트 갱신
-    loadEmployeeList()
-  } catch (e) {
-    console.error(e)
-    alert('요청 처리에 실패했습니다.')
-  }
-}
+    try {
+      if (action === 'lock') {
+        if (!confirm(`${row.employeeName} 님을 잠금 처리하시겠습니까?`)) {
+          return
+        }
+        await lockEmployee(row.employeeCode)
+        alert('잠금 처리되었습니다.')
+      } else if (action === 'activate') {
+        if (!confirm(`${row.employeeName} 님을 활성화하시겠습니까?`)) {
+          return
+        }
+        await unlockEmployee(row.employeeCode)
+        alert('활성화되었습니다.')
+      } else if (action === 'resetPassword') {
+        if (!confirm(`${row.employeeName} 님의 비밀번호를 초기화하시겠습니까?`)) {
+          return
+        }
+        const res = await resetEmployeePassword(row.employeeCode)
+        resetPasswordResult.value = res?.data ?? res
+        showResetModal.value = true
+      }
 
+      // 리스트 갱신
+      loadEmployeeList()
+    } catch (e) {
+      console.error(e)
+      alert('요청 처리에 실패했습니다.')
+    }
+  });
+}
 
 /* ===================== */
 /* 초기 로딩 */
@@ -477,10 +484,12 @@ onMounted(() => {
   align-items: center;
   padding: 20px 0;
 }
+
 .desc {
   font-size: 15px;
   color: #374151;
 }
+
 .result-box {
   width: 100%;
   background: #f3f4f6;
@@ -491,17 +500,20 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
 }
+
 .result-box label {
   font-size: 13px;
   color: #6b7280;
   font-weight: 600;
 }
+
 .password-text {
   font-size: 24px;
   font-weight: 700;
   color: #2563eb;
   letter-spacing: 1px;
 }
+
 .caution {
   font-size: 13px;
   color: #ef4444;
@@ -628,6 +640,7 @@ onMounted(() => {
   color: #ef4444;
   background-color: #fef2f2;
 }
+
 .menu-item.danger:hover {
   background-color: #fee2e2;
 }
@@ -636,6 +649,7 @@ onMounted(() => {
   color: #2563eb;
   background-color: #eff6ff;
 }
+
 .menu-item.primary:hover {
   background-color: #dbeafe;
 }

@@ -80,6 +80,13 @@
       </div>
     </BaseModal>
   </div>
+
+    <!-- Reason Request Modal -->
+    <ReasonRequestModal
+        v-if="showReasonModal"
+        @close="closeReasonModal"
+        @confirm="onReasonConfirmed"
+    />
 </template>
 
 <script setup>
@@ -95,6 +102,13 @@ import { getCustomerListApi } from "@/api/customer/customerApi.js";
 
 import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
 import { getLoyaltyGradeList } from "@/api/setting/loyaltyGrade.js";
+
+import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
+
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
+
 
 /* base */
 const router = useRouter();
@@ -430,8 +444,31 @@ onBeforeUnmount(() => {
 
 /* row click */
 const goDetail = (row) => {
-  if (!row?.customerCode) return;
-  router.push({ name: "CustomerDetail", params: { id: row.customerCode } });
+  withPermission('CUSTOMER_READ',  () => {
+    if (!row?.customerCode) return;
+    selectedCustomerCode.value = row.customerCode;
+    showReasonModal.value = true;
+  });
+};
+
+/* reason modal */
+const showReasonModal = ref(false);
+const selectedCustomerCode = ref(null);
+
+const closeReasonModal = () => {
+  showReasonModal.value = false;
+  selectedCustomerCode.value = null;
+};
+
+const onReasonConfirmed = (reason) => {
+  if (selectedCustomerCode.value) {
+    router.push({
+      name: "CustomerDetail",
+      params: { id: selectedCustomerCode.value },
+      query: { reason: reason }
+    });
+  }
+  closeReasonModal();
 };
 </script>
 

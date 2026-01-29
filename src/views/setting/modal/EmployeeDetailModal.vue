@@ -57,7 +57,7 @@
         <div class="col">
           <label>부서(Code)</label>
           <select v-model="form.departmentId">
-             <option :value="null">선택</option>
+             <option :value="null">form.departmentName</option><!--선택-->
              <option v-for="dept in departmentList" :key="dept.departmentCode" :value="Number(dept.departmentCode)">
                {{ dept.departmentName }}
              </option>
