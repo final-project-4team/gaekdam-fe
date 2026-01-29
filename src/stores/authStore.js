@@ -22,12 +22,6 @@ export const useAuthStore = defineStore("auth", () => {
   /* getters */
   const isLoggedIn = computed(() => !!accessToken.value);
 
-  // [권한 체크 함수]
-  // 특정 권한 코드(permissionCode)를 가지고 있는지 확인
-  /*    const hasPermission = (permissionCode) => {
-          // permissions 배열에 해당 코드가 포함되어 있는지 확인
-          return permissions.value.includes(permissionCode);
-      };*/
 
   const hasPermission = (required) => {
     if (!required) {
@@ -67,7 +61,6 @@ export const useAuthStore = defineStore("auth", () => {
   // [권한 목록 저장]
   const setPermissions = (perms) => {
     permissions.value = perms || [];
-    // 새로고침 시 유지를 위해 로컬스토리지에 저장
     if (perms) {
       localStorage.setItem("permissions", JSON.stringify(perms));
     } else {
@@ -129,7 +122,6 @@ export const useAuthStore = defineStore("auth", () => {
       setUserFromToken(data.accessToken);
 
       // [권한 목록 및 호텔 정보 조회]
-      // 로그인 성공 후 병렬로 정보 조회 (속도 최적화)
       await Promise.all([
         fetchMyPermissions(),
         fetchMyHotel()
@@ -149,7 +141,6 @@ export const useAuthStore = defineStore("auth", () => {
   const fetchMyPermissions = async () => {
     try {
       const res = await getMyPermissionsApi();
-      console.log("[AuthStore] fetchMyPermissions response:", res); // API 응답 전체 로그
 
       // 백엔드 응답 구조에 따라 res.data.data 등 확인 필요
       // 만약 res.data가 바로 배열인 경우 등 구조 확인용
@@ -226,17 +217,17 @@ export const useAuthStore = defineStore("auth", () => {
     accessToken,
     user,
     hotel,
-    permissions, // [추가]
+    permissions,
     loading,
 
     isLoggedIn,
     hasAuthority,
-    hasPermission, // [추가]
+    hasPermission,
 
     login,
     refreshTokens,
     logout,
-    fetchMyPermissions, // [추가]
+    fetchMyPermissions,
 
     loadFromStorage,
     clearAuthState,

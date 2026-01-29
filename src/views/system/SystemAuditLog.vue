@@ -29,7 +29,9 @@
         :page="page"
         :pageSize="pageSize"
         :searchTypes="searchTypes"
+        :filters="filterOptions"
         @search="onSearch"
+        @filter="onFilter"
         @sort-change="onSortChange"
         @page-change="onPageChange"
         @row-click="openRowModal"
@@ -51,6 +53,15 @@
         <p><b>메뉴명:</b> {{ activityLogDetail.menuName }}</p>
         <p><b>업무명:</b> {{ activityLogDetail.action }}</p>
         <p><b>상세 정보:</b> {{ activityLogDetail.detail }}</p>
+
+        <!-- 변경 전/후 값 표시 (값이 있을 때만) -->
+        <p v-if="activityLogDetail.previousValue">
+          <b>변경 전:</b> {{ activityLogDetail.previousValue }}
+        </p>
+        <p v-if="activityLogDetail.newValue">
+          <b>변경 후:</b> {{ activityLogDetail.newValue }}
+        </p>
+
         <p><b>접속자 ID:</b> {{ activityLogDetail.loginId }}</p>
         <p><b>일시:</b> {{ activityLogDetail.occurredAt }}</p>
       </div>
@@ -74,6 +85,9 @@ import {
   getActivityLogList,
   getSystemLogDetail // 사용 가능한지 확인 필요, 없다면 activityDetail API 필요할수도
 } from '@/api/system/systemLogApi.js'
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
 
 // 탭 설정
 const tabs = [
@@ -101,11 +115,58 @@ const pageSize = ref(10)
 
 // 검색 타입 (전체만 지원하거나 필요한 경우 추가)
 const searchTypes = [
-  { label: '전체', value: '' },
+  //{ label: '전체', value: '' },
   { label: '접속자 ID', value: 'loginId' },
   { label: '업무명', value: 'action' },
   { label: '상세 정보', value: 'detail' }
 ]
+
+// 필터 옵션 정의 (리소스, 업무명)
+const filterOptions = [
+  {
+    key: 'resource',
+    options: [
+      { label: '리소스 전체', value: '' },
+      { label: '리포트 레이아웃', value: 'REPORT_LAYOUT' },
+      { label: '리포트 레이아웃 템플릿', value: 'REPORT_LAYOUT_TEMPLATE' },
+      { label: '리포트 레이아웃 템플릿 라이브러리', value: 'REPORT_LAYOUT_TEMPLATE_LIBRARY' },
+      { label: '회원', value: 'MEMBER' },
+      { label: '직원', value: 'EMPLOYEE' },
+      { label: '고객', value: 'CUSTOMER' },
+      { label: '고객 메모', value: 'CUSTOMER_MEMO' },
+      { label: '멤버십 정책', value: 'MEMBERSHIP_POLICY' },
+      { label: '로열티 정책', value: 'LOYALTY_POLICY' },
+      { label: '고객 타임라인', value: 'CUSTOMER_TIMELINE' },
+      { label: '예약', value: 'RESERVATION' },
+      { label: '당일 예약', value: 'TODAY_RESERVATION' },
+      { label: '체크인', value: 'CHECK_IN' },
+      { label: '체크아웃', value: 'CHECK_OUT' },
+      { label: '당일 시설 이용', value: 'TODAY_FACILITY_USAGE' },
+      { label: '문의', value: 'INQUIRY' },
+      { label: '사건사고', value: 'INCIDENT' },
+      { label: '메시지', value: 'MESSAGE' },
+      { label: '권한', value: 'PERMISSION' },
+      { label: '목표 관리', value: 'SETTING_OBJECTIVE' }
+    ]
+  },
+  {
+    key: 'action',
+    options: [
+      { label: '업무 전체', value: '' },
+      { label: '목록조회', value: 'LIST' },
+      { label: '상세조회', value: 'READ' },
+      { label: '등록', value: 'CREATE' },
+      { label: '수정', value: 'UPDATE' },
+      { label: '삭제', value: 'DELETE' }
+    ]
+  }
+]
+
+// 필터 값
+const filterValues = ref({
+  resource: undefined,
+  action: undefined
+})
 
 // 날짜 필터
 const dateFilter = ref({
@@ -130,12 +191,25 @@ const selectedRow = ref(null)
 // 데이터 로드
 const loadActivityLogs = async () => {
   try {
+    const resource = filterValues.value.resource || ''
+    const action = filterValues.value.action || quickSearch.value.action || ''
+    
+    let permissionTypeKey = ''
+    if (resource && action) {
+      permissionTypeKey = `${resource}_${action}`
+    } else if (resource) {
+      permissionTypeKey = resource
+    } else if (action) {
+      permissionTypeKey = action
+    }
+
+    // API wrapper(getActivityLogList) 내부에서 날짜 포맷팅과 action -> permissionTypeKey 매핑을 처리함
     const searchParams = {
-      loginId: quickSearch.value.loginId,         // employeeLoginId -> loginId
-      action: quickSearch.value.action,          // permissionTypeKey -> action
-      detail: quickSearch.value.detail,          // details -> detail
-      fromDate: dateFilter.value.fromDate ? `${dateFilter.value.fromDate}T00:00:00` : null,
-      toDate: dateFilter.value.toDate ? `${dateFilter.value.toDate}T23:59:59` : null
+      loginId: quickSearch.value.loginId,
+      action: permissionTypeKey, // API 내부에서 permissionTypeKey로 매핑됨
+      detail: quickSearch.value.detail,
+      fromDate: dateFilter.value.fromDate || null, // API 내부에서 T00:00:00 추가됨
+      toDate: dateFilter.value.toDate || null      // API 내부에서 T23:59:59 추가됨
     }
 
     // 2. 정렬 필드 매핑
@@ -198,6 +272,13 @@ const onSearch = (payload) => {
   loadActivityLogs()
 }
 
+// 필터 변경
+const onFilter = (filters) => {
+  filterValues.value = filters
+  page.value = 1
+  loadActivityLogs()
+}
+
 
 // 페이지 변경
 const onPageChange = (p) => {
@@ -212,11 +293,24 @@ const onSortChange = (sort) => {
 }
 
 // 모달 열기
-const openRowModal = (row) => {
-  selectedRow.value = row
-  // 상세 조회 API가 별도로 없다면 row 데이터를 그대로 사용
-  activityLogDetail.value = row 
-  showRowModal.value = true
+const openRowModal =  (row) => {
+  withPermission('LOG_AUDIT_READ', async () => {
+    selectedRow.value = row
+    showRowModal.value = true
+    activityLogDetail.value = null // 로딩 상태
+
+    try {
+      const detailData = await getSystemLogDetail(row.auditLogCode)
+      activityLogDetail.value = {
+        ...row,
+        ...detailData // previousValue, newValue 포함
+      }
+    } catch (error) {
+      console.error('활동 로그 상세 조회 실패:', error)
+      // 실패 시 기본 row 데이터라도 보여줌
+      activityLogDetail.value = row
+    }
+  });
 }
 
 const closeRowModal = () => {

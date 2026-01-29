@@ -74,8 +74,9 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import * as targetApi from '@/api/report/targetApi.js'
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
-// Period state
+const { withPermission } = usePermissionGuard();
 const periodType = ref('YEAR')
 const current = new Date()
 const year = ref(current.getFullYear())
@@ -163,41 +164,43 @@ const loadTargets = async () => {
 }
 
 // save targets: for each KPI, create (POST) if no existing targetId, otherwise PATCH
-const saveTargets = async () => {
-  try {
-    const jobs = []
+const saveTargets =  () => {
+  withPermission('SETTING_OBJECTIVE_UPDATE', async() => {
+    try {
+      const jobs = []
 
-    for (const k of kpis.value) {
-      const code = k.code
-      const raw = targets[code]
+      for (const k of kpis.value) {
+        const code = k.code
+        const raw = targets[code]
 
-      const value = (raw === '' || raw == null) ? null : Number(String(raw).replace(/,/g, ''))
+        const value = (raw === '' || raw == null) ? null : Number(String(raw).replace(/,/g, ''))
 
-      const exist = existingTargets.value[code]
-      if (exist && exist.targetId) {
-        // PATCH: update only targetValue
-        jobs.push(targetApi.updateTarget(hotelGroupCode, exist.targetId, { targetValue: value }))
-      } else {
-        // POST: create new target
-        const payload = {
-          targetId: `${code}_${formattedPeriod.value}`,
-          hotelGroupCode: hotelGroupCode,
-          kpiCode: code,
-          periodType: periodType.value,
-          periodValue: formattedPeriod.value,
-          targetValue: value
+        const exist = existingTargets.value[code]
+        if (exist && exist.targetId) {
+          // PATCH: update only targetValue
+          jobs.push(targetApi.updateTarget(hotelGroupCode, exist.targetId, {targetValue: value}))
+        } else {
+          // POST: create new target
+          const payload = {
+            targetId: `${code}_${formattedPeriod.value}`,
+            hotelGroupCode: hotelGroupCode,
+            kpiCode: code,
+            periodType: periodType.value,
+            periodValue: formattedPeriod.value,
+            targetValue: value
+          }
+          jobs.push(targetApi.createTarget(payload))
         }
-        jobs.push(targetApi.createTarget(payload))
       }
-    }
 
-    await Promise.all(jobs)
-    await loadTargets()
-    alert('저장되었습니다.')
-  } catch (e) {
-    console.error(e)
-    alert('저장에 실패했습니다.')
-  }
+      await Promise.all(jobs)
+      await loadTargets()
+      alert('저장되었습니다.')
+    } catch (e) {
+      console.error(e)
+      alert('저장에 실패했습니다.')
+    }
+  });
 }
 
 const resetForm = () => {
@@ -234,38 +237,43 @@ const onFileChange = (e) => {
   importFile.value = file
 }
 
-const handleImport = async () => {
-  if (!importFile.value) { alert('파일 선택 필요'); return }
-  const fd = new FormData()
-  fd.append('file', importFile.value)
-  fd.append('hotelGroupCode', hotelGroupCode)
-  fd.append('periodType', periodType.value)
-  fd.append('periodValue', formattedPeriod.value)
-
-  uploadLoading.value = true
-  importResult.value = null
-  try {
-    const res = await targetApi.uploadExcelTemplate(fd)
-    importResult.value = res
-
-    // 항상 백엔드 반영 결과를 반영하기 위해 최신값 재조회
-    await loadTargets()
-
-    // 오류가 있으면 모달을 열어 결과 표시(기본적으로 모달은 열려있음)
-    if (res && res.errors && res.errors.length > 0) {
-      alert('일부 항목에서 오류가 발생했습니다. 상세 정보를 확인하세요.')
-      // 모달을 닫지 않고 importResult를 보여줍니다.
-    } else {
-      // 성공 시 모달 닫고 알림
-      showImportModal.value = false
-      alert('업로드가 완료되었습니다.')
+const handleImport = () => {
+  withPermission('SETTING_OBJECTIVE_CREATE', async () => {
+    if (!importFile.value) {
+      alert('파일 선택 필요');
+      return
     }
-  } catch (err) {
-    console.error(err)
-    alert('업로드 실패')
-  } finally {
-    uploadLoading.value = false
-  }
+    const fd = new FormData()
+    fd.append('file', importFile.value)
+    fd.append('hotelGroupCode', hotelGroupCode)
+    fd.append('periodType', periodType.value)
+    fd.append('periodValue', formattedPeriod.value)
+
+    uploadLoading.value = true
+    importResult.value = null
+    try {
+      const res = await targetApi.uploadExcelTemplate(fd)
+      importResult.value = res
+
+      // 항상 백엔드 반영 결과를 반영하기 위해 최신값 재조회
+      await loadTargets()
+
+      // 오류가 있으면 모달을 열어 결과 표시(기본적으로 모달은 열려있음)
+      if (res && res.errors && res.errors.length > 0) {
+        alert('일부 항목에서 오류가 발생했습니다. 상세 정보를 확인하세요.')
+        // 모달을 닫지 않고 importResult를 보여줍니다.
+      } else {
+        // 성공 시 모달 닫고 알림
+        showImportModal.value = false
+        alert('업로드가 완료되었습니다.')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('업로드 실패')
+    } finally {
+      uploadLoading.value = false
+    }
+  });
 }
 
 watch([periodType, year, month], () => {

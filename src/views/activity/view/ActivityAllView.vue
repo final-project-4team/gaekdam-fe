@@ -45,7 +45,14 @@
     <ActivityDetailModal
         v-if="showRowModal"
         :reservationCode="selectedReservationCode"
+        :reason="selectedReason"
         @close="closeRowModal"
+    />
+
+    <ReasonRequestModal
+        v-if="showReasonModal"
+        @close="closeReasonModal"
+        @confirm="onReasonConfirmed"
     />
   </div>
 </template>
@@ -56,6 +63,10 @@ import ListView from '@/components/common/ListView.vue'
 import {getOperationBoardApi} from '@/api/reservation/operationApi.js'
 import {getPropertyListByHotelGroupApi} from '@/api/property/propertyApi.js'
 import ActivityDetailModal from "@/views/activity/modal/ActivityDetailModal.vue";
+import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
 
 /* ===================== */
 /* 상태 라벨 */
@@ -306,16 +317,39 @@ const onDetailReset = () => {
 const showRowModal = ref(false)
 const selectedReservationCode = ref(null)
 
-const openRowModal = (row) => {
-  selectedReservationCode.value = row.reservationNo
-  showRowModal.value = true
-}
-
-
 const closeRowModal = () => {
   showRowModal.value = false
   selectedReservationCode.value = null;
 }
+
+/* ===================== */
+/* 사유 입력 모달 */
+/* ===================== */
+const showReasonModal = ref(false)
+const targetRow = ref(null)
+
+const openRowModal = (row) => {
+  withPermission(['RESERVATION_READ','CUSTOMER_READ'], () => {
+    targetRow.value = row
+    showReasonModal.value = true
+  });
+}
+
+const closeReasonModal = () => {
+  showReasonModal.value = false
+  targetRow.value = null
+}
+
+const onReasonConfirmed = (reason) => {
+  if (targetRow.value) {
+    selectedReservationCode.value = targetRow.value.reservationNo
+    selectedReason.value = reason
+    showRowModal.value = true
+  }
+  closeReasonModal()
+}
+
+const selectedReason = ref('')
 
 /* ===================== */
 /* 초기 로딩 */

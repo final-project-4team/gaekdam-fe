@@ -167,6 +167,9 @@ import {
   updateCustomerMemoApi,
   deleteCustomerMemoApi,
 } from "@/api/customer/customerMemoApi.js";
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
 
 const props = defineProps({
   customerCode: { type: [Number, String], required: true },
@@ -235,26 +238,28 @@ const openCreate = () => {
   showCreate.value = true;
 };
 
-const create = async () => {
-  if (saving.value) return;
+const create = () => {
+  withPermission('CUSTOMER_MEMO_CREATE', async () => {
+    if (saving.value) return;
 
-  const content = createText.value.trim();
-  if (!content) return;
+    const content = createText.value.trim();
+    if (!content) return;
 
-  saving.value = true;
-  try {
-    await createCustomerMemoApi({
-      customerCode: props.customerCode,
-      body: { customerMemoContent: content },
-    });
+    saving.value = true;
+    try {
+      await createCustomerMemoApi({
+        customerCode: props.customerCode,
+        body: {customerMemoContent: content},
+      });
 
-    showCreate.value = false;
+      showCreate.value = false;
 
-    await Promise.all([loadRecent(), showList.value ? loadList(1) : Promise.resolve()]);
-    emit("changed"); // 타임라인 즉시 반영
-  } finally {
-    saving.value = false;
-  }
+      await Promise.all([loadRecent(), showList.value ? loadList(1) : Promise.resolve()]);
+      emit("changed"); // 타임라인 즉시 반영
+    } finally {
+      saving.value = false;
+    }
+  });
 };
 
 /* list modal */
@@ -337,28 +342,32 @@ const closeEdit = () => {
   editText.value = "";
 };
 
-const update = async () => {
-  if (saving.value) return;
-  if (!editTarget.value) return;
+const update =  () => {
+  withPermission('CUSTOMER_MEMO_UPDATE', async () => {
 
-  const content = editText.value.trim();
-  if (!content) return;
+    if (saving.value) return;
+    if (!editTarget.value) return;
 
-  saving.value = true;
-  try {
-    await updateCustomerMemoApi({
-      customerCode: props.customerCode,
-      memoCode: editTarget.value.customerMemoCode,
-      body: { customerMemoContent: content },
-    });
+    const content = editText.value.trim();
+    if (!content) return;
 
-    closeEdit();
+    saving.value = true;
+    try {
+      await updateCustomerMemoApi({
+        customerCode: props.customerCode,
+        memoCode: editTarget.value.customerMemoCode,
+        body: {customerMemoContent: content},
+      });
 
-    await Promise.all([loadRecent(), showList.value ? loadList(list.value.page) : Promise.resolve()]);
-    emit("changed"); // 타임라인 즉시 반영
-  } finally {
-    saving.value = false;
-  }
+      closeEdit();
+
+      await Promise.all(
+          [loadRecent(), showList.value ? loadList(list.value.page) : Promise.resolve()]);
+      emit("changed"); // 타임라인 즉시 반영
+    } finally {
+      saving.value = false;
+    }
+  });
 };
 
 /* delete */
@@ -368,27 +377,29 @@ const openDelete = (m) => {
   showDelete.value = true;
 };
 
-const remove = async () => {
-  if (saving.value) return;
-  if (!deleteTarget.value) return;
+const remove =  () => {
+  withPermission('CUSTOMER_MEMO_DELETE', async() => {
+    if (saving.value) return;
+    if (!deleteTarget.value) return;
 
-  saving.value = true;
-  try {
-    await deleteCustomerMemoApi({
-      customerCode: props.customerCode,
-      memoCode: deleteTarget.value.customerMemoCode,
-    });
+    saving.value = true;
+    try {
+      await deleteCustomerMemoApi({
+        customerCode: props.customerCode,
+        memoCode: deleteTarget.value.customerMemoCode,
+      });
 
-    showDelete.value = false;
-    deleteTarget.value = null;
+      showDelete.value = false;
+      deleteTarget.value = null;
 
-    if (showEdit.value) closeEdit();
+      if (showEdit.value) closeEdit();
 
-    await Promise.all([loadRecent(), showList.value ? loadList(1) : Promise.resolve()]);
-    emit("changed"); // 타임라인 즉시 반영
-  } finally {
-    saving.value = false;
-  }
+      await Promise.all([loadRecent(), showList.value ? loadList(1) : Promise.resolve()]);
+      emit("changed"); // 타임라인 즉시 반영
+    } finally {
+      saving.value = false;
+    }
+  });
 };
 
 onMounted(loadRecent);

@@ -29,7 +29,9 @@
         :page="page"
         :pageSize="pageSize"
         :searchTypes="searchTypes"
+        :filters="filterOptions"
         @search="onSearch"
+        @filter="onFilter"
         @sort-change="onSortChange"
         @page-change="onPageChange"
         @row-click="openRowModal"
@@ -112,6 +114,23 @@ const searchTypes = [
   { label: '접속자 ID', value: 'loginId' }
 ]
 
+// 필터 옵션
+const filterOptions = [
+  {
+    key: 'targetType',
+    options: [
+      { label: '대상 종류 전체', value: '' },
+      { label: '직원', value: 'EMPLOYEE' },
+      { label: '고객', value: 'CUSTOMER' }
+    ]
+  }
+]
+
+// 필터 값
+const filterValues = ref({
+  targetType: undefined
+})
+
 // 날짜 필터
 const dateFilter = ref({
   fromDate: null,
@@ -140,6 +159,7 @@ const loadPrivacyLogs = async () => {
       privacyLogCode: quickSearch.value.privacyLogCode,
       targetCode: quickSearch.value.targetCode,
       targetName: quickSearch.value.targetName,
+      targetType: filterValues.value.targetType || undefined, // 필터 값 추가
       fromDate: dateFilter.value.fromDate,
       toDate: dateFilter.value.toDate
     }
@@ -183,6 +203,13 @@ const loadPrivacyLogs = async () => {
 
 // 날짜 변경
 const handleDateChange = () => {
+  page.value = 1
+  loadPrivacyLogs()
+}
+
+// 필터 변경
+const onFilter = (filters) => {
+  filterValues.value = filters
   page.value = 1
   loadPrivacyLogs()
 }
