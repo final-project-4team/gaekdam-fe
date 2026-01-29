@@ -145,13 +145,13 @@
 
 <script setup>
 import { computed, reactive, ref, onMounted } from "vue";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/stores/authStore.js";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import BaseButton from "@/components/common/button/BaseButton.vue";
 
 import IncidentEmployeeSelectModal from "./IncidentEmployeeSelectModal.vue";
-import InquirySelectModal from "./InquirySelectModal.vue";
-import { createIncidentApi } from "@/api/voc/incidentApi";
+import InquirySelectModal from "../../inquiry/modal/InquirySelectModal.vue";
+import { createIncidentApi } from "@/api/voc/incidentApi.js";
 
 const emit = defineEmits(["close", "created"]);
 const authStore = useAuthStore();

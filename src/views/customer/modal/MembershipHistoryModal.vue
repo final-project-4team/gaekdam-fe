@@ -142,12 +142,12 @@ const applyRange = async () => {
 
 const resetRange = async () => {
   selectedPreset.value = null;
-  await applyPreset(3);
+  await applyPreset(12);
 };
 
 const goPage = async (p) => loadHistories(p);
 
-watch(() => props.open, (v) => { if (v) applyPreset(3); });
+watch(() => props.open, (v) => { if (v) applyPreset(12); });
 
 const renderChangedBy = (h) => {
   if (h.changeSource === "SYSTEM") return "SYSTEM";

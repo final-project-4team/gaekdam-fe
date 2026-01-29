@@ -96,7 +96,7 @@ const props = defineProps({
 });
 defineEmits(["close"]);
 
-const quickMonths = ref(1);
+const quickMonths = ref(12);
 const from = ref("");
 const to = ref("");
 
@@ -120,7 +120,7 @@ const setQuick = (m) => {
   page.value = 1;
 };
 
-const reset = () => setQuick(1);
+const reset = () => setQuick(12);
 const apply = () => {
   // 로컬 필터라서 실질적 noop지만 UX상 page만 1로
   page.value = 1;
