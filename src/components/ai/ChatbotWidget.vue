@@ -11,11 +11,17 @@
         <div v-for="(m, i) in messages" :key="i" :class="['msg', m.role]">
           <div class="bubble">
             <div class="text" v-html="m.text"></div>
+            <div class="elapsed" v-if="m.elapsed !== undefined">응답 시간: {{ formatTime(m.elapsed) }}</div>
           </div>
         </div>
 
         <div v-if="loading" class="msg bot">
           <div class="bubble">응답 생성중...</div>
+        </div>
+
+        <!-- Show timer only for the latest user message that is pending response -->
+        <div v-if="pendingUserIndex !== null" class="msg user">
+          <div class="timer">{{ formatTime(timer) }}</div>
         </div>
       </div>
 
@@ -39,7 +45,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onUnmounted } from 'vue'
 import { askChat } from '@/api/ai'
 
 const open = ref(false)
@@ -52,6 +58,33 @@ const welcomeMessage = '안녕하세요. 객담의 AI Agent 객봇 입니다.\n 
 // input placeholder
 const placeholder = '문의 내용을 입력해주세요.'
 const sessionId = String(Date.now())
+
+// 타이머 관련
+const timer = ref(0)
+const timerInterval = ref(null)
+const pendingUserIndex = ref(null) // messages 배열에서 대기중인 사용자 메시지 인덱스
+
+function startTimer(index) {
+  stopTimer()
+  timer.value = 0
+  pendingUserIndex.value = index
+  timerInterval.value = window.setInterval(() => {
+    timer.value += 1
+  }, 1000)
+}
+
+function stopTimer() {
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
+    timerInterval.value = null
+  }
+  timer.value = 0
+  pendingUserIndex.value = null
+}
+
+onUnmounted(() => {
+  stopTimer()
+})
 
 function toggle() {
   open.value = !open.value
@@ -66,9 +99,13 @@ function toggle() {
 async function onSend() {
   if (!text.value) return
   const q = text.value.trim()
+  // push user message and mark its index for timer
   messages.value.push({ role: 'user', text: escapeHtml(q) })
+  const userIndex = messages.value.length - 1
   text.value = ''
   loading.value = true
+  // start timer for this user message
+  startTimer(userIndex)
   nextTick(() => scrollToBottom())
 
   // build payload per requested schema
@@ -83,11 +120,15 @@ async function onSend() {
     const data = await askChat(payload)
     // server returns { reply, sources }
     const botText = data.reply ?? data.answer ?? JSON.stringify(data)
-    messages.value.push({ role: 'bot', text: escapeHtml(botText) })
+    // capture elapsed seconds before timer is stopped
+    const elapsedSec = timer.value || 0
+    messages.value.push({ role: 'bot', text: escapeHtml(botText), elapsed: elapsedSec })
   } catch (err) {
-    messages.value.push({ role: 'bot', text: `오류: ${err.message}` })
+    messages.value.push({ role: 'bot', text: `오류: ${err.message}`, elapsed: timer.value || 0 })
   } finally {
     loading.value = false
+    // stop timer when response received (or on error)
+    stopTimer()
     nextTick(() => scrollToBottom())
   }
 }
@@ -104,6 +145,14 @@ function escapeHtml(str) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('\n', '<br/>')
+}
+
+// 포맷터: 초 단위 경과 시간을 시:분:초 형식의 문자열로 변환
+function formatTime(seconds) {
+  if (seconds <= 0) return '00:00'
+  const mins = Math.floor(seconds / 60) % 60
+  const secs = seconds % 60
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 }
 </script>
 
@@ -151,4 +200,10 @@ function escapeHtml(str) {
 .chat-input { height:56px; display:flex; gap:8px; padding:8px; border-top:1px solid #e6eef6; background:transparent; }
 .chat-input input { flex:1; border-radius:999px; border:1px solid #dfeaf3; padding:10px 14px; }
 .chat-input button { width:48px; border-radius:999px; background:#2b8be6; color:#fff; border:none; cursor:pointer; }
+
+/* timer style */
+.timer {
+  font-size: 12px; color: #6b7280; margin-top: 4px; margin-left: 8px;
+}
+.elapsed { font-size: 11px; color: #6b7280; margin-top:6px; }
 </style>
