@@ -62,10 +62,6 @@ const error = ref("");
 const raw = ref([]);
 const rows = ref([]);
 
-/**
- * 핵심 수정:
- * - columns key를 rows에서 만드는 필드명(actor/changedBy)으로 맞춤
- */
 const columns = [
   { key: "changedAt", label: "변경일시", sortable: true, align: "center" },
   { key: "beforeStatus", label: "변경 전", sortable: true, align: "center" },
