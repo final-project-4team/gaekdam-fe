@@ -151,7 +151,7 @@ export function useCustomerInquiries({
     const inquiryAllRaw = ref([]);
     const inquiryAllRows = ref([]);
 
-    const range = useRangeFilter({ defaultMonths: 3 });
+    const range = useRangeFilter({ defaultMonths: 12 });
 
     const loadInquiriesAllRaw = async () => {
         const customerCode = Number(customerCodeRef.value);
@@ -201,7 +201,7 @@ export function useCustomerInquiries({
 
     const onInquiryAll = async () => {
         showInquiryAllModal.value = true;
-        range.syncByMonths(range.range.value.months || 3);
+        range.syncByMonths(range.range.value.months || 12);
         await loadInquiriesAllRaw();
         buildInquiryAllRows();
     };

@@ -170,7 +170,7 @@ export function useCustomerReservations({
     const reservationAllRaw = ref([]);
     const reservationAllRows = ref([]);
 
-    const range = useRangeFilter({ defaultMonths: 3 });
+    const range = useRangeFilter({ defaultMonths: 12 });
 
     const loadReservationsAllRaw = async () => {
         const customerCode = Number(customerCodeRef.value);
@@ -239,7 +239,7 @@ export function useCustomerReservations({
 
     const onReservationAll = async () => {
         showReservationAllModal.value = true;
-        range.syncByMonths(range.range.value.months || 3);
+        range.syncByMonths(range.range.value.months || 12);
         await loadReservationsAllRaw();
         await buildReservationAllRows();
     };

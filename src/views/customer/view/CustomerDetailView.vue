@@ -1,7 +1,5 @@
-<!-- src/views/customer/CustomerDetailView.vue -->
 <template>
   <div class="customer-detail-page">
-    <!-- HEADER -->
     <section class="card header-card">
       <div class="h-left">
         <div class="name-row">
@@ -47,17 +45,14 @@
 
       <div class="h-right">
         <BaseButton type="ghost" size="sm" @click="goBack">목록으로</BaseButton>
-        <BaseButton type="primary" size="sm" @click="onDetailView">상세 보기</BaseButton>
         <BaseButton type="ghost" size="sm" @click="onMembershipChange">멤버십 변경</BaseButton>
         <BaseButton type="ghost" size="sm" @click="onCardSetting">카드 설정</BaseButton>
       </div>
     </section>
 
     <div class="grid">
-      <!-- LEFT -->
       <div class="col">
         <template v-for="card in leftCards" :key="card.id">
-          <!-- SNAPSHOT -->
           <section v-if="card.id === 'snapshot'" class="card">
             <div class="card-title">고객 스냅샷</div>
 
@@ -81,7 +76,6 @@
             </div>
           </section>
 
-          <!-- TIMELINE -->
           <section v-else-if="card.id === 'timeline'" class="card">
             <div class="card-head">
               <div class="card-title">최근 타임라인</div>
@@ -103,7 +97,6 @@
             </ul>
           </section>
 
-          <!-- RESERVATION -->
           <section v-else-if="card.id === 'reservation'" class="card">
             <div class="card-head">
               <div class="card-title">예약/이용 (최근 5건)</div>
@@ -124,7 +117,6 @@
             />
           </section>
 
-          <!-- INQUIRY -->
           <section v-else-if="card.id === 'voc'" class="card">
             <div class="card-head">
               <div class="card-title">문의/클레임 (최근 3건)</div>
@@ -147,10 +139,39 @@
         </template>
       </div>
 
-      <!-- RIGHT -->
-      <div class="col">
+      <div class="col right-col">
         <template v-for="card in rightCards" :key="card.id">
-          <CustomerMemoView v-if="card.id === 'memo'" :customerCode="customerCode" @changed="onMemoChanged" />
+          <CustomerMemoView
+              v-if="card.id === 'memo'"
+              :customerCode="customerCode"
+              @changed="onMemoChanged"
+          />
+
+          <section v-else-if="card.id === 'statusHistory'" class="card">
+            <div class="card-head">
+              <div class="card-title">고객 상태 변경 이력</div>
+              <div class="outline-wrap">
+                <BaseButton type="ghost" size="sm" @click="onStatusHistory">이력 보기</BaseButton>
+              </div>
+            </div>
+
+            <div class="kv2">
+              <div class="k3">최근 변경</div>
+              <div class="v3">{{ statusBeforeLabel }} → {{ statusAfterLabel }}</div>
+
+              <div class="k3">변경 주체</div>
+              <div class="v3">{{ statusActorLabel }}</div>
+
+              <div class="k3">변경자</div>
+              <div class="v3">{{ statusEmployeeLabel }}</div>
+
+              <div class="k3">변경일시</div>
+              <div class="v3">{{ statusChangedAtLabel }}</div>
+
+              <div class="k3">사유</div>
+              <div class="v3 v3-ellipsis">{{ statusReasonLabel }}</div>
+            </div>
+          </section>
 
           <section v-else-if="card.id === 'membership'" class="card">
             <div class="card-head">
@@ -188,7 +209,6 @@
       </div>
     </div>
 
-    <!-- CONTACT MODAL -->
     <BaseModal v-if="showContactModal" title="연락처 전체보기" @close="showContactModal = false">
       <div class="modal-body">
         <div v-if="(detail.contacts?.length || 0) === 0">연락처 데이터가 없습니다.</div>
@@ -208,50 +228,6 @@
       </template>
     </BaseModal>
 
-    <!-- DETAIL MODAL -->
-    <BaseModal v-if="showDetailModal" title="고객 상세보기" @close="showDetailModal=false">
-      <div class="modal-body">
-        <div class="detail-box">
-          <div class="detail-title">기본정보</div>
-          <div class="detail-grid">
-            <div class="k4">이름</div><div class="v4">{{ detail.customerName || "-" }}</div>
-            <div class="k4">고객코드</div><div class="v4">#{{ detail.customerCode ?? "-" }}</div>
-            <div class="k4">고객 상태</div><div class="v4">{{ detail.status || "-" }}</div>
-            <div class="k4">대표 연락처</div><div class="v4">{{ primaryPhone }}</div>
-            <div class="k4">이메일</div><div class="v4">{{ primaryEmail }}</div>
-            <div class="k4">계약주체</div><div class="v4">{{ detail.contractType || "-" }}</div>
-            <div class="k4">국적</div><div class="v4">{{ detail.nationalityType || "-" }}</div>
-            <div class="k4">유입 채널</div><div class="v4">{{ detail.inflowChannel || "-" }}</div>
-          </div>
-        </div>
-
-        <div class="detail-box">
-          <div class="detail-title">멤버십</div>
-          <div class="detail-grid">
-            <div class="k4">등급</div><div class="v4">{{ membership.gradeName || "미가입" }}</div>
-            <div class="k4">상태</div><div class="v4">{{ membership.membershipStatus || "-" }}</div>
-            <div class="k4">가입일</div><div class="v4">{{ formatDate(membership.joinedAt) }}</div>
-            <div class="k4">만료일</div><div class="v4">{{ formatDate(membership.expiredAt) }}</div>
-          </div>
-        </div>
-
-        <div class="detail-box">
-          <div class="detail-title">로열티</div>
-          <div class="detail-grid">
-            <div class="k4">등급</div><div class="v4">{{ loyalty.gradeName || "-" }}</div>
-            <div class="k4">상태</div><div class="v4">{{ loyalty.loyaltyStatus || "-" }}</div>
-            <div class="k4">가입일</div><div class="v4">{{ formatDate(loyalty.joinedAt) }}</div>
-            <div class="k4">산정일시</div><div class="v4">{{ formatDate(loyalty.calculatedAt) }}</div>
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <BaseButton type="ghost" size="sm" @click="showDetailModal=false">확인</BaseButton>
-      </template>
-    </BaseModal>
-
-    <!-- MEMBERSHIP CHANGE MODAL -->
     <BaseModal v-if="showMembershipModal" title="멤버십 변경" @close="showMembershipModal=false">
       <div class="modal-body">
         <div class="change-grid">
@@ -308,7 +284,6 @@
       </template>
     </BaseModal>
 
-    <!-- CARD SETTING MODAL -->
     <BaseModal v-if="showCardSettingModal" title="카드 설정" @close="showCardSettingModal=false">
       <div class="modal-body">
         <div class="cs-wrap">
@@ -410,7 +385,6 @@
       </template>
     </BaseModal>
 
-    <!-- ✅ Reservation / Inquiry 전체 모달들은 기존 composable(useCustomerReservations/useCustomerInquiries) 그대로 -->
     <BaseModal v-if="showReservationAllModal" title="예약 / 이용 전체" @close="closeReservationAllModal">
       <div class="modal-body">
         <div class="range-bar">
@@ -465,7 +439,6 @@
 
     <TimelineAllModal :open="showTimelineAllModal" :items="timelineItems" @close="closeTimelineAllModal" />
 
-    <!-- RESERVATION DETAIL MODAL -->
     <BaseModal v-if="showReservationModal" title="예약 상세" @close="closeReservationModal">
       <div class="modal-body" v-if="selectedReservationDetail">
         <p><b>예약번호:</b> {{ selectedReservationDetail.reservationCode }}</p>
@@ -479,7 +452,6 @@
       <div class="modal-body" v-else>불러오는 중...</div>
     </BaseModal>
 
-    <!-- INQUIRY DETAIL MODAL -->
     <BaseModal v-if="showInquiryModal" title="문의/클레임 상세" @close="closeInquiryModal">
       <div class="modal-body" v-if="selectedInquiryDetail">
         <p><b>문의번호:</b> {{ selectedInquiryDetail.inquiryCode }}</p>
@@ -519,6 +491,12 @@
         :loyalty="loyalty"
         @close="showLoyaltyHistoryModal = false"
     />
+
+    <CustomerStatusHistoryModal
+        :open="showStatusHistoryModal"
+        :customerCode="customerCode"
+        @close="showStatusHistoryModal = false"
+    />
   </div>
 </template>
 
@@ -534,18 +512,18 @@ import CustomerMemoView from "@/views/customer/view/CustomerMemoView.vue";
 import MembershipHistoryModal from "@/views/customer/modal/MembershipHistoryModal.vue";
 import LoyaltyHistoryModal from "@/views/customer/modal/LoyaltyHistoryModal.vue";
 import TimelineAllModal from "@/views/customer/modal/TimelineAllModal.vue";
+import CustomerStatusHistoryModal from "@/views/customer/modal/CustomerStatusHistoryModal.vue";
 
 import { useAuthStore } from "@/stores/authStore.js";
 import api from "@/api/axios.js";
 import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
 
-//  utils (공통으로 빼둔 것 사용)
+// customerDetailApi에서 가져오는게 맞음 (customerApi 건드리지 않음)
+import { getCustomerStatusHistoriesApi } from "@/api/customer/customerDetailApi";
+
 import { formatDate, formatMoney, formatPhone, toYmd } from "@/views/customer/utils/customerDetail.utils.js";
 
-//  핵심: 페이지 데이터 로직 통째로 composable로 이동
 import { useCustomerDetailPage } from "@/views/customer/composables/useCustomerDetailPage.js";
-
-// 기존 composables 유지
 import { useCustomerReservations } from "@/views/customer/composables/useCustomerReservations.js";
 import { useCustomerInquiries } from "@/views/customer/composables/useCustomerInquiries.js";
 import { useCardSettingDnd } from "@/views/customer/composables/useCardSettingDnd.js";
@@ -558,7 +536,7 @@ const authStore = useAuthStore();
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 const customerCode = computed(() => Number(route.params.id));
 
-/*  detail/snapshot/timeline + header 표시값(배지/칩/대표연락처/이메일/멤버십/로열티) */
+/* detail/snapshot/timeline + header 표시값 */
 const {
   detail,
   snapshot,
@@ -577,6 +555,50 @@ const {
 });
 
 const timelineTop5 = computed(() => (timelineItems.value ?? []).slice(0, 5));
+
+/* =========================
+   고객 상태 변경 이력 Top1 (우측 카드 요약용)
+   ========================= */
+const statusHistoryTop1 = ref(null);
+
+const statusBeforeLabel = computed(() => statusHistoryTop1.value?.beforeStatus ?? "-");
+const statusAfterLabel = computed(() => statusHistoryTop1.value?.afterStatus ?? "-");
+//  변경 주체 (SYSTEM / MANUAL)
+const statusActorLabel = computed(() => {
+  const src = String(statusHistoryTop1.value?.changeSource ?? "").toUpperCase();
+  return src === "SYSTEM" ? "SYSTEM" : (src ? "MANUAL" : "-");
+});
+
+//  변경자 (SYSTEM이면 '-' / MANUAL이면 이름 우선)
+const statusEmployeeLabel = computed(() => {
+  if (statusActorLabel.value === "SYSTEM") return "-";
+
+  const name = statusHistoryTop1.value?.employeeName;
+  if (name) return name;
+
+  const code = statusHistoryTop1.value?.employeeCode;
+  return code === null || code === undefined ? "-" : String(code);
+});
+const statusChangedAtLabel = computed(() => {
+  const v = statusHistoryTop1.value?.changedAt;
+  return v ? formatDate(v) : "-";
+});
+
+const statusReasonLabel = computed(() => statusHistoryTop1.value?.changeReason ?? "-");
+
+const loadStatusTop1 = async () => {
+  try {
+    const res = await getCustomerStatusHistoriesApi({
+      customerCode: Number(customerCode.value),
+      params: { size: 1, offset: 0, sortBy: "changed_at", direction: "DESC" },
+    });
+
+    const content = res?.data?.data?.content ?? [];
+    statusHistoryTop1.value = Array.isArray(content) ? content[0] ?? null : null;
+  } catch {
+    statusHistoryTop1.value = null;
+  }
+};
 
 /* =========================
    API (기존 그대로)
@@ -672,9 +694,11 @@ const defaultCardSetting = () => [
   { id: "timeline", label: "최근 타임라인", enabled: true, column: "left", order: 2 },
   { id: "reservation", label: "예약/이용(최근 5건)", enabled: true, column: "left", order: 3 },
   { id: "voc", label: "문의/클레임(최근 3건)", enabled: true, column: "left", order: 4 },
+
   { id: "memo", label: "고객 메모", enabled: true, column: "right", order: 1 },
-  { id: "membership", label: "멤버십", enabled: true, column: "right", order: 2 },
-  { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 3 },
+  { id: "statusHistory", label: "고객 상태 변경 이력", enabled: true, column: "right", order: 2 },
+  { id: "membership", label: "멤버십", enabled: true, column: "right", order: 3 },
+  { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 4 },
 ];
 
 const {
@@ -701,10 +725,10 @@ const {
 } = useCardSettingDnd({ lsKey: LS_KEY, defaultCardSetting });
 
 /* =========================
-   mount (동작 동일)
+   mount
    ========================= */
 const loadPage = async () => {
-  await Promise.all([loadAll(), loadReservationsTop5(), loadInquiriesTop3()]);
+  await Promise.all([loadAll(), loadReservationsTop5(), loadInquiriesTop3(), loadStatusTop1()]);
 };
 onMounted(loadPage);
 
@@ -717,12 +741,8 @@ const showContactModal = ref(false);
 const openContactModal = () => (showContactModal.value = true);
 
 const onMemoChanged = async () => {
-  await loadTimeline(); // ✅ 타임라인 즉시 반영 (기존 동작 동일)
+  await Promise.all([loadTimeline(), loadStatusTop1()]);
 };
-
-/* detail modal */
-const showDetailModal = ref(false);
-const onDetailView = () => (showDetailModal.value = true);
 
 /* =========================
    membership change (기존 로직 유지)
@@ -787,7 +807,7 @@ const submitMembershipChange = async () => {
     alert("멤버십 변경 완료");
     showMembershipModal.value = false;
 
-    await loadAll();
+    await Promise.all([loadAll(), loadStatusTop1()]);
   } catch (e) {
     alert("멤버십 변경 실패(형식/값 확인)");
   } finally {
@@ -801,14 +821,18 @@ const showLoyaltyHistoryModal = ref(false);
 const onMembershipHistory = () => (showMembershipHistoryModal.value = true);
 const onLoyaltyHistory = () => (showLoyaltyHistoryModal.value = true);
 
+// status history modal
+const showStatusHistoryModal = ref(false);
+const onStatusHistory = () => (showStatusHistoryModal.value = true);
+
 // timeline modal
 const showTimelineAllModal = ref(false);
 const openTimelineAllModal = () => (showTimelineAllModal.value = true);
 const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 </script>
 
+
 <style scoped>
-/* ✅ style은 기존 그대로 유지 (UI 동일) */
 .customer-detail-page {
   font-family: ui-sans-serif, system-ui, -apple-system, "Pretendard Variable", Pretendard, "Noto Sans KR",
   "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
@@ -855,13 +879,11 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 .card-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.2px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 
-/* snapshot */
 .snap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .snap { border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; }
 .k2 { font-size: 12px; color: #6b7280; font-weight: 500; }
 .v2 { font-size: 14px; font-weight: 700; margin-top: 6px; }
 
-/* timeline */
 .timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .tl-item { display: flex; gap: 10px; align-items: flex-start; }
 .dot { width: 8px; height: 8px; border-radius: 999px; background: #2563eb; margin-top: 6px; }
@@ -869,19 +891,29 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 .tl-sub { font-size: 12px; color: #6b7280; font-weight: 500; margin-top: 2px; }
 .empty { padding: 10px; border: 1px dashed #e5e7eb; border-radius: 12px; color: #6b7280; font-size: 13px; }
 
-/* membership / loyalty */
 .kv2 { display: grid; grid-template-columns: 120px 1fr; gap: 8px 10px; font-size: 13px; align-items: center; }
 .k3 { color: #6b7280; font-weight: 500; }
 .v3 { color: #111827; font-weight: 600; }
 
-/* detail modal */
-.detail-box { border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
-.detail-title { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
-.detail-grid { display: grid; grid-template-columns: 120px 1fr; gap: 8px 10px; font-size: 13px; align-items: center; }
-.k4 { color: #6b7280; font-weight: 500; }
-.v4 { color: #111827; font-weight: 600; }
+.pill-badge{
+  display:inline-flex;
+  align-items:center;
+  height:22px;
+  padding:0 10px;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  font-size:12px;
+  font-weight:700;
+  color:#374151;
+}
 
-/* membership change modal */
+.v3-ellipsis{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .change-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field.full { grid-column: 1 / -1; }
@@ -890,12 +922,13 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 .field textarea { min-height: 90px; resize: vertical; }
 .hint { margin-top: 10px; font-size: 12px; color: #6b7280; }
 
-/* contact modal */
 .contact-row { margin: 6px 0; font-size: 13px; }
 .primary { margin-left: 8px; font-weight: 700; }
 .optin { margin-left: 8px; color: #6b7280; }
 
-/* card setting (기존 그대로) */
+.detail-box { border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+.detail-title { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+
 .cs-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .cs-col { border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; background: #fafbfc; }
 .cs-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
@@ -910,7 +943,6 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 .cs-dropzone.over { border-color: #93c5fd; background: #f8fbff; }
 .drop-indicator { position: absolute; left: 10px; right: 10px; bottom: -6px; height: 2px; border-radius: 2px; background: #93c5fd; }
 
-/* range bar */
 .range-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .range-left { display: flex; gap: 8px; flex-wrap: wrap; }
 .pill { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid #e5e7eb; background: #fff; font-size: 12px; font-weight: 700; color: #374151; cursor: pointer; }

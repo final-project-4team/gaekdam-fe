@@ -17,12 +17,9 @@ export const getCustomerTimelineApi = ({ customerCode, hotelGroupCode, limit = 5
     });
 };
 
-// 고객 활동쪽에서 추가함
-export const getCustomerBasicApi = (customerCode) => {
-    return api.get(`/customers/${customerCode}/basic`);
-};
-
 // 고객 상태 변경 이력
 export const getCustomerStatusHistoriesApi = ({ customerCode, params }) => {
     return api.get(`/customers/${customerCode}/status-histories`, { params });
 };
+
+
