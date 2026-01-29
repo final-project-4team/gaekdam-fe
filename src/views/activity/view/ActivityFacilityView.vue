@@ -56,6 +56,9 @@ import {
 
 import { getPropertyListByHotelGroupApi } from '@/api/property/propertyApi'
 import { getCustomerBasicApi } from '@/api/customer/customerApi'
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
 
 /* ===================== */
 /* State */
@@ -216,11 +219,13 @@ const loadList = async () => {
 const showCustomerModal = ref(false)
 const selectedCustomer = ref(null)
 
-const onRowClick = async (row) => {
-  if (!row?.customerCode) return
-  const res = await getCustomerBasicApi(row.customerCode)
-  selectedCustomer.value = res.data.data
-  showCustomerModal.value = true
+const onRowClick =  (row) => {
+  withPermission(['CUSTOMER_READ','TODAY_FACILITY_USAGE_READ'], async () => {
+    if (!row?.customerCode) return
+    const res = await getCustomerBasicApi(row.customerCode)
+    selectedCustomer.value = res.data.data
+    showCustomerModal.value = true
+  });
 }
 
 /* ===================== */

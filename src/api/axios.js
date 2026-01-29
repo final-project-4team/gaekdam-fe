@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "@/stores/authStore";
+import { useToastStore } from "@/stores/toastStore";
 
 // ========== axios instance ==========
 const api = axios.create({
@@ -58,10 +59,17 @@ api.interceptors.response.use(
 
     async (error) => {
         const authStore = useAuthStore();
+        const toastStore = useToastStore(); // Toast Store
         const originalRequest = error.config;
 
         if (!error.response) return Promise.reject(error);
         const status = error.response.status;
+
+        // 403 권한 없음 처리
+/*        if (status === 403) {
+            toastStore.showToast("권한이 없습니다.", "error");
+            return Promise.reject(error);
+        }*/
 
         // 401 이외는 그냥 에러 그대로 던짐
         if (status !== 401) return Promise.reject(error);

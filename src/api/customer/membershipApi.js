@@ -22,3 +22,5 @@ export const patchMembershipManuallyApi = async (customerCode, payload) => {
     const res = await api.patch(`/memberships/customers/${customerCode}/manual`, payload);
     return res.data?.data;
 };
+
+

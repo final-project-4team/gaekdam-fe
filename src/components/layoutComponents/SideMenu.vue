@@ -32,15 +32,39 @@ const hotelName = computed(() => {
   return authStore.hotel?.hotelGroupName || "Hotel";
 });
 
-const menus = [
-  { label: '리포트', path: '/reports' },
-  { label: '고객관리', path: '/customers' },
-  { label: '고객활동', path: '/activities' },
-  { label: '고객의소리', path: '/voc' },
-  { label: '메시지', path: '/messages' },
-  { label: '세팅', path: '/setting' },
-  { label: '시스템설정', path: '/system' },
-]
+const menus = computed(() => {
+  // 기본 메뉴 (항상 보임)
+  const list = [
+    { label: '리포트', path: '/reports' },
+    { label: '고객관리', path: '/customers' },
+    { label: '고객활동', path: '/activities' },
+    { label: '고객의소리', path: '/voc' },
+    { label: '메시지', path: '/messages' },
+  ];
+  //  세팅 메뉴 권한 그룹 (하나라도 만족하면 표시)
+  const settingPermissions = [
+    'EMPLOYEE_LIST',
+    'SETTING_OBJECTIVE_LIST',
+    'PERMISSION_LIST',
+    'MEMBERSHIP_POLICY_LIST',
+    'LOYALTY_POLICY_LIST'
+  ];
+  // hasPermission이 단일 문자열에 대해 true 반환하는지 확인하여 검사
+  if (settingPermissions.some(p => authStore.hasPermission(p))) {
+    list.push({ label: '세팅', path: '/setting' });
+  }
+  // 시스템 설정 메뉴 권한 그룹 (하나라도 만족하면 표시)
+  const systemPermissions = [
+    'LOG_LOGIN_LIST',
+    'LOG_AUDIT_LIST',
+    'LOG_PERMISSION_CHANGED_LIST',
+    'LOG_PERSONAL_INFORMATION_LIST'
+  ];
+  if (systemPermissions.some(p => authStore.hasPermission(p))) {
+    list.push({ label: '시스템설정', path: '/system' });
+  }
+  return list;
+});
 
 const go = (path) => router.push(path)
 const isActive = (path) => route.path.startsWith(path)

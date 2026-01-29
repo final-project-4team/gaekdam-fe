@@ -3,7 +3,7 @@
 import { ref, computed, onMounted } from "vue";
 import ListView from "@/components/common/ListView.vue";
 import { getInquiryListApi } from "@/api/voc/inquiryApi.js";
-import InquiryDetailModal from "@/views/voc/modal/InquiryDetailModal.vue";
+import InquiryDetailModal from "@/views/voc/inquiry/modal/InquiryDetailModal.vue";
 
 /* Search Types */
 const searchTypes = [

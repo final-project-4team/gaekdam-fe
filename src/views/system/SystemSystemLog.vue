@@ -74,7 +74,7 @@
 
         </p>
 
-        <div v-if="!systemLogDetail.result" class="comment-box">
+        <div v-if="systemLogDetail.result === 'FAIL'" class="comment-box">
           <span class="comment-title">실패 사유</span>
           <p class="comment-text">{{ systemLogDetail.failedReason || '-' }}</p>
         </div>

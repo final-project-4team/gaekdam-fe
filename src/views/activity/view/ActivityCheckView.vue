@@ -88,6 +88,12 @@
         @close="showCustomerModal = false"
     />
 
+    <ReasonRequestModal
+        v-if="showReasonModal"
+        @close="closeReasonModal"
+        @confirm="onReasonConfirmed"
+    />
+
   </div>
 
 </template>
@@ -105,6 +111,10 @@ import CheckInModal from "@/views/activity/modal/CheckInModal.vue";
 import CheckOutModal from "@/views/activity/modal/CheckOutModal.vue";
 import CustomerBasicModal from '@/views/activity/modal/CustomerBasicModal.vue'
 import { getCustomerBasicApi } from '@/api/customer/customerApi'
+import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
 
 const propertyOptions = ref([])
 
@@ -264,18 +274,39 @@ const onPageChange = async (p) => {
 }
 
 const onRowClick = (row) => {
-  console.log('row-click row:', row)
+  withPermission(['TODAY_RESERVATION_READ','CUSTOMER_READ'], () => {
+    console.log('row-click row:', row)
 
-  if (!row || !row.customerCode) return
-  openCustomerModal(row.customerCode)
+    if (!row || !row.customerCode) return
+    openReasonModal(row.customerCode)
+  });
+}
 
+const showReasonModal = ref(false)
+const targetCustomerCode = ref(null)
+
+const openReasonModal = (customerCode) => {
+  targetCustomerCode.value = customerCode
+  showReasonModal.value = true
+}
+
+const closeReasonModal = () => {
+  showReasonModal.value = false
+  targetCustomerCode.value = null
+}
+
+const onReasonConfirmed = (reason) => {
+  if (targetCustomerCode.value) {
+    openCustomerModal(targetCustomerCode.value, reason)
+  }
+  closeReasonModal()
 }
 
 const showCustomerModal = ref(false)
 const selectedCustomer = ref(null)
-const openCustomerModal = async (customerCode) => {
+const openCustomerModal = async (customerCode, reason) => {
   try {
-    const res = await getCustomerBasicApi(customerCode)
+    const res = await getCustomerBasicApi(customerCode, reason)
     selectedCustomer.value = res.data.data
     showCustomerModal.value = true
   } catch (e) {
@@ -301,27 +332,29 @@ const selectedStayCode = ref(null)
 const selectedReservationCode = ref(null)
 
 const checkin = (row) => {
-  if (!row.reservationCode) {
-    console.error('stayCode 누락', row)
-    alert('투숙 정보가 없어 체크인을 진행할 수 없습니다.')
-    return
-  }
+  withPermission('CHECK_IN_CREATE', () => {
+    if (!row.reservationCode) {
+      console.error('stayCode 누락', row)
+      alert('투숙 정보가 없어 체크인을 진행할 수 없습니다.')
+      return
+    }
 
-
-  selectedReservationCode.value = row.reservationCode
-  showCheckInModal.value = true
+    selectedReservationCode.value = row.reservationCode
+    showCheckInModal.value = true
+  });
 }
 
 const checkout = (row) => {
+  withPermission('CHECK_OUT_CREATE', () => {
+    if (!row.stayCode) {
+      console.error('stayCode 누락', row)
+      alert('투숙 정보가 없어 체크인을 진행할 수 없습니다.')
+      return
+    }
 
-  if (!row.stayCode) {
-    console.error('stayCode 누락', row)
-    alert('투숙 정보가 없어 체크인을 진행할 수 없습니다.')
-    return
-  }
-
-  selectedStayCode.value = row.stayCode
-  showCheckOutModal.value = true
+    selectedStayCode.value = row.stayCode
+    showCheckOutModal.value = true
+  });
 }
 
 const reload = async () => {

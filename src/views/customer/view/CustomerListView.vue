@@ -1,4 +1,4 @@
-<!-- src/views/customer/CustomerListView.vue -->
+<!-- src/views/customer/view/CustomerListView.vue -->
 <template>
   <div class="customer-list-page">
     <div class="top-actions">
@@ -80,6 +80,13 @@
       </div>
     </BaseModal>
   </div>
+
+    <!-- Reason Request Modal -->
+    <ReasonRequestModal
+        v-if="showReasonModal"
+        @close="closeReasonModal"
+        @confirm="onReasonConfirmed"
+    />
 </template>
 
 <script setup>
@@ -95,6 +102,13 @@ import { getCustomerListApi } from "@/api/customer/customerApi.js";
 
 import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
 import { getLoyaltyGradeList } from "@/api/setting/loyaltyGrade.js";
+
+import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
+
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
+
 
 /* base */
 const router = useRouter();
@@ -115,13 +129,16 @@ const normalizeSearchType = (v) => {
   return searchTypes.some((t) => t.value === vv) ? vv : DEFAULT_SEARCH_TYPE;
 };
 
-/* dynamic grade options */
+/* dynamic grade options (value는 code로 유지) */
 const membershipGradeOptions = ref([
   { label: "멤버십(전체)", value: "" },
-  { label: "미가입", value: "NONE" },
+  { label: "미가입", value: -1 }, // 백에서 -1을 미가입으로 처리
 ]);
 
-const loyaltyGradeOptions = ref([{ label: "로열티(전체)", value: "" }]);
+const loyaltyGradeOptions = ref([
+  { label: "로열티(전체)", value: "" },
+  { label: "미가입", value: -1 },
+]);
 
 const loadGradeOptions = async () => {
   try {
@@ -129,22 +146,23 @@ const loadGradeOptions = async () => {
 
     membershipGradeOptions.value = [
       { label: "멤버십(전체)", value: "" },
-      { label: "미가입", value: "NONE" },
+      { label: "미가입", value: -1 },
       ...(Array.isArray(mList) ? mList : [])
-          .filter((g) => g && g.gradeName)
+          .filter((g) => g && g.membershipGradeCode != null && g.gradeName)
           .map((g) => ({
             label: g.gradeName,
-            value: g.gradeName,
+            value: g.membershipGradeCode,
           })),
     ];
 
     loyaltyGradeOptions.value = [
       { label: "로열티(전체)", value: "" },
+      { label: "미가입", value: -1 },
       ...(Array.isArray(lList) ? lList : [])
-          .filter((g) => g && g.loyaltyGradeName)
+          .filter((g) => g && g.loyaltyGradeCode != null && g.loyaltyGradeName)
           .map((g) => ({
             label: g.loyaltyGradeName,
-            value: g.loyaltyGradeName,
+            value: g.loyaltyGradeCode,
           })),
     ];
   } catch (e) {
@@ -245,13 +263,33 @@ const defaultDetailForm = () => ({
   customerCode: "",
   status: "",
 });
-
 const detailForm = ref(defaultDetailForm());
 
-/* normalize */
+/* normalize helpers */
 const t = (v) => (v ?? "").toString().trim();
 const phoneDigits = (v) => (v ?? "").toString().replace(/\D/g, "");
 const emailLower = (v) => (v ?? "").toString().trim().toLowerCase();
+
+const cleanParams = (obj) => {
+  const out = { ...obj };
+  Object.keys(out).forEach((k) => {
+    if (out[k] === "" || out[k] == null) delete out[k];
+  });
+  return out;
+};
+
+const unwrapFilterValue = (v) => {
+  if (v && typeof v === "object" && "value" in v) return v.value;
+  return v;
+};
+
+const normalizeFilterValues = (values = {}) => {
+  const out = {};
+  Object.keys(values).forEach((k) => {
+    out[k] = unwrapFilterValue(values[k]);
+  });
+  return out;
+};
 
 /* api */
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
@@ -260,28 +298,30 @@ const buildParams = () => {
   const d =
       detailForm.value && Object.keys(detailForm.value).length ? detailForm.value : defaultDetailForm();
 
-  const params = {
+  const fg = filterValues.value;
+
+  const params = cleanParams({
     hotelGroupCode: hotelGroupCode.value,
     page: page.value,
     size: pageSize.value,
 
-    status: filterValues.value.status || undefined,
-    contractType: filterValues.value.contractType || undefined,
-    nationalityType: filterValues.value.nationalityType || undefined,
-    inflowChannel: filterValues.value.inflowChannel || undefined,
+    status: fg.status,
+    contractType: fg.contractType,
+    nationalityType: fg.nationalityType,
+    inflowChannel: fg.inflowChannel,
 
-    membershipGrade: filterValues.value.membershipGrade || undefined,
-    loyaltyGrade: filterValues.value.loyaltyGrade || undefined,
+    // 필터 key는 membershipGrade/loyaltyGrade지만, 실제 value는 code로 들어옴
+    membershipGradeCode: fg.membershipGrade,
+    loyaltyGradeCode: fg.loyaltyGrade,
 
     customerName: t(d.customerName) || undefined,
     phoneNumber: phoneDigits(d.phoneNumber) || undefined,
     email: emailLower(d.email) || undefined,
     customerCode: t(d.customerCode) ? Number(t(d.customerCode)) : undefined,
-    ...(t(d.status) ? { status: t(d.status) } : {}),
 
     sortBy: sortState.value.sortBy || "created_at",
     direction: sortState.value.direction || "DESC",
-  };
+  });
 
   const v = t(searchValue.value);
   const st = normalizeSearchType(searchType.value);
@@ -294,7 +334,7 @@ const buildParams = () => {
     if (st === "customerCode") params.customerCode = Number(v);
   }
 
-  return params;
+  return cleanParams(params);
 };
 
 const loadCustomers = async () => {
@@ -328,7 +368,7 @@ const onSearch = ({ key, value }) => {
 };
 
 const onFilter = (values) => {
-  filterValues.value = values;
+  filterValues.value = normalizeFilterValues(values);
   page.value = 1;
   loadCustomers();
 };
@@ -404,8 +444,31 @@ onBeforeUnmount(() => {
 
 /* row click */
 const goDetail = (row) => {
-  if (!row?.customerCode) return;
-  router.push({ name: "CustomerDetail", params: { id: row.customerCode } });
+  withPermission('CUSTOMER_READ',  () => {
+    if (!row?.customerCode) return;
+    selectedCustomerCode.value = row.customerCode;
+    showReasonModal.value = true;
+  });
+};
+
+/* reason modal */
+const showReasonModal = ref(false);
+const selectedCustomerCode = ref(null);
+
+const closeReasonModal = () => {
+  showReasonModal.value = false;
+  selectedCustomerCode.value = null;
+};
+
+const onReasonConfirmed = (reason) => {
+  if (selectedCustomerCode.value) {
+    router.push({
+      name: "CustomerDetail",
+      params: { id: selectedCustomerCode.value },
+      query: { reason: reason }
+    });
+  }
+  closeReasonModal();
 };
 </script>
 

@@ -210,7 +210,10 @@ import {ref, computed, onMounted} from "vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import {getReservationDetailApi} from "@/api/reservation/reservationDetailApi";
 
-const props = defineProps({reservationCode: Number});
+const props = defineProps({
+  reservationCode: Number,
+  reason: {type: String, default: ''}
+});
 defineEmits(["close"]);
 
 const loading = ref(false);
@@ -259,7 +262,7 @@ const formatPhone = (value) => {
 onMounted(async () => {
   loading.value = true;
   try {
-    const res = await getReservationDetailApi(props.reservationCode);
+    const res = await getReservationDetailApi(props.reservationCode, props.reason);
     detail.value = res.data.data;
   } finally {
     loading.value = false;

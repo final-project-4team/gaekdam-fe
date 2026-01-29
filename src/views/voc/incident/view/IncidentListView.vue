@@ -76,7 +76,7 @@ import BaseButton from "@/components/common/button/BaseButton.vue";
 import IncidentCreateModal from "../modal/IncidentCreateModal.vue";
 import IncidentDetailModal from "../modal/IncidentDetailModal.vue";
 
-import { getIncidentListApi } from "@/api/voc/incidentApi";
+import { getIncidentListApi } from "@/api/voc/incidentApi.js";
 
 const columns = [
   { key: "incidentCode", label: "사건번호", sortable: true, align: "center" },

@@ -146,7 +146,9 @@ import {
 } from "@/api/setting/membershipGrade.js";
 import BaseButton from "@/components/common/button/BaseButton.vue";
 import ListView from "@/components/common/ListView.vue";
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
+const { withPermission } = usePermissionGuard();
 
 const membershipGradeList=ref([]);
 const membershipGradeDetail=ref([]);
@@ -207,12 +209,14 @@ const newMembership = ref({
     calculationRenewalDay: ''
 })
 
-const openRowModal = async (row) => {
-  selectedRow.value = row
-  showRowModal.value = true
+const openRowModal =  (row) => {
+  withPermission('MEMBERSHIP_POLICY_READ', async () => {
+    selectedRow.value = row
+    showRowModal.value = true
 
-  const membershipGradeCode=row.membershipGradeCode;
-  membershipGradeDetail.value=await getMembershipGradeDetail(membershipGradeCode);
+    const membershipGradeCode = row.membershipGradeCode;
+    membershipGradeDetail.value = await getMembershipGradeDetail(membershipGradeCode);
+  });
 }
 
 const closeRowModal = () => {
@@ -220,64 +224,71 @@ const closeRowModal = () => {
   selectedRow.value = null
 }
 
-const deactivateMembership = async (row) => {
+const deactivateMembership =  (row) => {
+  withPermission('MEMBERSHIP_POLICY_DELETE', async () => {
     const target = (row && row.membershipGradeCode) ? row : selectedRow.value;
     if (!target) return;
 
     if (!confirm('정말로 이 멤버십 등급을 비활성화(삭제) 하시겠습니까?')) return
 
     try {
-        await deleteMembershipGrade(target.membershipGradeCode)
-        alert('멤버십 등급이 비활성화되었습니다.')
-        membershipGradeList.value = await getMembershipGradeList()
-        
+      await deleteMembershipGrade(target.membershipGradeCode)
+      alert('멤버십 등급이 비활성화되었습니다.')
+      membershipGradeList.value = await getMembershipGradeList()
 
-        if (selectedRow.value && selectedRow.value.membershipGradeCode === target.membershipGradeCode) {
-            closeRowModal()
-        }
+      if (selectedRow.value && selectedRow.value.membershipGradeCode
+          === target.membershipGradeCode) {
+        closeRowModal()
+      }
     } catch (error) {
-        console.error('멤버십 비활성화 실패:', error)
-       // alert('멤버십 비활성화 중 오류가 발생했습니다.')
+      console.error('멤버십 비활성화 실패:', error)
+      // alert('멤버십 비활성화 중 오류가 발생했습니다.')
     }
+  });
 }
 
 const isEditMode = ref(false)
 
-const openEditModal = async (row) => {
+const openEditModal =  (row) => {
+  withPermission('MEMBERSHIP_POLICY_UPDATE', async () => {
     isEditMode.value = true
     selectedRow.value = row
-    
+
     try {
-        const detail = await getMembershipGradeDetail(row.membershipGradeCode)
-        newMembership.value = {
-            membershipGradeCode: detail.membershipGradeCode,
-            gradeName: detail.gradeName,
-            tierLevel: detail.tierLevel,
-            tierComment: detail.tierComment || '',
-            calculationAmount: detail.calculationAmount,
-            calculationCount: detail.calculationCount,
-            calculationTermMonth: detail.calculationTermMonth,
-            calculationRenewalDay: detail.calculationRenewalDay
-        }
-        showActionModal.value = true
+      const detail = await getMembershipGradeDetail(row.membershipGradeCode)
+      newMembership.value = {
+        membershipGradeCode: detail.membershipGradeCode,
+        gradeName: detail.gradeName,
+        tierLevel: detail.tierLevel,
+        tierComment: detail.tierComment || '',
+        calculationAmount: detail.calculationAmount,
+        calculationCount: detail.calculationCount,
+        calculationTermMonth: detail.calculationTermMonth,
+        calculationRenewalDay: detail.calculationRenewalDay
+      }
+      showActionModal.value = true
     } catch (e) {
-        console.error("상세 정보 로드 실패:", e)
+      console.error("상세 정보 로드 실패:", e)
     }
+  });
 }
 
 const openActionModal = () => {
+  withPermission('MEMBERSHIP_POLICY_CREATE',  () => {
+
     isEditMode.value = false
     newMembership.value = {
-        membershipGradeCode: null,
-        gradeName: '',
-        tierLevel: '',
-        tierComment: '',
-        calculationAmount: '',
-        calculationCount: '',
-        calculationTermMonth: '',
-        calculationRenewalDay: ''
+      membershipGradeCode: null,
+      gradeName: '',
+      tierLevel: '',
+      tierComment: '',
+      calculationAmount: '',
+      calculationCount: '',
+      calculationTermMonth: '',
+      calculationRenewalDay: ''
     }
     showActionModal.value = true
+  });
 }
 
 const closeActionModal = () => {

@@ -150,7 +150,7 @@ import {
   getIncidentActionsApi,
   createIncidentActionApi,
   closeIncidentApi,
-} from "@/api/voc/incidentApi";
+} from "@/api/voc/incidentApi.js";
 
 const props = defineProps({
   incidentCode: { type: [Number, String], required: true },

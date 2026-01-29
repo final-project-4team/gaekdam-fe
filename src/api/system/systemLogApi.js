@@ -43,9 +43,10 @@ export const getSystemLogList = async ({
 };
 
 // 시스템 로그 상세 조회
-export const getSystemLogDetail = async (logId) => {
-    const res = await api.get(`/system/logs/${logId}`);
-    return res.data;
+// 활동 로그 상세 조회 (Audit Log)
+export const getSystemLogDetail = async (auditLogCode) => {
+    const res = await api.get(`/logs/audit/${auditLogCode}`);
+    return res.data.data;
 };
 
 // 활동 기록 조회
@@ -145,6 +146,7 @@ export const getPrivacyLogList = async ({
         permissionTypeKey: detail.action || undefined,
         targetCode: detail.targetCode || undefined,
         targetName: detail.targetName || undefined,
+        targetType: detail.targetType || undefined,
 
         sortBy: sort.sortBy || undefined,
         direction: sort.direction || undefined

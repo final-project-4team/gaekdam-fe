@@ -1,23 +1,38 @@
+<!-- /src/views/message/components/MessageTemplateCard.vue -->
 <template>
   <div
-      class="template-card"
-      :class="{ empty: !template }"
+      class="card"
+      :class="{ inactive: template && !template.active, disabled: !template }"
       @click="onClick"
+      role="button"
   >
-    <div class="visitor-label">
-      {{ label }}
-    </div>
+    <div class="top">
+      <div class="badge" :class="visitorType === 'FIRST' ? 'first' : 'repeat'">
+        {{ visitorType === 'FIRST' ? '첫방문자' : '재방문자' }}
+      </div>
 
-    <div v-if="template" class="content">
-      <div class="title">{{ template.title }}</div>
-      <div class="status" :class="{ active: template.active }">
+      <div v-if="template" class="chip" :class="{ on: template.active }">
+        <span class="dot"></span>
         {{ template.active ? '사용중' : '비활성' }}
+      </div>
+      <div v-else class="chip off">
+        <span class="dot"></span>
+        없음
       </div>
     </div>
 
-    <div v-else class="empty-content">
-      <span class="plus">+</span>
-      <span class="text">템플릿 추가</span>
+    <div class="body">
+      <div class="title">
+        {{ template?.title ?? '템플릿이 없습니다' }}
+      </div>
+      <div class="sub">
+        {{ template?.languageCode ?? '-' }} · {{ template?.templateCode ? `#${template.templateCode}` : '' }}
+      </div>
+    </div>
+
+    <div class="footer">
+      <span class="hint">{{ template ? '클릭하여 수정' : '템플릿이 없어 수정할 수 없습니다' }}</span>
+      <span class="arrow">→</span>
     </div>
   </div>
 </template>
@@ -29,91 +44,144 @@ const props = defineProps({
   template: Object,
 })
 
-const emit = defineEmits(['create', 'edit'])
-
-const label =
-    props.visitorType === 'FIRST'
-        ? '첫방문자'
-        : '재방문자'
+const emit = defineEmits(['edit'])
 
 const onClick = () => {
-  if (props.template) {
-    emit('edit', {
-      stage: props.stage,
-      template: props.template,
-      visitorType: props.visitorType,
-    })
-  } else {
-    emit('create', {
-      stage: props.stage,
-      visitorType: props.visitorType,
-    })
-  }
+  if (!props.template) return
+  emit('edit', {
+    stage: props.stage,
+    template: props.template,
+    visitorType: props.visitorType,
+  })
 }
 </script>
 
 <style scoped>
-.template-card {
-  width: 220px;
-  height: 120px;
+.card {
+  border-radius: 14px;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 12px;
+  background: #ffffff;
+  padding: 12px 12px 10px;
   cursor: pointer;
-  background: #fff;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: box-shadow 0.2s, border-color 0.2s;
 }
 
-.template-card:hover {
-  border-color: #4f46e5;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+.card:hover {
+  transform: translateY(-1px);
+  border-color: #c7d2fe;
+  box-shadow: 0 10px 26px rgba(17, 24, 39, 0.08);
 }
 
-.visitor-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
+.card.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.card.disabled:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #e5e7eb;
 }
 
-.content .title {
-  font-size: 14px;
-  font-weight: 500;
-  margin-top: 6px;
-}
-
-.status {
-  font-size: 12px;
-  margin-top: 6px;
-  color: #9ca3af;
-}
-
-.status.active {
-  color: #16a34a;
-}
-
-.empty {
-  border: 1px dashed #c7cdd9;
-  background: #fafafa;
-}
-
-.empty-content {
-  height: 100%;
+.top {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge.first {
+  background: rgba(79, 70, 229, 0.10);
+  color: #4f46e5;
+  border: 1px solid rgba(79, 70, 229, 0.20);
+}
+
+.badge.repeat {
+  background: rgba(16, 185, 129, 0.10);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.20);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  background: #f9fafb;
+}
+
+.chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #9ca3af;
+}
+
+.chip.on {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.20);
+}
+
+.chip.on .dot {
+  background: #16a34a;
+}
+
+.chip.off {
   color: #9ca3af;
 }
 
-.plus {
-  font-size: 28px;
-  font-weight: 300;
+.body {
+  margin-top: 12px;
 }
 
-.text {
+.title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.35;
+  min-height: 38px;
+}
+
+.sub {
+  margin-top: 6px;
   font-size: 12px;
+  color: #6b7280;
+}
+
+.footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #6b7280;
+}
+
+.hint {
+  font-size: 12px;
+}
+
+.arrow {
+  font-size: 14px;
+  color: #4f46e5;
+}
+
+.card.inactive .arrow {
+  color: #9ca3af;
 }
 </style>

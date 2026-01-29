@@ -47,8 +47,9 @@ import BaseButton from '@/components/common/button/BaseButton.vue'
 import ListView from '@/components/common/ListView.vue'
 import PermissionDetailModal from '@/views/setting/modal/PermissionDetailModal.vue'
 import { getPermissionList, deletePermission as apiDeletePermission } from '@/api/setting/permissionApi.js'
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
-// === State ===
+const { withPermission } = usePermissionGuard();
 const permissionList = ref([])
 const totalCount = ref(0)
 const page = ref(1)
@@ -70,22 +71,15 @@ const searchTypes = [
   { label: '권한 이름', value: 'permissionName' }
 ]
 
-// === API Fetch ===
+
 const fetchPermissions = async () => {
   try {
-    // API 파라미터 구조 확인 필요. 기존 코드 참조:
-    // const res = await getPermissionList() -> res.content
-    // 검색 지원 여부는 불확실하나, List API라면 보통 page, size, keyword 등을 받음.
-    // 기존 SettingPermission.vue에서는 클라이언트 사이드 필터링을 하고 있었음.
-    // 여기서는 API가 필터링을 지원한다고 가정하거나, 필요시 클라이언트 필터링 유지.
-    // **중요**: 기존 코드는 `getPermissionList()` 파라미터 없이 호출 후 `res.content` 받아와서 JS로 필터링함.
-    // 따라서 여기서도 일단 받아와서 JS 필터링 후 페이징 처리하는 것이 안전함 (백엔드 수정 없으므로).
     
-    // (1) 전체 조회
+    //  전체 조회
     const res = await getPermissionList()
     let allData = res.content || []
-    
-    // (2) 검색 필터링 (클라이언트)
+
+    // 검색 필터링
     if (searchKeyword.value) {
       allData = allData.filter(item => 
         item.permissionName.toLowerCase().includes(searchKeyword.value.toLowerCase())
@@ -94,7 +88,7 @@ const fetchPermissions = async () => {
 
     totalCount.value = allData.length
     
-    // (3) 페이징 (클라이언트)
+    //  페이징
     const start = (page.value - 1) * pageSize.value
     const end = start + pageSize.value
     permissionList.value = allData.slice(start, end)
@@ -123,13 +117,17 @@ const onPageChange = (p) => {
 
 // === Modal Logic ===
 const openCreateModal = () => {
-  selectedPermission.value = null
-  showModal.value = true
+  withPermission('PERMISSION_CREATE', () => {
+    selectedPermission.value = null
+    showModal.value = true
+  });
 }
 
 const openEditModal = (row) => {
-  selectedPermission.value = row // 객체 통째로 전달
-  showModal.value = true
+  withPermission('PERMISSION_UPDATE', () => {
+    selectedPermission.value = row // 객체 통째로 전달
+    showModal.value = true
+  });
 }
 
 const closeModal = () => {
@@ -138,16 +136,18 @@ const closeModal = () => {
 }
 
 // === Delete Logic ===
-const deletePermission = async (row) => {
-  if (!confirm(`'${row.permissionName}' 권한을 삭제하시겠습니까?`)) return
-  try {
-    await apiDeletePermission(row.permissionCode)
-    alert('권한이 삭제되었습니다.')
-    fetchPermissions()
-  } catch (e) {
-    console.error("Delete failed", e)
-    alert('권한 삭제 중 오류가 발생했습니다.')
-  }
+const deletePermission =  (row) => {
+  withPermission('PERMISSION_DELETE', async () => {
+    if (!confirm(`'${row.permissionName}' 권한을 삭제하시겠습니까?`)) return
+    try {
+      await apiDeletePermission(row.permissionCode)
+      alert('권한이 삭제되었습니다.')
+      fetchPermissions()
+    } catch (e) {
+      console.error("Delete failed", e)
+      alert('권한 삭제 중 오류가 발생했습니다.')
+    }
+  });
 }
 
 // === Lifecycle ===

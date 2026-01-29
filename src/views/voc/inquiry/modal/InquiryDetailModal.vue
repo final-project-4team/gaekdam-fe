@@ -101,7 +101,7 @@
 <script setup>
 import { ref, watch, computed } from "vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
-import { getInquiryDetailApi } from "@/api/voc/inquiryApi";
+import { getInquiryDetailApi } from "@/api/voc/inquiryApi.js";
 
 const props = defineProps({
   inquiryCode: { type: [Number, String], required: true },
