@@ -81,13 +81,13 @@ const routes = [
           {
             path: 'inquiries',
             name: 'InquiryList',
-            component: () => import('@/views/voc/view/InquiryListView.vue'),
+            component: () => import('@/views/voc/inquiry/view/InquiryListView.vue'),
             meta:{permission:'INQUIRY_LIST'}
           },
           {
             path: 'incidents',
             name: 'IncidentList',
-            component: () => import('@/views/voc/view/IncidentListView.vue'),
+            component: () => import('@/views/voc/incident/view/IncidentListView.vue'),
             meta:{permission:'INCIDENT_LIST'}
           },
         ]

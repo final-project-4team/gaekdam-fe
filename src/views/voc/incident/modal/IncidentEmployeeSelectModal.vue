@@ -37,7 +37,7 @@
 import { ref } from "vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import BaseButton from "@/components/common/button/BaseButton.vue";
-import { getEmployeeList } from "@/api/setting/employeeApi"; // 기존 파일 그대로 사용
+import { getEmployeeList } from "@/api/setting/employeeApi.js"; // 기존 파일 그대로 사용
 
 const emit = defineEmits(["close", "select"]);
 

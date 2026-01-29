@@ -58,7 +58,7 @@
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import BaseButton from "@/components/common/button/BaseButton.vue";
-import { getInquiryDetailApi } from "@/api/voc/inquiryApi"; // ✅ 이걸로 호출해야 함
+import { getInquiryDetailApi } from "@/api/voc/inquiryApi.js"; // ✅ 이걸로 호출해야 함
 
 const route = useRoute();
 const router = useRouter();

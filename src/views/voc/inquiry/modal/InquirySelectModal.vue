@@ -40,7 +40,7 @@
 import { ref } from "vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import BaseButton from "@/components/common/button/BaseButton.vue";
-import { fetchInquiriesForSelect } from "@/api/voc/inquiryApi";
+import { fetchInquiriesForSelect } from "@/api/voc/inquiryApi.js";
 
 const emit = defineEmits(["close", "select"]);
 
