@@ -15,3 +15,10 @@ export const getMessageSendHistoryApi = ({
         },
     })
 }
+
+/**
+ * 메시지 발송 이력 상세
+ */
+export const getMessageSendHistoryDetailApi = (sendCode) => {
+    return api.get(`/message-send-histories/${sendCode}`)
+}
