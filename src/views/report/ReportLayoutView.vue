@@ -9,31 +9,7 @@
 
     <div class="content-area">
       <!-- Left: 레이아웃 내 템플릿 리스트 -->
-      <aside class="left-pane">
-        <div class="template-list-vertical">
-          <div
-            v-for="(tpl, idx) in currentLayout.templates"
-            :key="tpl.id"
-            class="tpl-row"
-          >
-            <button
-              class="tpl-btn"
-              :class="{ active: selectedTemplateIndex === idx }"
-              @click="onSelectTemplate(idx)"
-            >
-              {{ tpl.name }}
-            </button>
-
-            <span class="tpl-delete" @click.stop>
-              <BaseButton size="sm" @click="confirmDeleteTemplate(idx)">✕</BaseButton>
-            </span>
-          </div>
-        </div>
-
-        <div class="left-controls">
-          <BaseButton size="sm" @click="openCreateTemplate">+</BaseButton>
-        </div>
-      </aside>
+      <TemplateList :templates="currentLayout.templates" :selectedIndex="selectedTemplateIndex" @select="onSelectTemplate" @add="openCreateTemplate" @delete="confirmDeleteTemplate" />
 
       <!-- Main: 템플릿 카드 그리드 -->
       <section class="main-pane">
@@ -62,33 +38,31 @@
     </div>
 
     <!-- 레이아웃 추가 모달 -->
-    <BaseModal v-if="showCreateLayout" title="레이아웃 추가" @close="showCreateLayout = false">
-      <div class="create-layout-form">
-        <div class="form-row">
-          <label class="form-label">레이아웃 이름</label>
-          <input v-model="newLayoutName" placeholder="레이아웃 이름" />
-        </div>
-
-        <div class="form-row">
-          <label class="form-label">조회 권한부여</label>
-          <div class="radio-group">
-            <label><input type="radio" :value="VISIBILITY.PRIVATE" v-model="selectedVisibility" /> 나에게만</label>
-            <label><input type="radio" :value="VISIBILITY.DEPT" v-model="selectedVisibility" /> 부서 내 공유</label>
-            <label><input type="radio" :value="VISIBILITY.TENANT" v-model="selectedVisibility" /> 호텔 전체</label>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <label class="form-label">내용</label>
-          <textarea v-model="newLayoutDescription" rows="5" placeholder="레이아웃에 대한 설명을 입력하세요"></textarea>
-        </div>
-
-        <div style="margin-top:12px; text-align:right">
-          <BaseButton @click="showCreateLayout = false">취소</BaseButton>
-          <BaseButton @click="createLayout" type="primary" style="margin-left:8px">생성</BaseButton>
-        </div>
-      </div>
-    </BaseModal>
+    <CreateLayoutModal
+      :visible="showCreateLayout"
+      @close="showCreateLayout = false"
+      @create="async (payload) => {
+        try {
+          // 생성시 기본 조회 권한을 'PRIVATE'으로 강제하여
+          // 만든 사용자만 볼 수 있도록 변경
+          const createPayload = {
+            ...payload,
+            visibilityScope: 'PRIVATE',
+            employeeCode: auth?.employeeCode ?? 1,
+            isDefault: false,
+            dateRangePreset: periodType.value === '월간' ? 'MONTH' : 'YEAR',
+            defaultFilterJson: {
+              periodType: periodType.value === '월간' ? 'MONTH' : 'YEAR',
+              period: periodType.value === '월간' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
+            }
+          }
+          await createLayout(createPayload)
+          showCreateLayout = false
+        } catch (e) {
+          console.error(e)
+        }
+      }"
+    />
 
     <!-- 템플릿 추가 모달 -->
     <BaseModal v-if="showCreateTemplate" title="템플릿 추가" @close="showCreateTemplate = false">
@@ -126,6 +100,8 @@ import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import TemplateGrid from '@/components/report/TemplateGrid.vue'
 import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
+import TemplateList from '@/components/report/TemplateList.vue'
+import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
 import { useReportLayouts } from '@/composables/useReportLayouts'
 import { useAuthStore } from '@/stores/authStore'
 
