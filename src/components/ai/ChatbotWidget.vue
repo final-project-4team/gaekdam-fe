@@ -41,22 +41,23 @@
 <script setup>
 import { ref, nextTick } from 'vue'
 import { askChat } from '@/api/ai'
-import { useAuthStore } from '@/stores/authStore'
 
-const auth = useAuthStore()
 const open = ref(false)
 const messages = ref([]) // { role: 'user'|'bot', text: '...' }
 const text = ref('')
 const loading = ref(false)
 const body = ref(null)
-const placeholder = '궁금하신게 있으면 말씀해주세요.'
+// welcome message shown once when opening
+const welcomeMessage = '안녕하세요. 객담의 AI Agent 객봇 입니다.\n 호텔 고객응대 관련 사항이 궁금하다면 메뉴얼 혹은 클레임 같은 키워드를 포함하여 질문해주시고,\n 체크인, 체크아웃 수 현황이 궁금하다면 기간을 명시하고 현황을 물어봐주세요.'
+// input placeholder
+const placeholder = '문의 내용을 입력해주세요.'
 const sessionId = String(Date.now())
 
 function toggle() {
   open.value = !open.value
   // 열 때 최초 안내 메시지 한 번만 추가
   if (open.value && messages.value.length === 0) {
-    messages.value.push({ role: 'bot', text: placeholder })
+    messages.value.push({ role: 'bot', text: escapeHtml(welcomeMessage) })
     // 스크롤 보정
     nextTick(() => scrollToBottom())
   }
@@ -72,12 +73,10 @@ async function onSend() {
 
   // build payload per requested schema
   const payload = {
-    userId: auth.user?.loginId || 'anonymous',
+    userId: 'anonymous',
     sessionId: sessionId,
     message: q,
-    customerAttributes: {
-      membershipLevel: auth.user?.membershipLevel || 'NORMAL',
-    },
+    customerAttributes: {},
   }
 
   try {
@@ -121,8 +120,8 @@ function escapeHtml(str) {
 
 /* 창 */
 .chat-window {
-  width: 360px; max-width: calc(100vw - 48px);
-  height: 520px; display:flex; flex-direction:column;
+  width: 500px; max-width: calc(100vw - 48px);
+  height: 80vh; display:flex; flex-direction:column;
   box-shadow: 0 8px 30px rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden;
   margin-bottom: 10px; background: #f8fafb;
 }
