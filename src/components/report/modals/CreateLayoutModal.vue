@@ -22,6 +22,19 @@
 </template>
 
 <script setup>
+/**
+ * CreateLayoutModal.vue
+ * - 목적: 새로운 레이아웃을 생성하기 위한 모달 컴포넌트 (presentation)
+ * - props:
+ *    - visible: Boolean - 모달 표시 여부
+ *    - title: String - 모달 제목 (기본값: '레이아웃 추가')
+ *    - initial: Object - 초기값(편집 시 사용 가능)
+ * - emits:
+ *    - create(payload): 생성 버튼 클릭 시 입력된 내용을 payload로 부모에게 전달
+ *    - close(): 모달 닫기 요청 시 발생
+ * - 비고:
+ *    - 조회 권한 선택은 제거되어, 부모(ReportLayoutView)에서 생성 시 기본 조회 권한을 'PRIVATE'으로 강제합니다.
+ */
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import { defineProps, ref, watch, defineEmits } from 'vue'

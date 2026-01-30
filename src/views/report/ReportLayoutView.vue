@@ -1,11 +1,13 @@
 <template>
   <div class="layout-page">
     <!-- Top: layout tabs with + 버튼 -->
-    <ReportTopTabs :layouts="layouts" :selectedIndex="selectedIndex" @select="selectLayout" @create="openCreateLayout">
-      <template #delete="{ layout }">
-        <BaseButton size="sm" @click="openDeleteModal(layout)">✕</BaseButton>
-      </template>
-    </ReportTopTabs>
+    <ReportTopTabs
+      :layouts="layouts"
+      :selectedIndex="selectedIndex"
+      @select="selectLayout"
+      @create="openCreateLayout"
+      @delete="openDeleteModal"
+    />
 
     <div class="content-area">
       <!-- Left: 레이아웃 내 템플릿 리스트 -->
@@ -65,32 +67,20 @@
     />
 
     <!-- 템플릿 추가 모달 -->
-    <BaseModal v-if="showCreateTemplate" title="템플릿 추가" @close="showCreateTemplate = false">
-      <div class="available-list">
-        <div v-for="tpl in availableTemplates" :key="tpl.templateId" class="available-row">
-          <span>{{ tpl.displayName }}</span>
-          <BaseButton size="sm" @click="confirmAddTemplate(tpl)">추가</BaseButton>
-        </div>
-      </div>
-    </BaseModal>
+    <CreateTemplateModal :visible="showCreateTemplate" :templates="availableTemplates" @close="showCreateTemplate = false" @add="confirmAddTemplate" />
 
-    <!-- 템플릿 삭제 모달 -->
-    <BaseModal v-if="showDeleteTemplateModal" title="템플릿 삭제" @close="showDeleteTemplateModal = false">
-      <div>템플릿을 삭제하시겠습니까?</div>
-      <div style="text-align:right; margin-top:12px">
-        <BaseButton @click="showDeleteTemplateModal = false">취소</BaseButton>
-        <BaseButton type="danger" @click="deleteTemplate">삭제</BaseButton>
-      </div>
-    </BaseModal>
+    <!-- 템플릿 삭제 확인 모달 -->
+    <ConfirmModal :visible="showDeleteTemplateModal" title="템플릿 삭제" message="템플릿을 삭제하시겠습니까?" @close="showDeleteTemplateModal = false" @confirm="handleDeleteTemplate" />
 
     <!-- 레이아웃 삭제 모달 -->
-    <BaseModal v-if="showDeleteModal" title="레이아웃 삭제" @close="showDeleteModal = false">
+    <ConfirmModal
+      :visible="showDeleteModal"
+      title="레이아웃 삭제"
+      @close="showDeleteModal = false"
+      @confirm="confirmDelete"
+    >
         <div>레이아웃을 삭제하시겠습니까?</div>
-        <div style="text-align:right; margin-top:12px">
-            <BaseButton @click="showDeleteModal = false">취소</BaseButton>
-            <BaseButton type="danger" @click="confirmDelete">삭제</BaseButton>
-        </div>
-    </BaseModal>
+    </ConfirmModal>
   </div>
 </template>
 
@@ -102,6 +92,8 @@ import TemplateGrid from '@/components/report/TemplateGrid.vue'
 import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
 import TemplateList from '@/components/report/TemplateList.vue'
 import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
+import CreateTemplateModal from '@/components/report/modals/CreateTemplateModal.vue'
+import ConfirmModal from '@/components/report/modals/ConfirmModal.vue'
 import { useReportLayouts } from '@/composables/useReportLayouts'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -138,6 +130,18 @@ const newLayoutDescription = ref('')
 const selectedVisibility = ref('PRIVATE')
 
 const showCreateTemplate = ref(false)
+
+// 사용 가능한 템플릿 목록 (임시 샘플). CreateTemplateModal에 전달됩니다.
+const availableTemplates = [
+  { templateId: 1, displayName: '전체 요약 템플릿', sortOrder: 1, isActive: true },
+  { templateId: 2, displayName: '객실운영 요약 템플릿', sortOrder: 2, isActive: true },
+  { templateId: 3, displayName: '고객현황 요약 템플릿', sortOrder: 3, isActive: true },
+  { templateId: 4, displayName: '고객경험 요약 템플릿', sortOrder: 4, isActive: true },
+  { templateId: 5, displayName: '예약및매출 요약 템플릿', sortOrder: 5, isActive: true },
+]
+
+// 왼쪽 리스트의 + 버튼 클릭 시 모달 오픈
+function openCreateTemplate(){ showCreateTemplate.value = true }
 
 const showDeleteTemplateModal = ref(false)
 const deleteTemplateIndex = ref(-1)
@@ -219,11 +223,23 @@ async function handleDeleteTemplate(){
 }
 
 // Layout delete
-function openDeleteModal(layout){ selectedLayoutId.value = layout?.id ?? null; showDeleteModal.value = true }
+function openDeleteModal(layout){
+  console.log('openDeleteModal', layout)
+  selectedLayoutId.value = layout?.id ?? null; showDeleteModal.value = true
+}
 
 async function confirmDelete(){
   const id = selectedLayoutId.value
-  if (!id){ showDeleteModal.value = false; selectedLayoutId.value = null; return }
+
+  console.log('Delete layout id' + id)
+  
+  // 이전: if (!id) { ... } 형태는 id가 0일 때도 삭제를 막음
+  // 수정: id가 null 또는 undefined 일 때만 조기 종료
+  if (id === null || id === undefined) {
+    showDeleteModal.value = false
+    selectedLayoutId.value = null
+    return
+  }
   if (deletingLayout.value) return
   deletingLayout.value = true
   try{
