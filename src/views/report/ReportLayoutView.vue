@@ -23,11 +23,11 @@
               <option value="월간">월간</option>
             </select>
 
-            <select v-model="selectedYear" @change="applyPeriodToLayout">
+            <select v-model="selectedYear" @change="applyPeriodAndReload">
               <option v-for="y in years" :key="y" :value="y">{{ y }}년</option>
             </select>
 
-            <select v-if="periodType === '월간'" v-model="selectedMonth" @change="applyPeriodToLayout">
+            <select v-if="periodType === '월간'" v-model="selectedMonth" @change="applyPeriodAndReload">
               <option v-for="m in months" :key="m" :value="m">{{ m }}월</option>
             </select>
 
@@ -197,6 +197,8 @@ function onSelectTemplate(idx){
 
 function onPeriodTypeChange(){
   if (periodType.value === '연간') selectedMonth.value = String(new Date().getMonth() + 1)
+  // 기간 타입 변경 시 선택된 템플릿의 위젯을 다시 로드
+  applyPeriodAndReload()
 }
 
 function shareReport(){ console.log('공유 클릭:', { periodType: periodType.value, year: selectedYear.value, month: selectedMonth.value }) }
@@ -270,6 +272,19 @@ function generateNextLayoutName(){
 }
 
 onMounted(() => { loadLayouts() })
+
+// 기간 적용 후 현재 선택된 템플릿의 위젯을 재로딩
+async function applyPeriodAndReload(){
+  try{
+    // composable에 기간 적용
+    applyPeriodToLayout()
+    // 현재 선택된 템플릿 가져와서 위젯 로드
+    const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
+    if (tpl) await loadWidgetsForTemplate(tpl)
+  } catch(e){
+    console.error('applyPeriodAndReload error', e)
+  }
+}
 </script>
 
 <style scoped>

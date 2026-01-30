@@ -95,6 +95,10 @@ export function useReportLayouts() {
     try {
       const res = await apiGetTemplateWidgets(templateId, period)
       const items = res?.data?.data || []
+
+        // Template ID, 기간, 항목 로그찍어보기
+        console.log('[useReportLayouts] loadWidgetsForTemplate', { templateId, period })
+        console.log('리포트 전체요약 위젯 값 조회', items)
       // sortOrder로 정렬 후 템플릿 객체에 위젯 배열을 붙임
       template.widgets = Array.isArray(items) ? items.sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0)) : []
     } catch (err) {
