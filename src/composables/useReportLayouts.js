@@ -170,6 +170,14 @@ export function useReportLayouts() {
       const added = { id: newId ?? `${tplDto.templateId}-${Date.now()}`, templateId: tplDto.templateId, displayName: tplDto.displayName, sortOrder: tplDto.sortOrder, isActive: tplDto.isActive, name: tplDto.displayName }
       layouts.value[layoutIndex].templates.push(added)
       selectedTemplateIndex.value = layouts.value[layoutIndex].templates.length - 1
+      // 새로 추가한 템플릿의 위젯을 즉시 로드하여 화면에 카드가 표시되도록 함
+      try {
+        if (added.templateId || added.id) {
+          await loadWidgetsForTemplate(added)
+        }
+      } catch (err) {
+        console.warn('[useReportLayouts] loadWidgetsForTemplate after addTemplate failed', err)
+      }
       return added
     } catch (err) {
       console.error('[useReportLayouts] addTemplate failed', err)

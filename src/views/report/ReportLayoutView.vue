@@ -47,8 +47,15 @@
         try {
           // 생성시 기본 조회 권한을 'PRIVATE'으로 강제하여
           // 만든 사용자만 볼 수 있도록 변경
+          // 이름이 비어있거나 기존 이름과 겹치면 자동으로 다음 이름을 생성
+          let desiredName = payload?.name?.trim()
+          if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
+            desiredName = generateNextLayoutName()
+          }
+
           const createPayload = {
             ...payload,
+            name: desiredName,
             visibilityScope: 'PRIVATE',
             employeeCode: auth?.employeeCode ?? 1,
             isDefault: false,
@@ -246,6 +253,20 @@ async function confirmDelete(){
     await deleteLayout(id)
   } catch(e){ console.error(e) }
   finally{ showDeleteModal.value = false; selectedLayoutId.value = null; deletingLayout.value = false }
+}
+
+// 기본 레이아웃 이름 생성: 기존 레이아웃 이름에서 숫자 suffix를 찾아 다음 번호로 생성
+function generateNextLayoutName(){
+  const prefix = '레이아웃'
+  const nums = layouts.value
+    .map(l => (l.name || '').trim())
+    .map(n => {
+      const m = n.match(new RegExp(`^${prefix}\s*(\\d+)$`))
+      return m ? Number(m[1]) : null
+    })
+    .filter(x => x !== null)
+  const next = nums.length ? Math.max(...nums) + 1 : 1
+  return `${prefix} ${next}`
 }
 
 onMounted(() => { loadLayouts() })
