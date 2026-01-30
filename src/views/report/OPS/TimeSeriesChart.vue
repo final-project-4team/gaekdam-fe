@@ -1,6 +1,6 @@
 <template>
   <div class="card">
-    <div class="card-title">{{ widget.title }}</div>
+    <div class="card-title">{{ widget.title }} <span v-if="pickUnitText(widget)">({{ pickUnitText(widget) }})</span></div>
     <!-- Chart.js는 canvas에 렌더링됩니다 -->
     <canvas ref="chartEl" style="height:220px; width:100%"></canvas>
   </div>
@@ -25,7 +25,7 @@ import { Chart, registerables } from 'chart.js'
 import { formatCurrency, formatPercent, formatCount, safeNumber } from '@/utils/formatters'
 Chart.register(...registerables)
 
-const props = defineProps({ widget: { type: Object, required: true }})
+const props = defineProps({ widget: { type: Object, required: true }, period: { type: String, default: null }})
 const chartEl = ref(null)
 let chartInstance = null
 
@@ -36,11 +36,24 @@ let chartInstance = null
   - rawData(원시값)과 numericData(차트에 사용할 숫자) 둘 다 반환
 */
 function normalizeWidget(widget){
-  const labels = Array.isArray(widget?.labels) ? widget.labels : []
+  // 우선 백엔드에서 labels가 제공되면 사용
+  let labels = Array.isArray(widget?.labels) ? widget.labels : []
   const seriesArr = Array.isArray(widget?.series) ? widget.series : []
   const rawData = (seriesArr.length > 0 && Array.isArray(seriesArr[0].data)) ? seriesArr[0].data : []
   // 숫자 변환: API에서 문자열('1,234.00') 등으로 올 수 있으므로 safeNumber로 정규화
   const numericData = rawData.map(d => safeNumber(d))
+
+  // 레이블이 없고 period가 연도(YYYY) 형태면 월 레이블(1월..12월)을 자동 생성
+  if ((!labels || labels.length === 0) && props.period && /^\d{4}$/.test(props.period)){
+    labels = Array.from({ length: 12 }, (_, i) => `${i+1}월`)
+    // 데이터가 없으면 월별 값이 아직 없음을 명확히 하기 위해 null 배열(Chart.js는 null을 gap으로 렌더링)
+    if (!numericData || numericData.length === 0) {
+      // 월 12개에 대응하는 null 값 생성
+      const nulls = Array.from({ length: 12 }, () => null)
+      return { labels, rawData: nulls, numericData: nulls }
+    }
+  }
+
   return { labels, rawData, numericData }
 }
 
@@ -77,16 +90,19 @@ function pickColor(widget){
   return '#3b82f6' // 기본 파랑
 }
 
-/*
-  buildConfig:
-  - Chart.js 구성 객체를 생성
-  - tooltip.callbacks.label: 툴팁에 표시되는 값을 포맷터로 가공 (통화/퍼센트/건수)
-  - scales.y.ticks.callback: Y축 눈금 값을 포맷터로 가공
-*/
+// 단위 텍스트 결정: 툴팁/타이틀 옆에 표시할 단위(예: '회', '원', '%')
+function pickUnitText(widget){
+  const k = (widget?.widgetKey || '').toString().toUpperCase()
+  if (k.includes('ADR') || k.includes('PRICE')) return '원'
+  if (k.includes('RATE') || k.includes('OCCUPANCY') || (widget?.title || '').includes('%')) return '%'
+  return '회'
+}
+
 function buildConfig(widget){
   const { labels, rawData, numericData } = normalizeWidget(widget)
   const formatter = selectFormatter(widget)
   const color = pickColor(widget)
+  const unitText = pickUnitText(widget)
 
   return {
     type: 'line',

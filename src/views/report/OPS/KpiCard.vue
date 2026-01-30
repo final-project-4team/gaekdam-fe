@@ -1,6 +1,7 @@
 <template>
   <div class="card" role="group" :aria-label="title">
-    <div class="card-title">{{ title }}</div>
+    <!-- KPI별 아이콘/색 표시: title 옆에 컬러 마커를 표시해 시각적으로 구분 -->
+    <div class="card-title"><span class="kpi-marker" :style="{ backgroundColor: markerColor }" aria-hidden="true"></span> {{ title }}</div>
     <div class="kpi-value" aria-live="polite">{{ formattedValue }}</div>
     <div class="kpi-target" v-if="widget.targetValue">목표: {{ formattedTarget }}</div>
     <div class="kpi-delta" :class="deltaClass">{{ deltaText }}</div>
@@ -48,6 +49,18 @@ const rawValue = computed(() => props.widget.value)
 // widgetKey는 대문자로 통일하여 비교에 사용
 const key = computed(() => (props.widget.widgetKey || '').toString().toUpperCase())
 
+// KPI별 색상 선택 (템플릿 전반에서 동일한 색상을 사용하려면 공통 유틸로 이동 권장)
+function pickMarkerColor(key){
+  if (!key) return '#9CA3AF'
+  if (key.includes('CHECKIN')) return '#06b6d4'
+  if (key.includes('CHECKOUT')) return '#3b82f6'
+  if (key.includes('ADR')) return '#f97316'
+  if (key.includes('OCCUPANCY')) return '#ef4444'
+  return '#3b82f6'
+}
+
+const markerColor = computed(()=> pickMarkerColor(key.value))
+
 // 값 포맷팅: ADR 등 통화, 퍼센트, 그 외는 건수로 표시
 const formattedValue = computed(() => {
   if (key.value.includes('ADR') || key.value.includes('PRICE')) return formatCurrency(rawValue.value)
@@ -72,8 +85,10 @@ const delta = computed(() => {
 
 const deltaText = computed(() => delta.value === null ? '' : `${delta.value}%`)
 const deltaClass = computed(() => delta.value === null ? 'delta-neutral' : (delta.value >= 0 ? 'delta-up' : 'delta-down'))
+
 </script>
 
 <style scoped>
 /* 기존 스타일 유지 (필요 시 디자인 팀 규칙에 맞춰 수정) */
+.kpi-marker { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; vertical-align:middle }
 </style>
