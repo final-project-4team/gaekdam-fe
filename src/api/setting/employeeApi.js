@@ -88,3 +88,8 @@ export const getDepartmentList = async () => {
   const res = await api.get("/department");
   return res.data.data;
 };
+
+export const getHotelPositionList = async () => {
+  const res = await api.get("/position");
+  return res.data.data;
+};
