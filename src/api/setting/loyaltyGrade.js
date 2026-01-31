@@ -15,7 +15,7 @@ export const createLoyaltyGrade = async (loyaltyGradeDetail) => {
 };
 
 export const updateLoyaltyGrade = async (loyaltyGradeDetail) => {
-  const res = await api.put("/loyalty-grade", loyaltyGradeDetail);
+  const res = await api.put("/loyalty-grade/" + loyaltyGradeDetail.loyaltyGradeCode, loyaltyGradeDetail);
   return res.data.data;
 };
 

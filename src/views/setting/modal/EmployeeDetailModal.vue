@@ -57,7 +57,7 @@
         <div class="col">
           <label>부서(Code)</label>
           <select v-model="form.departmentId">
-             <option :value="null">form.departmentName</option><!--선택-->
+             <option :value="null">선택</option>
              <option v-for="dept in departmentList" :key="dept.departmentCode" :value="Number(dept.departmentCode)">
                {{ dept.departmentName }}
              </option>
@@ -65,15 +65,11 @@
         </div>
         <div class="col">
           <label>직급(Code)</label>
-           <input 
-            v-if="isCreate"
-            type="text" 
-            v-model="form.hotelPositionId" 
-             placeholder="직급 코드 입력 (예: 1)"
-          />
-           <select v-else v-model="form.hotelPositionId">
+            <select v-model="form.hotelPositionId">
              <option :value="null">선택</option>
-             <option :value="localEmployee.hotelPositionId">{{ localEmployee.hotelPositionName }}</option>
+             <option v-for="pos in filteredHotelPositionList" :key="pos.hotelPositionCode" :value="Number(pos.hotelPositionCode)">
+               {{ pos.hotelPositionName }}
+             </option>
           </select>
         </div>
       </div>
@@ -173,7 +169,7 @@
 import { ref, onMounted, computed } from 'vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
-import { getEmployeeDetail, updateEmployee, updateEmployeeStatus, createEmployee, unlockEmployee, getDepartmentList } from '@/api/setting/employeeApi.js'
+import { getEmployeeDetail, updateEmployee, updateEmployeeStatus, createEmployee, unlockEmployee, getDepartmentList, getHotelPositionList } from '@/api/setting/employeeApi.js'
 import {getPermissionNameList} from "@/api/setting/permissionApi.js";
 
 
@@ -208,6 +204,14 @@ const form = ref({
 })
 
 const permissionList = ref([])
+// 직급 목록 상태
+const allHotelPositionList = ref([])
+
+// 부서 선택에 따른 직급 필터링
+const filteredHotelPositionList = computed(() => {
+    if (!form.value.departmentId) return allHotelPositionList.value
+    return allHotelPositionList.value.filter(pos => pos.departmentCode === form.value.departmentId)
+})
 
 const isCreate = computed(() => !props.employeeCode)
 
@@ -253,9 +257,9 @@ const fetchDetail = async () => {
         loginId: detail.loginId,
         employeeNumber: detail.employeeNumber,
         hiredAt: detail.hiredAt,
-        departmentId: detail.departmentId ? Number(detail.departmentId) : null,
-        hotelPositionId: detail.hotelPositionId,
-        permissionId: detail.permissionId ? Number(detail.permissionId) : null,
+        departmentId: detail.departmentCode ? Number(detail.departmentCode) : null,
+        hotelPositionId: detail.hotelPositionCode ? Number(detail.hotelPositionCode) : null,
+        permissionId: detail.permissionCode ? Number(detail.permissionCode) : null,
         permissionName: detail.permissionName,
         phoneNumber: detail.phoneNumber,
         email: detail.email
@@ -421,7 +425,14 @@ onMounted(async () => {
         const depts = await getDepartmentList()
         departmentList.value = depts
     } catch (e) {
-        console.error("부서 목록 조회 실패", e)
+      console.error("부서 목록 조회 실패", e)
+    }
+
+    try {
+        const positions = await getHotelPositionList()
+        allHotelPositionList.value = positions
+    } catch (e) {
+        console.error("직급 목록 조회 실패", e)
     }
 
     await fetchDetail()
