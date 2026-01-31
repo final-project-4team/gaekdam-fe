@@ -6,12 +6,10 @@
       <div class="spacer" />
     </div>
 
-    <!-- 로딩/에러 -->
     <div v-if="loading" class="state">불러오는 중...</div>
     <div v-else-if="error" class="state error">{{ error }}</div>
 
     <template v-else>
-      <!-- 기본정보 -->
       <div class="card">
         <div class="card-title">기본정보</div>
 
@@ -30,7 +28,6 @@
         </div>
       </div>
 
-      <!-- 문의내용 -->
       <div class="card">
         <div class="card-title">문의내용</div>
         <div class="content-box">
@@ -39,7 +36,6 @@
         </div>
       </div>
 
-      <!-- 답변(처리)내용 -->
       <div class="card">
         <div class="card-title">답변(처리)내용</div>
         <div class="content-box">
@@ -58,7 +54,7 @@
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import BaseButton from "@/components/common/button/BaseButton.vue";
-import { getInquiryDetailApi } from "@/api/voc/inquiryApi.js"; // ✅ 이걸로 호출해야 함
+import { getInquiryDetailApi } from "@/api/voc/inquiryApi.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -78,14 +74,28 @@ const formatDateTime = (iso) => {
   return String(iso).replace("T", " ").slice(0, 16);
 };
 
+const resolveHotelGroupCode = () => {
+  const q = route.query.hotelGroupCode;
+  if (q != null && q !== "") return Number(q);
+  const ls = localStorage.getItem("hotelGroupCode");
+  if (ls != null && ls !== "") return Number(ls);
+  return null;
+};
+
 onMounted(async () => {
   loading.value = true;
   error.value = "";
 
   try {
-    const inquiryCode = route.params.inquiryCode;
-    const res = await getInquiryDetailApi(inquiryCode); // ✅ 함수 호출
-    detail.value = res?.data?.data; // ✅ ApiResponse.success(data)의 data
+    const inquiryCode = Number(route.params.inquiryCode);
+    const hotelGroupCode = resolveHotelGroupCode();
+
+    if (!inquiryCode || !hotelGroupCode) {
+      throw new Error("hotelGroupCode 또는 inquiryCode가 없습니다.");
+    }
+
+    const res = await getInquiryDetailApi({ hotelGroupCode, inquiryCode });
+    detail.value = res?.data?.data ?? null;
   } catch (e) {
     error.value = e?.message || "상세 조회에 실패했습니다.";
     detail.value = null;
