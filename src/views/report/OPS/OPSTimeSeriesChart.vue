@@ -1,11 +1,22 @@
 <template>
-  <div class="card">
+  <div class="card" ref="cardEl">
+    <!-- 오른쪽 상단: 더보기 메뉴 -->
+    <div class="more-menu">
+      <button class="more-btn" @click.stop="menuOpen = !menuOpen">⋯</button>
+      <div v-if="menuOpen" class="more-dropdown" @click.stop>
+        <button class="dropdown-item" @click="onDownloadCSV">CSV 다운로드</button>
+        <button class="dropdown-item" @click="onDownloadImage">이미지 다운로드</button>
+      </div>
+    </div>
     <div class="card-title">{{ widget.title }} <span v-if="pickUnitText(widget)">({{ pickUnitText(widget) }})</span></div>
     <!-- Chart.js는 canvas에 렌더링됩니다 -->
     <div v-if="hasData">
       <canvas ref="chartEl" style="height:220px; width:100%"></canvas>
     </div>
     <div v-else class="empty-state">데이터 없음</div>
+
+    <!-- 오른쪽 하단: 작고 둥근 리셋 버튼 -->
+    <button class="reset-zoom" title="원래 보기로" @click="resetZoom">↺</button>
   </div>
 </template>
 
@@ -135,12 +146,20 @@ function buildConfig(widget){
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      // zoom/pan 설정: 휠(마우스)/핀치(터치)로 확대/축소, 드래그로 pan
       plugins: {
+        zoom: {
+          zoom: {
+            wheel: { enabled: true },
+            pinch: { enabled: true },
+            mode: 'x'
+          },
+          pan: { enabled: true, mode: 'x' }
+        },
         tooltip: {
           mode: 'index',
           intersect: false,
           callbacks: {
-            // 툴팁 라벨: raw 값이 있으면 원시값을 포맷하고, 없으면 numeric value를 포맷
             label: function(context){
               const idx = context.dataIndex
               const raw = (Array.isArray(rawData) && rawData.length > idx) ? rawData[idx] : context.raw
@@ -204,12 +223,78 @@ onBeforeUnmount(()=>{
 watch(() => props.widget, () => {
   try{ renderChart() }catch(e){ console.warn('TimeSeriesChart render failed', e) }
 }, { deep: true })
+
+import zoomPlugin from 'chartjs-plugin-zoom'
+Chart.register(zoomPlugin)
+
+import { onMounted as onMount } from 'vue'
+
+const menuOpen = ref(false)
+
+// 안전한 CSV 다운로드: header 컬럼과 행 길이 정렬
+function downloadCSV(){
+  try{
+    const { labels, rawData, numericData } = normalizeWidget(props.widget)
+    // 헤더: label, raw, value
+    const header = ['label','raw','value']
+    const rows = []
+    const n = Math.max((labels||[]).length, (numericData||[]).length, (rawData||[]).length)
+    for (let i=0;i<n;i++){
+      const lab = (labels && labels[i] !== undefined) ? labels[i] : ''
+      const raw = (rawData && rawData[i] !== undefined) ? rawData[i] : ''
+      const num = (numericData && numericData[i] !== undefined) ? numericData[i] : ''
+      // 이스케이프 따옴표
+      rows.push([`"${String(lab).replace(/"/g,'""') }"`, raw === null ? '' : String(raw), num === null ? '' : String(num)])
+    }
+    const csvContent = [header.join(','), ...rows.map(r=>r.join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const name = (props.widget && (props.widget.widgetKey || props.widget.title)) ? `${(props.widget.widgetKey||props.widget.title).toString().replace(/\s+/g,'_')}.csv` : 'chart.csv'
+    a.download = name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }catch(e){ console.warn('downloadCSV failed', e) }
+}
+
+function downloadImage(){
+  if (!chartInstance) return
+  try{
+    const url = chartInstance.toBase64Image()
+    const a = document.createElement('a')
+    a.href = url
+    const name = (props.widget && (props.widget.widgetKey || props.widget.title)) ? `${(props.widget.widgetKey||props.widget.title).toString().replace(/\s+/g,'_')}.png` : 'chart.png'
+    a.download = name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }catch(e){ console.warn('downloadImage failed', e) }
+}
+
+function onDownloadCSV(){ menuOpen = false; downloadCSV() }
+function onDownloadImage(){ menuOpen = false; downloadImage() }
+
+function resetZoom(){
+  try{
+    if (chartInstance && typeof chartInstance.resetZoom === 'function') { chartInstance.resetZoom() }
+    else if (chartInstance) { setCategoryRange(0, (chartInstance.data.labels||[]).length - 1) }
+  }catch(e){ console.warn('resetZoom failed', e) }
+}
 </script>
 
 <style scoped>
 /* 차트 카드 관련 스타일이 필요하면 여기에 */
-.card { padding: 12px }
+.card { padding: 12px; position: relative }
 .card-title { font-weight:700; margin-bottom:8px }
 canvas { display:block }
 .empty-state { height:220px; display:flex; align-items:center; justify-content:center; color:#9ca3af; font-size:14px }
+.more-menu { position: absolute; right: 10px; top: 10px }
+.more-btn { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 8px; cursor: pointer }
+.more-dropdown { position: absolute; right: 0; top: 36px; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 6px 12px rgba(0,0,0,0.06); border-radius: 6px; overflow: hidden }
+.dropdown-item { display: block; padding: 8px 12px; background: transparent; border: none; width: 160px; text-align: left; cursor: pointer }
+.dropdown-item:hover { background: #f8fafc }
+.reset-zoom { position: absolute; right: 12px; bottom: 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 999px; width: 36px; height: 36px; display:flex; align-items:center; justify-content:center; cursor:pointer }
 </style>
