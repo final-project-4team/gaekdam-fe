@@ -94,6 +94,8 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import TemplateGrid from '@/components/report/TemplateGrid.vue'
 import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실운영 템플릿
@@ -202,7 +204,51 @@ function onPeriodTypeChange(){
   applyPeriodAndReload()
 }
 
-function shareReport(){ console.log('공유 클릭:', { periodType: periodType.value, year: selectedYear.value, month: selectedMonth.value }) }
+async function shareReport() {
+  try {
+    // 캡처할 영역: 전체 콘텐츠 영역 또는 메인 패널
+    const el = document.querySelector('.content-area') || document.querySelector('.main-pane')
+    if (!el) {
+      console.error('PDF 생성 대상 엘리먼트를 찾을 수 없습니다.')
+      return
+    }
+
+    // 렌더 안정화를 위해 잠깐 대기(애니메이션/폰트 로드 등)
+    await new Promise(r => setTimeout(r, 250))
+
+    // html2canvas로 캡처 (useCORS: 외부 이미지가 있을 경우 서버에서 CORS 허용 필요)
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+    const imgData = canvas.toDataURL('image/png')
+
+    // PDF 생성: A4 portrait
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+
+    // 이미지 실제 크기(mm) 계산
+    const imgProps = pdf.getImageProperties(imgData)
+    const imgWidthMM = pageWidth - 20 // 좌우 여백 10mm씩
+    const imgHeightMM = (imgProps.height * imgWidthMM) / imgProps.width
+
+    // 여러 페이지로 분할하여 추가
+    let heightLeft = imgHeightMM
+    let position = 10 // 상단 여백 10mm
+    let pageNum = 0
+    while (heightLeft > 0) {
+      if (pageNum > 0) pdf.addPage()
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidthMM, imgHeightMM)
+      heightLeft -= pageHeight - 20 // 페이지당 내용 영역에서 여백 고려
+      position -= pageHeight - 20
+      pageNum++
+    }
+
+    const period = periodType.value === '월간' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
+    const name = `report_${period}_${new Date().toISOString().replace(/[:.]/g,'-')}.pdf`
+    pdf.save(name)
+  } catch (e) {
+    console.error('PDF 생성 실패', e)
+  }
+}
 
 // Template add/delete wrappers
 async function confirmAddTemplate(tpl){

@@ -2,6 +2,11 @@
   <div class="card" ref="cardEl">
     <!-- 오른쪽 상단: 줌리셋, 브러시 토글, 더보기 메뉴 (왼→오) -->
     <div class="more-menu">
+      <!-- 누적/원본 모드 토글: CHECKIN/CHECKOUT 전용 -->
+      <div v-if="isCumulativeWidget(widget)" class="mode-switch">
+        <button class="mode-btn" :class="{ active: !cumulativeMode }" @click.stop="setCumulativeMode(false)">원본</button>
+        <button class="mode-btn" :class="{ active: cumulativeMode }" @click.stop="setCumulativeMode(true)">누적+목표</button>
+      </div>
       <button class="reset-btn" title="원래 보기로" @click.stop="resetZoom">↺</button>
       <button class="brush-toggle" :class="{ active: dragEnabled }" @click.stop="toggleBrush" :title="dragEnabled ? '브러시 끄기' : '브러시 켜기'">
         ⊞
@@ -52,7 +57,7 @@ let chartInstance = null
   normalizeWidget:
   - widget에서 labels와 series를 안전하게 추출
   - series가 객체 배열인 경우 첫번째 시리즈의 data를 사용
-  - rawData(원시값)과 numericData(차트에 사용할 숫자) 둘 다 반환
+  - rawData(원본값)과 numericData(차트에 사용할 숫자) 둘 다 반환
 */
 function normalizeWidget(widget){
   // 우선 백엔드에서 labels가 제공되면 사용
@@ -73,15 +78,27 @@ function normalizeWidget(widget){
     }
   }
 
+  // targetValue만 있는 경우에도 목표선 렌더링을 허용하기 위해 최소 라벨/데이터(단일 포인트)를 생성
+  if ((!labels || labels.length === 0) && (!numericData || numericData.length === 0) && widget && widget.targetValue !== undefined && widget.targetValue !== null) {
+    const nulls = [null]
+    labels = ['목표']
+    return { labels, rawData: nulls, numericData: nulls }
+  }
+
   return { labels, rawData, numericData }
 }
 
 // computed: 데이터 유무 판단 (모든 값이 null 또는 비어있으면 false)
 const hasData = computed(() => {
   const { numericData } = normalizeWidget(props.widget)
-  if (!numericData || numericData.length === 0) return false
-  // numericData가 모두 null 또는 NaN이면 데이터 없음
-  return numericData.some(v => v !== null && !Number.isNaN(v))
+  const hasSeriesData = numericData && numericData.length > 0 && numericData.some(v => v !== null && !Number.isNaN(v))
+  const tv = (props.widget && props.widget.targetValue !== undefined && props.widget.targetValue !== null) ? safeNumber(props.widget.targetValue) : NaN
+  const hasTarget = !Number.isNaN(tv)
+  // cumulative widget인 경우, 사용자가 원본 모드를 선택하면 target만으로는 차트를 렌더링하지 않음
+  if (isCumulativeWidget(props.widget) && !cumulativeMode.value) {
+    return hasSeriesData
+  }
+  return hasSeriesData || hasTarget
 })
 
 /*
@@ -125,28 +142,79 @@ function pickUnitText(widget){
   return '회'
 }
 
+// CHECKIN/CHECKOUT 계열은 누적(누적합)으로 표시하여 목표 달성 여부 시각화
+function isCumulativeWidget(widget){
+  const k = (widget?.widgetKey || '').toString().toUpperCase()
+  return k.includes('CHECKIN') || k.includes('CHECKOUT')
+}
+
 function buildConfig(widget){
-  const { labels, rawData, numericData } = normalizeWidget(widget)
+  const { labels: rawLabels, rawData, numericData } = normalizeWidget(widget)
+  let labels = Array.isArray(rawLabels) ? rawLabels.slice() : []
   const formatter = selectFormatter(widget)
   const color = pickColor(widget)
   const unitText = pickUnitText(widget)
+
+  // If no labels but target exists, provide a minimal single label so the goal line can render
+  const targetNum = (widget && (widget.targetValue !== undefined && widget.targetValue !== null)) ? safeNumber(widget.targetValue) : null
+  if ((!labels || labels.length === 0) && (targetNum !== null && !Number.isNaN(targetNum))) {
+    labels = ['']
+  }
+
+  // Decide displayed numeric series: 원본 numericData 또는 누적합
+  let displayData = Array.isArray(numericData) ? numericData.slice() : []
+  if (isCumulativeWidget(widget) && cumulativeMode.value){
+    // 누적 모드일 때만 누적합 계산 (원본 모드면 원본 데이터 유지)
+    let sum = 0
+    displayData = displayData.map(v => {
+      const val = (v === null || Number.isNaN(v)) ? 0 : v
+      sum += val
+      return sum
+    })
+    if ((!displayData || displayData.length === 0) && (targetNum !== null && !Number.isNaN(targetNum))) displayData = [0]
+  }
+
+  // build main dataset
+  const datasets = [
+    {
+      label: widget?.title || '',
+      data: displayData,
+      fill: false,
+      borderColor: color,
+      backgroundColor: color,
+      tension: 0.35,
+      pointRadius: 0,
+      borderWidth: 2,
+      spanGaps: true
+    }
+  ]
+
+  // add target/goal dataset if provided: render as dashed horizontal line
+  const shouldShowTarget = (targetNum !== null && !Number.isNaN(targetNum)) && (!isCumulativeWidget(widget) || cumulativeMode.value)
+  if (shouldShowTarget){
+    // create goal data array matching labels length
+    const goalData = Array.from({ length: labels.length }, () => targetNum)
+    datasets.push({
+      label: '목표',
+      data: goalData,
+      fill: false,
+      borderColor: '#10b981', // green for goal
+      backgroundColor: '#10b981',
+      borderDash: [6,4],
+      pointRadius: 0,
+      borderWidth: 1.5,
+      tension: 0,
+      spanGaps: true,
+      // custom flag to identify goal dataset in callbacks
+      isGoal: true
+    })
+  }
 
   return {
     type: 'line',
     data: {
       labels: labels,
-      datasets: [
-        {
-          label: widget?.title || '',
-          data: numericData, // Chart.js는 숫자 배열을 기대
-          fill: false,
-          borderColor: color,
-          backgroundColor: color,
-          tension: 0.35,
-          pointRadius: 0,
-          borderWidth: 2
-        }
-      ]
+      datasets: datasets
     },
     options: {
       responsive: true,
@@ -168,9 +236,16 @@ function buildConfig(widget){
           intersect: false,
           callbacks: {
             label: function(context){
-              const idx = context.dataIndex
-              const raw = (Array.isArray(rawData) && rawData.length > idx) ? rawData[idx] : context.raw
-              try{ return formatter(raw) }catch(e){ return String(raw) }
+              const ds = context.dataset || {}
+              // Chart.js에서 표시되는 값은 parsed.y에 있음
+              const val = (context.parsed && context.parsed.y !== undefined) ? context.parsed.y : context.raw
+              try{
+                if (ds.isGoal) {
+                  return '목표: ' + formatter(val)
+                }
+                // 누적 차트는 누적된 값을 보여주므로 label에 명시
+                return `${ds.label}: ${formatter(val)}`
+              }catch(e){ return String(val) }
             }
           }
         }
@@ -219,18 +294,17 @@ function renderChart(){
 }
 
 onMounted(()=>{
+  try{ if (props.widget) loadSavedMode(props.widget) }catch(e){}
   try{ renderChart() }catch(e){ console.warn('TimeSeriesChart mount render failed', e) }
 })
 
-onBeforeUnmount(()=>{
-  try{
-    if (chartInstance) { chartInstance.destroy(); chartInstance = null }
-  }catch(e){ console.warn('TimeSeriesChart destroy failed', e) }
-})
-
 // widget 객체 내부가 바뀔 때 재렌더링 (deep watch)
-watch(() => props.widget, () => {
-  try{ renderChart() }catch(e){ console.warn('TimeSeriesChart render failed', e) }
+watch(() => props.widget, (w) => {
+  try{
+    // 위젯이 변경되면 로컬 저장된 모드를 불러오고 차트를 갱신
+    try{ loadSavedMode(w) }catch(e){}
+    renderChart()
+  }catch(e){ console.warn('TimeSeriesChart render failed', e) }
 }, { deep: true })
 
 import zoomPlugin from 'chartjs-plugin-zoom'
@@ -240,28 +314,64 @@ import { onMounted as onMount } from 'vue'
 
 const menuOpen = ref(false)
 const dragEnabled = ref(false)
+// cumulativeMode: 체크인/체크아웃에 대해 사용자가 원본/누적 모드를 선택하도록 함
+const cumulativeMode = ref(false)
+
+function storageKeyForWidget(widget){
+  const id = (widget && (widget.widgetKey || widget.id || widget.title)) ? (widget.widgetKey || widget.id || widget.title) : 'default'
+  return `opstc_mode_${String(id)}`
+}
+
+function setCumulativeMode(v){
+  cumulativeMode.value = !!v
+  try{ localStorage.setItem(storageKeyForWidget(props.widget), cumulativeMode.value ? '1' : '0') }catch(e){}
+  // 토글시 차트 즉시 갱신
+  try{ renderChart() }catch(e){ console.warn('setCumulativeMode render failed', e) }
+}
+
+function loadSavedMode(widget){
+  try{
+    const v = localStorage.getItem(storageKeyForWidget(widget))
+    if (v !== null) cumulativeMode.value = v === '1'
+  }catch(e){}
+}
+
+// 모드 적용된 export용 시리즈 생성 함수
+function getDisplaySeriesForExport(widget){
+  const { labels, rawData, numericData } = normalizeWidget(widget)
+  let displayData = Array.isArray(numericData) ? numericData.slice() : []
+  if (isCumulativeWidget(widget) && cumulativeMode.value){
+    let sum = 0
+    displayData = displayData.map(v => { const val = (v === null || Number.isNaN(v)) ? 0 : v; sum += val; return sum })
+    if ((!displayData || displayData.length === 0) && (widget && widget.targetValue !== undefined && widget.targetValue !== null)) displayData = [0]
+  }
+  return { labels, rawData, numericData, displayData }
+}
 
 // 안전한 CSV 다운로드: header 컬럼과 행 길이 정렬
 function downloadCSV(){
   try{
-    const { labels, rawData, numericData } = normalizeWidget(props.widget)
+    const { labels, rawData, numericData, displayData } = getDisplaySeriesForExport(props.widget)
     // 헤더: label, raw, value
     const header = ['label','raw','value']
     const rows = []
-    const n = Math.max((labels||[]).length, (numericData||[]).length, (rawData||[]).length)
+    const n = Math.max((labels||[]).length, (displayData||[]).length, (rawData||[]).length)
     for (let i=0;i<n;i++){
       const lab = (labels && labels[i] !== undefined) ? labels[i] : ''
       const raw = (rawData && rawData[i] !== undefined) ? rawData[i] : ''
-      const num = (numericData && numericData[i] !== undefined) ? numericData[i] : ''
+      const val = (displayData && displayData[i] !== undefined) ? displayData[i] : (numericData && numericData[i] !== undefined ? numericData[i] : '')
       // 이스케이프 따옴표
-      rows.push([`"${String(lab).replace(/"/g,'""') }"`, raw === null ? '' : String(raw), num === null ? '' : String(num)])
+      rows.push([`"${String(lab).replace(/"/g,'""') }"`, raw === null ? '' : String(raw), val === null ? '' : String(val)])
     }
     const csvContent = [header.join(','), ...rows.map(r=>r.join(','))].join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const name = (props.widget && (props.widget.widgetKey || props.widget.title)) ? `${(props.widget.widgetKey||props.widget.title).toString().replace(/\s+/g,'_')}.csv` : 'chart.csv'
+    // CSV 파일명에 모드(원본/누적)를 포함
+    const modeSuffix = isCumulativeWidget(props.widget) ? (cumulativeMode.value ? '_누적' : '_원본') : ''
+    const baseName = (props.widget && (props.widget.widgetKey || props.widget.title)) ? (props.widget.widgetKey||props.widget.title).toString().replace(/\s+/g,'_') : 'chart'
+    const name = `${baseName}${modeSuffix}.csv`
     a.download = name
     document.body.appendChild(a)
     a.click()
@@ -334,4 +444,7 @@ canvas { display:block }
 .dropdown-item.toggle.active { background:#eef2ff }
 .brush-toggle { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; margin-right:6px; cursor:pointer }
 .brush-toggle.active { background:#eef2ff; border-color:#6366f1 }
+.mode-switch { display:flex; gap:6px; margin-right:6px }
+.mode-btn { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; cursor:pointer }
+.mode-btn.active { background:#eef2ff; border-color:#6366f1 }
 </style>
