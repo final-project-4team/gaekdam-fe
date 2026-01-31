@@ -1,11 +1,17 @@
 <template>
   <div class="card" ref="cardEl">
-    <!-- 오른쪽 상단: 더보기 메뉴 -->
+    <!-- 오른쪽 상단: 줌리셋, 브러시 토글, 더보기 메뉴 (왼→오) -->
     <div class="more-menu">
-      <button class="more-btn" @click.stop="menuOpen = !menuOpen">⋯</button>
-      <div v-if="menuOpen" class="more-dropdown" @click.stop>
-        <button class="dropdown-item" @click="onDownloadCSV">CSV 다운로드</button>
-        <button class="dropdown-item" @click="onDownloadImage">이미지 다운로드</button>
+      <button class="reset-btn" title="원래 보기로" @click.stop="resetZoom">↺</button>
+      <button class="brush-toggle" :class="{ active: dragEnabled }" @click.stop="toggleBrush" :title="dragEnabled ? '브러시 끄기' : '브러시 켜기'">
+        ⊞
+      </button>
+      <div class="more-wrapper">
+        <button class="more-btn" @click.stop="menuOpen = !menuOpen">⋯</button>
+        <div v-if="menuOpen" class="more-dropdown" @click.stop>
+          <button class="dropdown-item" @click="onDownloadCSV">CSV 다운로드</button>
+          <button class="dropdown-item" @click="onDownloadImage">이미지 다운로드</button>
+        </div>
       </div>
     </div>
     <div class="card-title">{{ widget.title }} <span v-if="pickUnitText(widget)">({{ pickUnitText(widget) }})</span></div>
@@ -15,8 +21,7 @@
     </div>
     <div v-else class="empty-state">데이터 없음</div>
 
-    <!-- 오른쪽 하단: 작고 둥근 리셋 버튼 -->
-    <button class="reset-zoom" title="원래 보기로" @click="resetZoom">↺</button>
+    <!-- (리셋 버튼은 상단에 통합됨) -->
   </div>
 </template>
 
@@ -152,7 +157,9 @@ function buildConfig(widget){
           zoom: {
             wheel: { enabled: true },
             pinch: { enabled: true },
-            mode: 'x'
+            mode: 'x',
+            // drag-based brush (background 표시) - dragEnabled 값에 따라 활성화
+            drag: { enabled: !!dragEnabled.value, backgroundColor: 'rgba(0,0,0,0.08)' }
           },
           pan: { enabled: true, mode: 'x' }
         },
@@ -207,6 +214,8 @@ function renderChart(){
   } else {
     chartInstance = new Chart(ctx, cfg)
   }
+  // 렌더 이후 canvas cursor 상태 반영
+  if (chartEl.value) chartEl.value.style.cursor = dragEnabled.value ? 'crosshair' : 'default'
 }
 
 onMounted(()=>{
@@ -230,6 +239,7 @@ Chart.register(zoomPlugin)
 import { onMounted as onMount } from 'vue'
 
 const menuOpen = ref(false)
+const dragEnabled = ref(false)
 
 // 안전한 CSV 다운로드: header 컬럼과 행 길이 정렬
 function downloadCSV(){
@@ -274,8 +284,27 @@ function downloadImage(){
   }catch(e){ console.warn('downloadImage failed', e) }
 }
 
-function onDownloadCSV(){ menuOpen = false; downloadCSV() }
-function onDownloadImage(){ menuOpen = false; downloadImage() }
+function onDownloadCSV(){ menuOpen.value = false; downloadCSV() }
+function onDownloadImage(){ menuOpen.value = false; downloadImage() }
+
+function toggleBrush(){
+  // 브러시(드래그) 모드 토글: 옵션을 확실히 반영하기 위해 차트를 재생성합니다.
+  dragEnabled.value = !dragEnabled.value
+  try{
+    if (chartInstance) {
+      chartInstance.destroy()
+      chartInstance = null
+    }
+    // 메뉴 닫기
+    menuOpen.value = false
+    // 재렌더링
+    renderChart()
+    // canvas cursor 반영
+    if (chartEl.value) {
+      chartEl.value.style.cursor = dragEnabled.value ? 'crosshair' : 'default'
+    }
+  }catch(e){ console.warn('toggleBrush failed', e) }
+}
 
 function resetZoom(){
   try{
@@ -291,10 +320,18 @@ function resetZoom(){
 .card-title { font-weight:700; margin-bottom:8px }
 canvas { display:block }
 .empty-state { height:220px; display:flex; align-items:center; justify-content:center; color:#9ca3af; font-size:14px }
-.more-menu { position: absolute; right: 10px; top: 10px }
+.more-menu { position: absolute; right: 10px; top: 10px; display:flex; align-items:center; gap:6px }
+.reset-btn { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; cursor:pointer }
+.reset-btn:hover { background:#f8fafc }
 .more-btn { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 8px; cursor: pointer }
+.more-wrapper { position: relative }
 .more-dropdown { position: absolute; right: 0; top: 36px; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 6px 12px rgba(0,0,0,0.06); border-radius: 6px; overflow: hidden }
 .dropdown-item { display: block; padding: 8px 12px; background: transparent; border: none; width: 160px; text-align: left; cursor: pointer }
 .dropdown-item:hover { background: #f8fafc }
-.reset-zoom { position: absolute; right: 12px; bottom: 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 999px; width: 36px; height: 36px; display:flex; align-items:center; justify-content:center; cursor:pointer }
+.reset-zoom { display:none }
+.dropdown-item.toggle { display:flex; align-items:center; justify-content:space-between }
+.dropdown-item.toggle .state { font-size:12px; color:#6b7280 }
+.dropdown-item.toggle.active { background:#eef2ff }
+.brush-toggle { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; margin-right:6px; cursor:pointer }
+.brush-toggle.active { background:#eef2ff; border-color:#6366f1 }
 </style>

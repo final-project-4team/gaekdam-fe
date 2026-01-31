@@ -95,7 +95,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
-import BaseModal from '@/components/common/modal/BaseModal.vue'
 import TemplateGrid from '@/components/report/TemplateGrid.vue'
 import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실운영 템플릿
 import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
