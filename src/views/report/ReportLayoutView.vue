@@ -35,7 +35,8 @@
           </div>
         </div>
 
-        <template-grid :widgets="selectedTemplate[0]?.widgets || []" />
+        <!-- 템플릿 ID에 따라 적절한 그리드 컴포넌트를 동적으로 렌더링합니다. -->
+        <component :is="gridComponent" :widgets="selectedTemplate[0]?.widgets || []" />
       </section>
     </div>
 
@@ -92,10 +93,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import TemplateGrid from '@/components/report/TemplateGrid.vue'
+import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실운영 템플릿
 import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
 import TemplateList from '@/components/report/TemplateList.vue'
 import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
@@ -270,6 +272,15 @@ function generateNextLayoutName(){
   const next = nums.length ? Math.max(...nums) + 1 : 1
   return `${prefix} ${next}`
 }
+
+// 컴포넌트 선택 로직: selectedTemplate의 첫 번째 항목(templateId)을 보고 그리드 컴포넌트를 결정
+const gridComponent = computed(() => {
+  // selectedTemplate은 composable에서 제공되는 ref나 reactive 객체일 수 있으므로 안전하게 접근
+  const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
+  const tplId = tpl?.templateId ?? tpl?.id
+  // 현재는 templateId === 2 이면 OPS 전용 그리드 사용, 그 외는 기본 그리드 사용
+  return tplId === 2 ? OPSTemplateGrid : TemplateGrid
+})
 
 onMounted(() => { loadLayouts() })
 

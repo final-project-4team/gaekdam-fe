@@ -1,21 +1,20 @@
 <template>
   <div>
-    <!-- KPI 카드 1행 -->
-    <div class="template-grid kpi-row">
-      <KpiCard v-for="w in kpiWidgets" :key="w.templateWidgetId" :widget="w" />
-    </div>
+    <!-- KPI 카드: 공통 TemplateGrid 컴포넌트로 렌더링 -->
+    <TemplateGrid v-if="kpiWidgets && kpiWidgets.length" :widgets="kpiWidgets" />
+    <div v-else class="template-grid kpi-row empty-kpis">템플릿에 KPI 카드가 없습니다.</div>
 
     <!-- 차트 영역 -->
     <div class="template-grid chart-grid">
-      <TimeSeriesChart v-for="w in chartWidgets" :key="w.templateWidgetId" :widget="w" />
+      <OPSTimeSeriesChart v-for="w in chartWidgets" :key="w.templateWidgetId || w.id" :widget="w" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import KpiCard from './KpiCard.vue'
-import TimeSeriesChart from './TimeSeriesChart.vue'
+import TemplateGrid from '@/components/report/TemplateGrid.vue'
+import OPSTimeSeriesChart from './OPSTimeSeriesChart.vue'
 
 // 방어적으로 props 정의: widgets가 없으면 빈 배열을 사용
 const props = defineProps({ widgets: { type: Array, default: () => [] } })
@@ -29,15 +28,14 @@ const kpiWidgets = computed(() => {
   if (!list || list.length === 0) return []
   const hasTypes = list.some(w => w.widgetType)
   if (hasTypes) {
-    // 변경: 서버에서 widgetType을 명확히 보내지 않는 경우도 있어, series가 있는(시계열 데이터) 위젯은 KPI에서 제외
+    // KPI_CARD로 명시된 것만 KPI로 처리, 시계열(series)가 있는 위젯은 제외
     return list.filter(w => {
       const t = (w.widgetType || '').toString().toUpperCase()
       const hasSeries = Array.isArray(w.series) && w.series.length > 0
-      // KPI로 간주하려면 명시적으로 KPI_CARD여야 하고 시계열 데이터가 없어야 함
       return t === 'KPI_CARD' && !hasSeries
     })
   }
-  // widgetType이 전혀 없을 때: 기본적으로 앞 4개를 KPI로 보되, series가 있는 위젯은 건너뜀
+  // widgetType이 없을 때: 기본적으로 앞 4개를 KPI로 보되, series가 있는 위젯은 건너뜀
   return list.filter((w, idx) => idx < 4 && !(Array.isArray(w.series) && w.series.length > 0))
 })
 
@@ -46,14 +44,19 @@ const chartWidgets = computed(() => {
   if (!list || list.length === 0) return []
   const hasTypes = list.some(w => w.widgetType)
   if (hasTypes) {
-    // 변경: 'TIME_SERIES' 또는 'LINE' 외에도 서버가 series 필드를 포함해 보내는 경우 이를 차트로 처리
+    // LINE 타입만 OPSTimeSeriesChart로 렌더링. TIME_SERIES도 상황에 따라 포함하고 싶다면 여기에 추가 가능
     return list.filter(w => {
       const t = (w.widgetType || '').toString().toUpperCase()
       const hasSeries = Array.isArray(w.series) && w.series.length > 0
-      return t === 'TIME_SERIES' || t === 'LINE' || hasSeries
+      return t === 'LINE' || (t === 'TIME_SERIES' && hasSeries)
     })
   }
-  // widgetType이 없을 때: 기본적으로 5번째 이후를 차트로 보되, series가 있는 위젯은 포함
-  return list.slice(4).concat(list.filter(w => Array.isArray(w.series) && w.series.length > 0))
+  // widgetType이 없을 때: series가 있는 위젯들을 차트로 처리
+  return list.filter(w => Array.isArray(w.series) && w.series.length > 0)
 })
 </script>
+
+<style scoped>
+.template-grid.chart-grid { display: contents; }
+.empty-kpis { padding: 12px; color: #6b7280 }
+</style>
