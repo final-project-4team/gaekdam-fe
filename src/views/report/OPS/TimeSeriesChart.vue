@@ -2,7 +2,10 @@
   <div class="card">
     <div class="card-title">{{ widget.title }} <span v-if="pickUnitText(widget)">({{ pickUnitText(widget) }})</span></div>
     <!-- Chart.js는 canvas에 렌더링됩니다 -->
-    <canvas ref="chartEl" style="height:220px; width:100%"></canvas>
+    <div v-if="hasData">
+      <canvas ref="chartEl" style="height:220px; width:100%"></canvas>
+    </div>
+    <div v-else class="empty-state">데이터 없음</div>
   </div>
 </template>
 
@@ -20,7 +23,7 @@
   - 설치 필요: 프로젝트에 chart.js 설치 필요 (`npm i chart.js`).
 */
 
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { formatCurrency, formatPercent, formatCount, safeNumber } from '@/utils/formatters'
 Chart.register(...registerables)
@@ -56,6 +59,14 @@ function normalizeWidget(widget){
 
   return { labels, rawData, numericData }
 }
+
+// computed: 데이터 유무 판단 (모든 값이 null 또는 비어있으면 false)
+const hasData = computed(() => {
+  const { numericData } = normalizeWidget(props.widget)
+  if (!numericData || numericData.length === 0) return false
+  // numericData가 모두 null 또는 NaN이면 데이터 없음
+  return numericData.some(v => v !== null && !Number.isNaN(v))
+})
 
 /*
   selectFormatter:
@@ -162,6 +173,11 @@ function buildConfig(widget){
 */
 function renderChart(){
   if (!chartEl.value) return
+  if (!hasData.value) {
+    // 데이터 없음: 기존 차트가 있으면 제거
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null }
+    return
+  }
   const ctx = chartEl.value.getContext('2d')
   const cfg = buildConfig(props.widget)
   if (chartInstance) {
@@ -195,4 +211,5 @@ watch(() => props.widget, () => {
 .card { padding: 12px }
 .card-title { font-weight:700; margin-bottom:8px }
 canvas { display:block }
+.empty-state { height:220px; display:flex; align-items:center; justify-content:center; color:#9ca3af; font-size:14px }
 </style>
