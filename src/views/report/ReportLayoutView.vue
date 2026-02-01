@@ -1,52 +1,17 @@
 <template>
   <div class="layout-page">
     <!-- Top: layout tabs with + 버튼 -->
-    <div class="top-tabs">
-      <div
-        v-for="(l, i) in layouts"
-        :key="l.id"
-        class="top-tab"
-        :class="{ active: selectedIndex === i }"
-        @click="selectLayout(i)"
-      >
-        <span>{{ l.name }}</span>
-        <span class="top-delete">
-          <span @click.stop>
-            <BaseButton size="sm" @click="openDeleteModal(l)">✕</BaseButton>
-          </span>
-        </span>
-      </div>
-
-      <BaseButton size="sm" @click="openCreateLayout" class="add-tab">+</BaseButton>
-    </div>
+    <ReportTopTabs
+      :layouts="layouts"
+      :selectedIndex="selectedIndex"
+      @select="selectLayout"
+      @create="openCreateLayout"
+      @delete="openDeleteModal"
+    />
 
     <div class="content-area">
       <!-- Left: 레이아웃 내 템플릿 리스트 -->
-      <aside class="left-pane">
-        <div class="template-list-vertical">
-          <div
-            v-for="(tpl, idx) in currentLayout.templates"
-            :key="tpl.id"
-            class="tpl-row"
-          >
-            <button
-              class="tpl-btn"
-              :class="{ active: selectedTemplateIndex === idx }"
-              @click="selectedTemplateIndex = idx"
-            >
-              {{ tpl.name }}
-            </button>
-
-            <span class="tpl-delete" @click.stop>
-              <BaseButton size="sm" @click="confirmDeleteTemplate(idx)">✕</BaseButton>
-            </span>
-          </div>
-        </div>
-
-        <div class="left-controls">
-          <BaseButton size="sm" @click="openCreateTemplate">+</BaseButton>
-        </div>
-      </aside>
+      <TemplateList :templates="currentLayout.templates" :selectedIndex="selectedTemplateIndex" @select="onSelectTemplate" @add="openCreateTemplate" @delete="confirmDeleteTemplate" />
 
       <!-- Main: 템플릿 카드 그리드 -->
       <section class="main-pane">
@@ -58,11 +23,11 @@
               <option value="월간">월간</option>
             </select>
 
-            <select v-model="selectedYear" @change="applyPeriodToLayout">
+            <select v-model="selectedYear" @change="applyPeriodAndReload">
               <option v-for="y in years" :key="y" :value="y">{{ y }}년</option>
             </select>
 
-            <select v-if="periodType === '월간'" v-model="selectedMonth" @change="applyPeriodToLayout">
+            <select v-if="periodType === '월간'" v-model="selectedMonth" @change="applyPeriodAndReload">
               <option v-for="m in months" :key="m" :value="m">{{ m }}월</option>
             </select>
 
@@ -70,170 +35,141 @@
           </div>
         </div>
 
-        <div class="template-grid">
-          <div v-if="selectedTemplate && selectedTemplate.length" class="template-widgets">
-            <div class="card" v-for="w in (selectedTemplate[0]?.widgets || [])" :key="w.templateWidgetId">
-              <div class="card-title">{{ w.title }}</div>
-              <div class="card-body">
-                <div class="kpi-value">{{ w.value }}</div>
-                <div class="kpi-target" v-if="w.targetValue">목표: {{ w.targetValue }}</div>
-                <div class="kpi-delta" :class="deltaClass(w)">
-                  <span v-if="w.trend==='up'">▲</span>
-                  <span v-else-if="w.trend==='down'">▼</span>
-                  <span v-else>●</span>
-                  <span v-if="w.changePct !== null && w.changePct !== undefined"> {{ Math.abs(w.changePct).toFixed(1) }}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="empty">템플릿을 선택하거나 위젯이 없습니다.</div>
-        </div>
+        <!-- 템플릿 ID에 따라 적절한 그리드 컴포넌트를 동적으로 렌더링합니다. -->
+        <component :is="gridComponent" :widgets="selectedTemplate[0]?.widgets || []" />
       </section>
     </div>
 
     <!-- 레이아웃 추가 모달 -->
-    <BaseModal v-if="showCreateLayout" title="레이아웃 추가" @close="showCreateLayout = false">
-      <div class="create-layout-form">
-        <div class="form-row">
-          <label class="form-label">레이아웃 이름</label>
-          <input v-model="newLayoutName" placeholder="레이아웃 이름" />
-        </div>
+    <CreateLayoutModal
+      :visible="showCreateLayout"
+      @close="showCreateLayout = false"
+      @create="async (payload) => {
+        try {
+          // 생성시 기본 조회 권한을 'PRIVATE'으로 강제하여
+          // 만든 사용자만 볼 수 있도록 변경
+          // 이름이 비어있거나 기존 이름과 겹치면 자동으로 다음 이름을 생성
+          let desiredName = payload?.name?.trim()
+          if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
+            desiredName = generateNextLayoutName()
+          }
 
-        <div class="form-row">
-          <label class="form-label">조회 권한부여</label>
-          <div class="radio-group">
-            <label><input type="radio" :value="VISIBILITY.PRIVATE" v-model="selectedVisibility" /> 나에게만</label>
-            <label><input type="radio" :value="VISIBILITY.DEPT" v-model="selectedVisibility" /> 부서 내 공유</label>
-            <label><input type="radio" :value="VISIBILITY.TENANT" v-model="selectedVisibility" /> 호텔 전체</label>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <label class="form-label">내용</label>
-          <textarea v-model="newLayoutDescription" rows="5" placeholder="레이아웃에 대한 설명을 입력하세요"></textarea>
-        </div>
-
-        <div style="margin-top:12px; text-align:right">
-          <BaseButton @click="showCreateLayout = false">취소</BaseButton>
-          <BaseButton @click="createLayout" type="primary" style="margin-left:8px">생성</BaseButton>
-        </div>
-      </div>
-    </BaseModal>
+          const createPayload = {
+            ...payload,
+            name: desiredName,
+            visibilityScope: 'PRIVATE',
+            employeeCode: auth?.employeeCode ?? 1,
+            isDefault: false,
+            dateRangePreset: periodType.value === '월간' ? 'MONTH' : 'YEAR',
+            defaultFilterJson: {
+              periodType: periodType.value === '월간' ? 'MONTH' : 'YEAR',
+              period: periodType.value === '월간' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
+            }
+          }
+          await createLayout(createPayload)
+          showCreateLayout = false
+        } catch (e) {
+          console.error(e)
+        }
+      }"
+    />
 
     <!-- 템플릿 추가 모달 -->
-    <BaseModal v-if="showCreateTemplate" title="템플릿 추가" @close="showCreateTemplate = false">
-      <div class="available-list">
-        <div v-for="tpl in availableTemplates" :key="tpl.templateId" class="available-row">
-          <span>{{ tpl.displayName }}</span>
-          <BaseButton size="sm" @click="confirmAddTemplate(tpl)">추가</BaseButton>
-        </div>
-      </div>
-    </BaseModal>
+    <CreateTemplateModal :visible="showCreateTemplate" :templates="availableTemplates" @close="showCreateTemplate = false" @add="confirmAddTemplate" />
 
-    <!-- 템플릿 삭제 모달 -->
-    <BaseModal v-if="showDeleteTemplateModal" title="템플릿 삭제" @close="showDeleteTemplateModal = false">
-      <div>템플릿을 삭제하시겠습니까?</div>
-      <div style="text-align:right; margin-top:12px">
-        <BaseButton @click="showDeleteTemplateModal = false">취소</BaseButton>
-        <BaseButton type="danger" @click="deleteTemplate">삭제</BaseButton>
-      </div>
-    </BaseModal>
+    <!-- 템플릿 삭제 확인 모달 -->
+    <ConfirmModal :visible="showDeleteTemplateModal" title="템플릿 삭제" message="템플릿을 삭제하시겠습니까?" @close="showDeleteTemplateModal = false" @confirm="handleDeleteTemplate" />
 
     <!-- 레이아웃 삭제 모달 -->
-    <BaseModal v-if="showDeleteModal" title="레이아웃 삭제" @close="showDeleteModal = false">
+    <ConfirmModal
+      :visible="showDeleteModal"
+      title="레이아웃 삭제"
+      @close="showDeleteModal = false"
+      @confirm="confirmDelete"
+    >
         <div>레이아웃을 삭제하시겠습니까?</div>
-        <div style="text-align:right; margin-top:12px">
-            <BaseButton @click="showDeleteModal = false">취소</BaseButton>
-            <BaseButton type="danger" @click="confirmDelete">삭제</BaseButton>
-        </div>
-    </BaseModal>
+    </ConfirmModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 import BaseButton from '@/components/common/button/BaseButton.vue'
-import BaseModal from '@/components/common/modal/BaseModal.vue'
-import { createReportLayout, deleteReportLayout, listReportLayouts, updateReportLayout } from '@/api/report/layoutApi'
-import { addLayoutTemplate, deleteLayoutTemplate, listLayoutTemplates } from '@/api/report/layoutTemplateApi'
-import { getTemplateWidgets } from '@/api/report/layoutTemplateApi'
+import TemplateGrid from '@/components/report/TemplateGrid.vue'
+import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실운영 템플릿
+import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
+import TemplateList from '@/components/report/TemplateList.vue'
+import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
+import CreateTemplateModal from '@/components/report/modals/CreateTemplateModal.vue'
+import ConfirmModal from '@/components/report/modals/ConfirmModal.vue'
+import { useReportLayouts } from '@/composables/useReportLayouts'
 import { useAuthStore } from '@/stores/authStore'
 
-// Visibility enum mapping to backend
-const VISIBILITY = {
-  PRIVATE: 'PRIVATE',
-  TENANT: 'TENANT', // 호텔 전체 (backend VisibilityScope.TENANT)
-  DEPT: 'DEPT'      // 부서 (backend VisibilityScope.DEPT)
-}
+// composable state & actions
+const {
+  layouts,
+  selectedIndex,
+  selectedTemplateIndex,
+  currentLayout,
+  selectedTemplate,
+  periodType,
+  years,
+  months,
+  selectedYear,
+  selectedMonth,
+  loadLayouts,
+  loadTemplatesForLayout,
+  loadWidgetsForTemplate,
+  createLayout,
+  deleteLayout,
+  applyPeriodToLayout,
+  addTemplate,
+  deleteTemplate,
+} = useReportLayouts()
 
-// 사용자 인증
 const auth = useAuthStore?.()
 
-// 레이아웃 목록 (초기값 하나)
-const layouts = ref([
-  { id: 'layout-1', name: '기본 레이아웃', templates: [ { id: 'tpl1', name: '템플릿1' } ] },
-])
-
-const selectedIndex = ref(0)
-const selectedTemplateIndex = ref(0)
-
+// local UI state (modals / loading)
 const creatingLayout = ref(false)
-const currentLayout = computed(() => layouts.value[selectedIndex.value] || { name: '', templates: [] })
-
-// Compute the currently selected template (array with single item for v-for compatibility)
-const selectedTemplate = computed(() => {
-  const templates = currentLayout.value?.templates || []
-  const idx = selectedTemplateIndex.value
-  if (typeof idx === 'number' && idx >= 0 && idx < templates.length) {
-    return [templates[idx]]
-  }
-  return []
-})
-
 const creatingTemplate = ref(false)
-
-// 기간/공유 컨트롤 상태
-const periodType = ref('연간') // '연간' | '월간'
-const currentYear = new Date().getFullYear()
-const years = computed(() => {
-  // 최근 6년치 표시
-  return Array.from({ length: 6 }, (_, i) => String(currentYear - i))
-})
-const months = computed(() => Array.from({ length: 12 }, (_, i) => String(i + 1)))
-const selectedYear = ref(String(currentYear))
-const selectedMonth = ref(String(new Date().getMonth() + 1))
-
-const onPeriodTypeChange = () => {
-  // 월간 -> 연간 변경 등에서 기본값 보정
-  if (periodType.value === '연간') {
-    // 월 선택은 초기화
-    selectedMonth.value = String(new Date().getMonth() + 1)
-  }
-}
-
-const shareReport = () => {
-  // 실제 공유 로직 연결 전에 임시 동작으로 로그 출력
-  console.log('공유 클릭:', { periodType: periodType.value, year: selectedYear.value, month: selectedMonth.value })
-  // TODO: 공유 모달 또는 링크 생성 로직 추가
-}
-
-// 레이아웃 생성
 const showCreateLayout = ref(false)
 const newLayoutName = ref('')
 const newLayoutDescription = ref('')
-const selectedVisibility = ref(VISIBILITY.PRIVATE)
-const openCreateLayout = () => { newLayoutName.value = ''; newLayoutDescription.value = ''; selectedVisibility.value = VISIBILITY.PRIVATE; showCreateLayout.value = true }
+const selectedVisibility = ref('PRIVATE')
 
-const createLayout = async () => {
+const showCreateTemplate = ref(false)
+
+// 사용 가능한 템플릿 목록 (임시 샘플). CreateTemplateModal에 전달됩니다.
+const availableTemplates = [
+  { templateId: 1, displayName: '전체 요약 템플릿', sortOrder: 1, isActive: true },
+  { templateId: 2, displayName: '객실운영 요약 템플릿', sortOrder: 2, isActive: true },
+  { templateId: 3, displayName: '고객현황 요약 템플릿', sortOrder: 3, isActive: true },
+  { templateId: 4, displayName: '고객경험 요약 템플릿', sortOrder: 4, isActive: true },
+  { templateId: 5, displayName: '예약및매출 요약 템플릿', sortOrder: 5, isActive: true },
+]
+
+// 왼쪽 리스트의 + 버튼 클릭 시 모달 오픈
+function openCreateTemplate(){ showCreateTemplate.value = true }
+
+const showDeleteTemplateModal = ref(false)
+const deleteTemplateIndex = ref(-1)
+const deletingTemplate = ref(false)
+
+const showDeleteModal = ref(false)
+const selectedLayoutId = ref(null)
+const deletingLayout = ref(false)
+
+function openCreateLayout(){ newLayoutName.value=''; newLayoutDescription.value=''; selectedVisibility.value='PRIVATE'; showCreateLayout.value = true }
+
+async function handleCreateLayout(){
   if (creatingLayout.value) return
   creatingLayout.value = true
-  try {
+  try{
     const employeeCode = auth?.employeeCode ?? 1
     const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
-    const period = preset === 'MONTH'
-      ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}`
-      : `${selectedYear.value}`
-
+    const period = preset === 'MONTH' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
     const payload = {
       employeeCode,
       name: newLayoutName.value || `레이아웃 ${layouts.value.length + 1}`,
@@ -243,331 +179,168 @@ const createLayout = async () => {
       dateRangePreset: preset,
       defaultFilterJson: { periodType: preset, period }
     }
-
-    const res = await createReportLayout(payload)
-    const newId = res?.data?.data // ApiResponse.success(id) 구조에 따라 조정
-    layouts.value.push({ id: newId ?? `layout-${Date.now()}`, name: payload.name, templates: [] })
-    selectedIndex.value = layouts.value.length - 1
+    await createLayout(payload)
     showCreateLayout.value = false
-  } catch (err) {
-    console.error('레이아웃 생성 실패', err)
-    // 사용자 알림 처리 추가
-  } finally {
-    creatingLayout.value = false
-  }
+  } catch(e){ console.error(e) }
+  finally{ creatingLayout.value = false }
 }
 
-const selectLayout = (i) => {
+function selectLayout(i){
   selectedIndex.value = i
   selectedTemplateIndex.value = 0
-  // load templates for the selected layout from server (if it has id)
   const layout = layouts.value[i]
-  if (layout && layout.id) {
-    loadTemplatesForLayout(layout.id, i)
-  }
+  if (layout && layout.id) loadTemplatesForLayout(layout.id, i)
 }
 
-// Load templates for a given layoutId and write into layouts[index].templates
-const loadTemplatesForLayout = async (layoutId, index) => {
-   try {
-    const res = await listLayoutTemplates(layoutId)
-    console.debug('[ReportLayout] listLayoutTemplates response=', res)
-    const payload = res?.data?.data
-    // support several possible shapes: direct array, { templates: [] }, { items/list: [] }, or single object
-    let items = []
-    if (Array.isArray(payload)) {
-      items = payload
-    } else if (payload?.templates && Array.isArray(payload.templates)) {
-      items = payload.templates
-    } else if (payload?.items && Array.isArray(payload.items)) {
-      items = payload.items
-    } else if (payload?.list && Array.isArray(payload.list)) {
-      items = payload.list
-    } else if (payload) {
-      // if payload is a single object representing one item, wrap it
-      if (typeof payload === 'object') items = [payload]
-    }
-     // Map backend DTO to UI template shape
-    const mapped = items.map(r => ({
-      id: r.layoutTemplateId ?? r.id ?? (r.templateId ? `${r.templateId}-${Date.now()}` : `${Math.random()}`),
-      templateId: r.templateId,
-      // displayName: r.templateName,
-      // templateDesc: r.templateDesc,
-      isActive: r.isActive,
-      name: r.templateName
-    }))
-
-     // Guard index
-     const idx = typeof index === 'number' ? index : layouts.value.findIndex(l => l.id === layoutId)
-     if (idx !== -1) {
-       layouts.value[idx].templates = mapped
-       // reset selectedTemplateIndex if needed
-       if (selectedIndex.value === idx) selectedTemplateIndex.value = 0
-     }
-
-     if (selectedIndex.value === idx) {
-      const tpl = layouts.value[idx].templates[0]
-      if (tpl) loadWidgetsForTemplate(tpl)
-     }
-   } catch (err) {
-     console.error('[ReportLayout] loadTemplatesForLayout failed', err)
-   }
-}
-
-// 현재 선택된 layout에 기간 필터를 PATCH로 저장
-const applyPeriodToLayout = async () => {
-  const layout = currentLayout.value
-  if (!layout || !layout.id) return
-
-  const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
-  const period = preset === 'MONTH'
-    ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}`
-    : `${selectedYear.value}`
-
-  const payload = {
-    // backend ReportLayoutUpdateDto에 맞춰 필요한 필드만 보냄
-    layoutId: layout.id,
-    defaultFilterJson: { periodType: preset, period }
-  }
-
-  try {
-    await updateReportLayout(layout.id, payload)
-    // 로컬 상태도 갱신
-    const idx = layouts.value.findIndex(l => l.id === layout.id)
-    if (idx !== -1) {
-      layouts.value[idx].defaultFilterJson = payload.defaultFilterJson
-    }
-    
-    console.log('[ReportLayout] applied period to layout', layout.id, payload)
-
-    // applyPeriodToLayout 성공 케이스에 추가
-    const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
-    if (tpl) await loadWidgetsForTemplate(tpl)
-
-    console.log('[Report Layout Template] applied period to Template', tpl)
-
-  } catch (err) {
-    console.error('기간 적용 실패', err)
-  }
-}
-
-// 템플릿 추가: 백엔드 DTO 형식에 맞춘 샘플 목록
-const availableTemplates = [
-  { templateId: 1, displayName: '전체 요약 템플릿', sortOrder: 1, isActive: true },
-  { templateId: 2, displayName: '객실운영 요약 템플릿', sortOrder: 2, isActive: true },
-  { templateId: 3, displayName: '고객현황 요약 템플릿', sortOrder: 3, isActive: true },
-  { templateId: 4, displayName: '고객경험 요약 템플릿', sortOrder: 4, isActive: true },
-  { templateId: 5, displayName: '예약및매출 요약 템플릿', sortOrder: 5, isActive: true },
-]
-
-const showCreateTemplate = ref(false)
-const openCreateTemplate = () => { showCreateTemplate.value = true }
-
-// 간단한 추가 로직: tpl 객체를 그대로 DTO로 사용하고, 레이아웃 id가 없으면 로컬에만 추가
-const confirmAddTemplate = async (tpl) => {
-  if (creatingTemplate.value) return
-  creatingTemplate.value = true
-  try {
-    const layout = layouts.value[selectedIndex.value]
-    if (!layout || !layout.id) {
-      // 로컬만 추가
-      const copy = { ...tpl, id: `${tpl.templateId}-${Date.now()}`, name: tpl.displayName }
-      layouts.value[selectedIndex.value].templates.push(copy)
-      selectedTemplateIndex.value = layouts.value[selectedIndex.value].templates.length - 1
-      showCreateTemplate.value = false
-      return
-    }
-
-    const dto = {
-      templateId: tpl.templateId,
-      displayName: tpl.displayName,
-      sortOrder: tpl.sortOrder ?? (layouts.value[selectedIndex.value].templates.length + 1),
-      isActive: tpl.isActive ?? true
-    }
-
-    const employeeCode = auth?.employeeCode ?? 1
-    const sendLayoutId = Number.isFinite(Number(layout.id)) ? Number(layout.id) : layout.id
-    const res = await addLayoutTemplate(sendLayoutId, dto, employeeCode)
-    const newId = res?.data?.data
-
-    const added = { id: newId ?? `${dto.templateId}-${Date.now()}`, templateId: dto.templateId, displayName: dto.displayName, sortOrder: dto.sortOrder, isActive: dto.isActive, name: dto.displayName }
-    layouts.value[selectedIndex.value].templates.push(added)
-    selectedTemplateIndex.value = layouts.value[selectedIndex.value].templates.length - 1
-    showCreateTemplate.value = false
-  } catch (err) {
-    console.error('템플릿 추가 실패', err)
-  } finally {
-    creatingTemplate.value = false
-  }
-}
-
-// 템플릿 삭제
-const showDeleteTemplateModal = ref(false)
-const deleteTemplateIndex = ref(-1)
-const deletingTemplate = ref(false)
-
-const confirmDeleteTemplate = (idx) => {
-  deleteTemplateIndex.value = idx
-  showDeleteTemplateModal.value = true
-}
-
-const deleteTemplate = async () => {
-  if (deletingTemplate.value) return
-  deletingTemplate.value = true
-
-  const i = deleteTemplateIndex.value
-  const templates = layouts.value[selectedIndex.value]?.templates || []
-  if (i < 0 || i >= templates.length) {
-    showDeleteTemplateModal.value = false
-    deletingTemplate.value = false
-    return
-  }
-
-  const tpl = templates[i]
-  const layout = layouts.value[selectedIndex.value]
-
-  try {
-    // If both layout and template have server ids, call backend delete
-    if (layout && layout.id && tpl) {
-      const sendLayoutId = Number.isFinite(Number(layout.id)) ? Number(layout.id) : layout.id
-      // Controller expects templateId (library id). Use tpl.templateId when available, otherwise fallback to tpl.id
-      const sendTemplateId = tpl.templateId !== undefined ? tpl.templateId : (Number.isFinite(Number(tpl.id)) ? Number(tpl.id) : tpl.id)
-      await deleteLayoutTemplate(sendLayoutId, sendTemplateId)
-    }
-
-    // Remove locally regardless of server call
-    templates.splice(i, 1)
-    if (templates.length === 0) {
-      selectedTemplateIndex.value = 0
-    } else {
-      selectedTemplateIndex.value = Math.max(0, i - 1)
-    }
-
-    console.log('[ReportLayout] template deleted', tpl)
-  } catch (err) {
-    console.error('템플릿 삭제 실패', err)
-    try { alert('템플릿 삭제에 실패했습니다: ' + (err?.message || err)) } catch(_){ }
-  } finally {
-    showDeleteTemplateModal.value = false
-    deleteTemplateIndex.value = -1
-    deletingTemplate.value = false
-  }
-}
-
-// 레이아웃 삭제 상태 (id 기반)
-const showDeleteModal = ref(false)
-const selectedLayoutId = ref(null)
-// 삭제 진행 플래그 (중복 클릭 방지 / 로딩 UI용)
-const deletingLayout = ref(false)
-
-// 열기: 레이아웃 객체를 받아 id를 저장하고 모달 표시
-const openDeleteModal = (layout) => {
-  console.log('[ReportLayout] openDeleteModal layout=', layout)
-  selectedLayoutId.value = layout?.id ?? null
-  showDeleteModal.value = true
-}
-
-// 확인: 저장된 id로 API 호출 후 로컬 상태에서 제거
-// 1. 웹브라우저 상에서 삭제한 레이아웃이 사라져야함
-// 2. api 로직을 타서 db 상에 해당 레이아웃 데이터가 사라져야함
-const confirmDelete = async () => {
-
-  const id = selectedLayoutId.value
-  console.log('[ReportLayout] confirmDelete called, selectedLayoutId=', id)
-
-  if (!id) {
-    showDeleteModal.value = false
-    selectedLayoutId.value = null
-    return
-  }
-
-  // 중복 클릭 방지
-  if (deletingLayout.value) return
-  deletingLayout.value = true
-
-  // 로그 남기기 (디버깅용)
-  console.log('[ReportLayout] delete requested id=', id)
-
-  // 숫자 id로 변환 가능한 경우 서버가 숫자를 기대하면 숫자로 보낸다
-  const parsed = Number(id)
-  const sendId = Number.isFinite(parsed) ? parsed : id
-
-  try {
-    await deleteReportLayout(sendId)
-    const idx = layouts.value.findIndex(l => l.id === id)
-    if (idx !== -1) {
-      layouts.value.splice(idx, 1)
-      selectedIndex.value = Math.max(0, idx - 1)
-    }
-    console.log('[ReportLayout] delete success id=', id)
-  } catch (err) {
-    console.error('삭제 실패', err)
-    // 사용자에게 알림 (간단한 폴백)
-    try { alert('레이아웃 삭제에 실패했습니다: ' + (err?.message || err)) } catch(_){}
-  } finally {
-    showDeleteModal.value = false
-    selectedLayoutId.value = null
-    deletingLayout.value = false
-  }
-}
-
-// 레이아웃 목록 조회
-const loadLayouts = async () => {
-  const employeeCode = auth?.employeeCode ?? 1
-  const res = await listReportLayouts(employeeCode)
-  console.log('[ReportLayout] list response=', res?.data?.data)
-  // backend returns items with `layoutId` field — map it to `id` used in the UI
-  layouts.value = (res?.data?.data || []).map(r => ({
-    id: r.layoutId ?? r.id,
-    name: r.name,
-    templates: r.templates || []
-  }))
-  // load templates for initial selected layout if available
-  const initial = layouts.value[selectedIndex.value]
-  if (initial && initial.id) {
-    loadTemplatesForLayout(initial.id, selectedIndex.value)
-  }
-}
-onMounted(loadLayouts)
-
-function pad(n){ return String(n).padStart(2,'0') }
-
-function getPeriod() {
-  const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
-  return preset === 'MONTH'
-    ? `${selectedYear.value}-${pad(selectedMonth.value)}`
-    : `${selectedYear.value}`
-}
-
-// 
-async function loadWidgetsForTemplate(template) {
-  if (!template) return
-  const templateId = template.templateId ?? template.id
-  if (!templateId) return
-  const period = getPeriod()
-  try {
-    const res = await getTemplateWidgets(templateId, period)
-    const items = res?.data?.data || []
-    // API가 { data: [...] } 구조로 오므로 그대로 사용
-    template.widgets = Array.isArray(items) ? items.sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0)) : []
-  } catch (err) {
-    console.error('[ReportLayout] loadWidgetsForTemplate failed', err)
-    template.widgets = []
-  }
-}
-
-// 템플릿 호출시
 function onSelectTemplate(idx){
   selectedTemplateIndex.value = idx
   const tpl = currentLayout.value?.templates?.[idx]
   if (tpl) loadWidgetsForTemplate(tpl)
 }
 
-function deltaClass(w){
-  if (!w || !w.trend) return ''
-  return w.trend === 'up' ? 'delta-up' : (w.trend === 'down' ? 'delta-down' : 'delta-neutral')
+function onPeriodTypeChange(){
+  if (periodType.value === '연간') selectedMonth.value = String(new Date().getMonth() + 1)
+  // 기간 타입 변경 시 선택된 템플릿의 위젯을 다시 로드
+  applyPeriodAndReload()
 }
 
+async function shareReport() {
+  try {
+    // 캡처할 영역: 전체 콘텐츠 영역 또는 메인 패널
+    const el = document.querySelector('.content-area') || document.querySelector('.main-pane')
+    if (!el) {
+      console.error('PDF 생성 대상 엘리먼트를 찾을 수 없습니다.')
+      return
+    }
+
+    // 렌더 안정화를 위해 잠깐 대기(애니메이션/폰트 로드 등)
+    await new Promise(r => setTimeout(r, 250))
+
+    // html2canvas로 캡처 (useCORS: 외부 이미지가 있을 경우 서버에서 CORS 허용 필요)
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+    const imgData = canvas.toDataURL('image/png')
+
+    // PDF 생성: A4 portrait
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+
+    // 이미지 실제 크기(mm) 계산
+    const imgProps = pdf.getImageProperties(imgData)
+    const imgWidthMM = pageWidth - 20 // 좌우 여백 10mm씩
+    const imgHeightMM = (imgProps.height * imgWidthMM) / imgProps.width
+
+    // 여러 페이지로 분할하여 추가
+    let heightLeft = imgHeightMM
+    let position = 10 // 상단 여백 10mm
+    let pageNum = 0
+    while (heightLeft > 0) {
+      if (pageNum > 0) pdf.addPage()
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidthMM, imgHeightMM)
+      heightLeft -= pageHeight - 20 // 페이지당 내용 영역에서 여백 고려
+      position -= pageHeight - 20
+      pageNum++
+    }
+
+    const period = periodType.value === '월간' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
+    const name = `report_${period}_${new Date().toISOString().replace(/[:.]/g,'-')}.pdf`
+    pdf.save(name)
+  } catch (e) {
+    console.error('PDF 생성 실패', e)
+  }
+}
+
+// Template add/delete wrappers
+async function confirmAddTemplate(tpl){
+  if (creatingTemplate.value) return
+  creatingTemplate.value = true
+  try{
+    const layoutIndex = selectedIndex.value
+    const dto = { templateId: tpl.templateId, displayName: tpl.displayName, sortOrder: tpl.sortOrder, isActive: tpl.isActive }
+    await addTemplate(layoutIndex, dto, auth?.employeeCode ?? 1)
+    showCreateTemplate.value = false
+  } catch(e){ console.error(e) }
+  finally{ creatingTemplate.value = false }
+}
+
+function confirmDeleteTemplate(idx){ deleteTemplateIndex.value = idx; showDeleteTemplateModal.value = true }
+
+async function handleDeleteTemplate(){
+  if (deletingTemplate.value) return
+  deletingTemplate.value = true
+  try{
+    await deleteTemplate(selectedIndex.value, deleteTemplateIndex.value)
+  } catch(e){ console.error(e) }
+  finally{
+    showDeleteTemplateModal.value = false
+    deleteTemplateIndex.value = -1
+    deletingTemplate.value = false
+  }
+}
+
+// Layout delete
+function openDeleteModal(layout){
+  console.log('openDeleteModal', layout)
+  selectedLayoutId.value = layout?.id ?? null; showDeleteModal.value = true
+}
+
+async function confirmDelete(){
+  const id = selectedLayoutId.value
+
+  console.log('Delete layout id' + id)
+  
+  // 이전: if (!id) { ... } 형태는 id가 0일 때도 삭제를 막음
+  // 수정: id가 null 또는 undefined 일 때만 조기 종료
+  if (id === null || id === undefined) {
+    showDeleteModal.value = false
+    selectedLayoutId.value = null
+    return
+  }
+  if (deletingLayout.value) return
+  deletingLayout.value = true
+  try{
+    await deleteLayout(id)
+  } catch(e){ console.error(e) }
+  finally{ showDeleteModal.value = false; selectedLayoutId.value = null; deletingLayout.value = false }
+}
+
+// 기본 레이아웃 이름 생성: 기존 레이아웃 이름에서 숫자 suffix를 찾아 다음 번호로 생성
+function generateNextLayoutName(){
+  const prefix = '레이아웃'
+  const nums = layouts.value
+    .map(l => (l.name || '').trim())
+    .map(n => {
+      const m = n.match(new RegExp(`^${prefix}\s*(\\d+)$`))
+      return m ? Number(m[1]) : null
+    })
+    .filter(x => x !== null)
+  const next = nums.length ? Math.max(...nums) + 1 : 1
+  return `${prefix} ${next}`
+}
+
+// 컴포넌트 선택 로직: selectedTemplate의 첫 번째 항목(templateId)을 보고 그리드 컴포넌트를 결정
+const gridComponent = computed(() => {
+  // selectedTemplate은 composable에서 제공되는 ref나 reactive 객체일 수 있으므로 안전하게 접근
+  const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
+  const tplId = tpl?.templateId ?? tpl?.id
+  // 현재는 templateId === 2 이면 OPS 전용 그리드 사용, 그 외는 기본 그리드 사용
+  return tplId === 2 ? OPSTemplateGrid : TemplateGrid
+})
+
+onMounted(() => { loadLayouts() })
+
+// 기간 적용 후 현재 선택된 템플릿의 위젯을 재로딩
+async function applyPeriodAndReload(){
+  try{
+    // composable에 기간 적용
+    applyPeriodToLayout()
+    // 현재 선택된 템플릿 가져와서 위젯 로드
+    const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
+    if (tpl) await loadWidgetsForTemplate(tpl)
+  } catch(e){
+    console.error('applyPeriodAndReload error', e)
+  }
+}
 </script>
 
 <style scoped>
