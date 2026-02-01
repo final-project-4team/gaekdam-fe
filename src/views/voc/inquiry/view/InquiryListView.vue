@@ -1,4 +1,4 @@
-<!-- src/views/voc/InquiryListView.vue -->
+<!-- src/views/voc/view/InquiryListView.vue -->
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import ListView from "@/components/common/ListView.vue";
