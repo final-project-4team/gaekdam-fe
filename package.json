@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "deploy": "npm run build && aws s3 sync dist s3://gaekdam-frontend && aws s3 cp dist/index.html s3://gaekdam-frontend/index.html --cache-control \"no-store, no-cache, must-revalidate\""
+    "deploy": "npm run build && aws s3 sync dist s3://gaekdam-frontend && aws s3 cp dist/index.html s3://gaekdam-frontend/index.html --cache-control \"no-store, no-cache, must-revalidate\"",
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
