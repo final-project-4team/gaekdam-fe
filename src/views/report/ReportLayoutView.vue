@@ -50,9 +50,9 @@
           // 만든 사용자만 볼 수 있도록 변경
           // 이름이 비어있거나 기존 이름과 겹치면 자동으로 다음 이름을 생성
           let desiredName = payload?.name?.trim()
-          if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
-            desiredName = generateNextLayoutName()
-          }
+          // if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
+          //   desiredName = generateNextLayoutName()
+          // }
 
           const createPayload = {
             ...payload,
@@ -289,7 +289,7 @@ async function confirmDelete(){
   const id = selectedLayoutId.value
 
   console.log('Delete layout id' + id)
-  
+
   // 이전: if (!id) { ... } 형태는 id가 0일 때도 삭제를 막음
   // 수정: id가 null 또는 undefined 일 때만 조기 종료
   if (id === null || id === undefined) {

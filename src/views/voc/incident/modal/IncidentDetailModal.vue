@@ -1,6 +1,5 @@
 <template>
   <BaseModal title="사건/사고 상세" @close="$emit('close')">
-    <!-- BaseModal footer를 override: 조치완료(왼쪽) + 닫기(오른쪽) -->
     <template #footer>
       <BaseButton
           v-if="isClosable"
@@ -95,19 +94,18 @@
             <div class="card-title">조치 이력</div>
           </header>
 
-          <!-- CLOSED면 입력 폼 숨김 -->
           <div v-if="isActionWritable" class="action-form">
             <textarea
                 v-model="actionContent"
                 rows="3"
                 placeholder="조치내용을 입력하세요 (필수)"
-                :disabled="savingAction"
+                :disabled="savingAction || closing"
             />
             <div class="action-buttons">
               <BaseButton
                   type="primary"
                   size="sm"
-                  :disabled="savingAction"
+                  :disabled="savingAction || closing"
                   @click="submitAction"
               >
                 {{ savingAction ? "저장중..." : "조치 이력 추가" }}
@@ -244,6 +242,7 @@ const submitAction = async () => {
   const content = (actionContent.value ?? "").trim();
   if (!content) return alert("조치내용을 입력하세요.");
   if (!isActionWritable.value) return;
+  if (savingAction.value) return;
 
   savingAction.value = true;
   try {
@@ -261,6 +260,7 @@ const submitAction = async () => {
 
 const closeIncident = async () => {
   if (!isClosable.value) return;
+  if (closing.value) return; // 중복 클릭 방지
   if (!confirm("조치를 완료(종결) 처리할까요?")) return;
 
   closing.value = true;
@@ -269,6 +269,7 @@ const closeIncident = async () => {
     await loadDetail();
     await loadActions();
     emit("updated");
+    emit("close"); // 종결 후 모달 닫기
   } catch (e) {
     console.error(e);
     alert("종결 처리에 실패했습니다.");
@@ -286,13 +287,17 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
 </script>
 
 <style scoped>
+/* ====== Design Tokens (모달 전용) ====== */
 .modal {
   --bg: #ffffff;
+  --surface: #ffffff;
   --line: #e7edf4;
   --text: #111827;
   --muted: #6b7280;
+
   --r: 14px;
   --pad: 16px;
+  --shadow: 0 1px 10px rgba(17, 24, 39, 0.06);
 
   display: flex;
   flex-direction: column;
@@ -300,12 +305,14 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   color: var(--text);
 }
 
+/* 스크롤 영역 */
 .body {
   max-height: 70vh;
   overflow-y: auto;
   padding-right: 6px;
 }
 
+/* 상태 메시지 */
 .state {
   padding: 14px;
   border: 1px solid var(--line);
@@ -315,21 +322,22 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   color: #374151;
   font-size: 14px;
 }
-
 .state--error {
   color: #b91c1c;
   border-color: #fecaca;
   background: #fff5f5;
 }
 
+/* 카드 */
 .card {
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
   padding: var(--pad);
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow);
 }
 
+/* 카드 헤더 */
 .card-head {
   display: flex;
   align-items: center;
@@ -337,41 +345,39 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   gap: 10px;
   margin-bottom: 12px;
 }
-
 .card-title {
-  font-weight: 800;
+  font-weight: 900;
   font-size: 15px;
   letter-spacing: -0.2px;
 }
 
+/* 그리드 */
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px 22px;
 }
-
 @media (max-width: 900px) {
   .grid { grid-template-columns: 1fr; }
   .span2 { grid-column: auto; }
 }
 
+/* 행 */
 .row {
   display: flex;
   gap: 10px;
   align-items: flex-start;
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.55;
 }
-
 .span2 { grid-column: 1 / -1; }
 
 .k {
-  width: 90px;
-  font-weight: 800;
+  width: 92px;
+  font-weight: 900;
   color: #374151;
   flex: 0 0 auto;
 }
-
 .v {
   color: var(--text);
   min-width: 0;
@@ -380,10 +386,19 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   white-space: nowrap;
 }
 
-.mono {
-  font-variant-numeric: tabular-nums;
+/* ✅ 제목/요약/내용 같은 span2는 자연스럽게 줄바꿈 */
+.row.span2 .v {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: initial;
 }
 
+.mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+}
+
+/* 내용 패널 */
 .panel {
   width: 100%;
   border: 1px solid var(--line);
@@ -391,7 +406,6 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   padding: 12px 14px;
   background: #fafbfc;
 }
-
 .content {
   margin: 0;
   white-space: pre-wrap;
@@ -400,16 +414,21 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   color: #111827;
 }
 
+/* ====== Badge (리스트 pill과 톤 통일) ====== */
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 5px 10px;
+  justify-content: center;
+  height: 26px;
+  padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 900;
+
   border: 1px solid #e5e7eb;
   background: #f9fafb;
   color: #374151;
+  white-space: nowrap;
 }
 
 .badge--in {
@@ -417,13 +436,11 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   background: #eff6ff;
   color: #1d4ed8;
 }
-
 .badge--done {
   border-color: #dcfce7;
   background: #f0fdf4;
   color: #15803d;
 }
-
 .badge--neutral {
   border-color: #e5e7eb;
   background: #f9fafb;
@@ -435,29 +452,28 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   background: #f0fdf4;
   color: #15803d;
 }
-
 .badge--mid {
   border-color: #dbeafe;
   background: #eff6ff;
   color: #1d4ed8;
 }
-
 .badge--high {
   border-color: #ffe4c7;
   background: #fff7ed;
   color: #c2410c;
 }
-
 .badge--crit {
   border-color: #fecaca;
   background: #fff5f5;
   color: #b91c1c;
 }
 
+/* ====== Action Form ====== */
 .action-form {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-top: 2px;
 }
 
 .action-form textarea {
@@ -466,10 +482,11 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   border: 1px solid #e5e7eb;
   background: #ffffff;
   font-size: 14px;
+  line-height: 1.55;
   resize: vertical;
   outline: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
-
 .action-form textarea:focus {
   border-color: #cfe3ff;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
@@ -480,6 +497,7 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   justify-content: flex-end;
 }
 
+/* 조치 이력 상태 */
 .mini-state {
   margin-top: 10px;
   padding: 10px 12px;
@@ -490,13 +508,13 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   background: var(--bg);
   font-size: 13px;
 }
-
 .mini-state--error {
   color: #b91c1c;
   border-color: #fecaca;
   background: #fff5f5;
 }
 
+/* 조치 리스트 */
 .action-list {
   margin-top: 12px;
   display: flex;
@@ -518,6 +536,7 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   border-radius: 12px;
   padding: 12px;
   background: #fafbfc;
+  box-shadow: 0 1px 6px rgba(17, 24, 39, 0.04);
 }
 
 .meta {
@@ -537,3 +556,4 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   font-size: 14px;
 }
 </style>
+

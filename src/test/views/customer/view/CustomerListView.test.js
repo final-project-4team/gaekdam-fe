@@ -2,10 +2,6 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import CustomerListView from "@/views/customer/view/CustomerListView.vue";
 
-
-/** -----------------------------
- *  mocks (외부 의존성 전부 차단)
- *  ----------------------------- */
 const routerPushMock = vi.fn();
 vi.mock("vue-router", () => ({
     useRouter: () => ({ push: routerPushMock }),

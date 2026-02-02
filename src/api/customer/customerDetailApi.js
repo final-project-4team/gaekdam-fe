@@ -18,8 +18,8 @@ export const getCustomerTimelineApi = ({ customerCode, hotelGroupCode, limit = 5
 };
 
 // 고객 상태 변경 이력
-export const getCustomerStatusHistoriesApi = ({ customerCode, params }) => {
-    return api.get(`/customers/${customerCode}/status-histories`, { params });
+export const getCustomerStatusHistoriesApi = ({ customerCode, hotelGroupCode, params = {} }) => {
+    return api.get(`/customers/${customerCode}/status-histories`, {
+        params: { ...params, hotelGroupCode },
+    });
 };
-
-

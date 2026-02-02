@@ -27,7 +27,6 @@
         <span class="mono">{{ row.inquiryCode ? fmtInquiryNo(row.inquiryCode) : "-" }}</span>
       </template>
 
-      <!--  담당자: employeeName 우선 표시 -->
       <template #cell-employee="{ row }">
         <span class="mono">
           {{ row.employeeName ? row.employeeName : (row.employeeLoginId || row.employeeCode || "-") }}
@@ -47,7 +46,8 @@
       </template>
     </ListView>
 
-    <div class="fab">
+    <!-- ✅ 버튼이 리스트를 가리지 않도록: 하단 sticky bar -->
+    <div class="bottom-bar">
       <BaseButton type="primary" size="md" @click="openCreate">
         사건/사고 등록
       </BaseButton>
@@ -57,7 +57,7 @@
         v-if="showDetail"
         :incidentCode="selectedIncidentCode"
         @close="closeDetail"
-        @updated="load"
+        @updated="onDetailUpdated"
     />
 
     <IncidentCreateModal
@@ -72,10 +72,8 @@
 import { ref, onMounted } from "vue";
 import ListView from "@/components/common/ListView.vue";
 import BaseButton from "@/components/common/button/BaseButton.vue";
-
 import IncidentCreateModal from "../modal/IncidentCreateModal.vue";
 import IncidentDetailModal from "../modal/IncidentDetailModal.vue";
-
 import { getIncidentListApi } from "@/api/voc/incidentApi.js";
 
 const columns = [
@@ -89,8 +87,10 @@ const columns = [
 ];
 
 const searchTypes = [
-  { label: "전체", value: "" },
-  { label: "제목/내용", value: "keyword" },
+  { label: "전체", value: "ALL" },
+  { label: "제목", value: "TITLE" },
+  { label: "담당자명", value: "EMPLOYEE_NAME" },
+  { label: "담당자ID", value: "EMPLOYEE_ID" },
 ];
 
 const filters = [
@@ -121,25 +121,50 @@ const pageSize = ref(10);
 
 const filterState = ref({ status: "", severity: "" });
 const sortState = ref({ sortBy: "created_at", direction: "DESC" });
-const searchValue = ref("");
 
-const t = (v) => (v ?? "").toString().trim();
+// ✅ inquiry처럼 key/value로 관리
+const searchState = ref({ key: "ALL", value: "" });
 
-const buildParams = () => ({
-  page: page.value,
-  size: pageSize.value,
-  status: filterState.value.status || undefined,
-  severity: filterState.value.severity || undefined,
-  ...(t(searchValue.value) ? { keyword: t(searchValue.value) } : {}),
-  sortBy: sortState.value.sortBy || "created_at",
-  direction: sortState.value.direction || "DESC",
-});
+const showCreate = ref(false);
+const showDetail = ref(false);
+const selectedIncidentCode = ref(null);
+const loadingRowClick = ref(false);
+
+const t = (v) => String(v ?? "").trim();
+
+const cleanParams = (obj) => {
+  const out = { ...obj };
+  Object.keys(out).forEach((k) => {
+    if (out[k] === "" || out[k] == null) delete out[k];
+  });
+  return out;
+};
+
+const buildParams = () => {
+  const params = {
+    page: page.value,
+    size: pageSize.value,
+    sortBy: sortState.value.sortBy || "created_at",
+    direction: sortState.value.direction || "DESC",
+  };
+
+  if (filterState.value.status) params.status = filterState.value.status;
+  if (filterState.value.severity) params.severity = filterState.value.severity;
+
+  // ✅ searchType은 항상 보냄(기본 ALL)
+  const searchType = t(searchState.value.key) || "ALL";
+  const keyword = t(searchState.value.value);
+
+  params.searchType = searchType;
+  if (keyword) params.keyword = keyword;
+
+  return cleanParams(params);
+};
 
 const load = async () => {
   const res = await getIncidentListApi(buildParams());
   const data = res.data?.data;
 
-  // ✅ employeeName/employeeLoginId 백에서 내려옴
   rows.value = (data?.content ?? []).map((r) => ({
     ...r,
     employeeName: r.employeeName ?? "",
@@ -151,15 +176,28 @@ const load = async () => {
 
 onMounted(load);
 
-const onSearch = ({ value }) => {
+// ✅ payload 호환( key/type/searchType 모두 처리 )
+const onSearch = (payload) => {
   page.value = 1;
-  searchValue.value = value ?? "";
+
+  const key =
+      payload?.key ??
+      payload?.type ??
+      payload?.searchType ??
+      "ALL";
+
+  const value =
+      payload?.value ??
+      payload?.keyword ??
+      "";
+
+  searchState.value = { key, value };
   load();
 };
 
 const onFilter = (values) => {
   page.value = 1;
-  filterState.value = { ...filterState.value, ...values };
+  filterState.value = { ...filterState.value, ...(values ?? {}) };
   load();
 };
 
@@ -168,6 +206,7 @@ const onSortChange = ({ sortBy, direction }) => {
     createdAt: "created_at",
     severity: "severity",
     incidentStatus: "incident_status",
+    incidentCode: "incident_code",
   };
 
   sortState.value = {
@@ -184,21 +223,30 @@ const onPageChange = (p) => {
   load();
 };
 
-const showCreate = ref(false);
-const showDetail = ref(false);
-const selectedIncidentCode = ref(null);
-
 const openCreate = () => (showCreate.value = true);
 const closeCreate = () => (showCreate.value = false);
 
 const openDetail = (row) => {
-  selectedIncidentCode.value = row.incidentCode;
+  if (loadingRowClick.value) return;
+  const code = row?.incidentCode;
+  if (!code) return;
+
+  loadingRowClick.value = true;
+  selectedIncidentCode.value = code;
   showDetail.value = true;
+
+  setTimeout(() => {
+    loadingRowClick.value = false;
+  }, 250);
 };
 
 const closeDetail = () => {
   showDetail.value = false;
   selectedIncidentCode.value = null;
+};
+
+const onDetailUpdated = async () => {
+  await load();
 };
 
 const afterCreated = () => {
@@ -213,6 +261,7 @@ const fmtDateTime = (v) => {
   const d = new Date(v);
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 };
+
 const fmtIncidentNo = (code) => (code ? `C-${code}` : "-");
 const fmtInquiryNo = (code) => (code ? `Q-${code}` : "-");
 
@@ -224,26 +273,96 @@ const fmtStatus = (s) => {
 </script>
 
 <style scoped>
-.incident-page { position: relative; }
-.fab { position: fixed; right: 28px; bottom: 28px; z-index: 30; }
-.mono { font-variant-numeric: tabular-nums; }
-.strong { font-weight: 800; }
+/* ====== Design Tokens (이 페이지 전용) ====== */
+.incident-page {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --line: #e7edf4;
+  --text: #111827;
+  --muted: #6b7280;
 
-.status-pill {
-  display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
-  border-radius: 999px; font-size: 12px; font-weight: 800;
-  border: 1px solid #e5e7eb; background: #f9fafb;
+  --r: 14px;
+  --shadow: 0 1px 10px rgba(17, 24, 39, 0.06);
+
+  position: relative;
+  padding-bottom: 72px;
 }
-.status-pill.IN_PROGRESS { background: #eff6ff; border-color: #bfdbfe; }
-.status-pill.CLOSED { background: #f3f4f6; border-color: #e5e7eb; }
 
+/* 숫자/강조 톤 통일 */
+.mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+}
+.strong {
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* ====== List Pills (상세 모달 badge와 톤 통일) ====== */
+.status-pill,
 .sev-pill {
-  display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
-  border-radius: 999px; font-size: 12px; font-weight: 800;
-  border: 1px solid #e5e7eb; background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #374151;
+
+  white-space: nowrap;
 }
-.sev-pill.CRITICAL { background: #fef2f2; border-color: #fecaca; }
-.sev-pill.HIGH { background: #fff7ed; border-color: #fed7aa; }
-.sev-pill.MEDIUM { background: #eff6ff; border-color: #bfdbfe; }
-.sev-pill.LOW { background: #f0fdf4; border-color: #bbf7d0; }
+
+/* status */
+.status-pill.IN_PROGRESS {
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.status-pill.CLOSED {
+  border-color: #dcfce7;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+/* severity */
+.sev-pill.LOW {
+  border-color: #dcfce7;
+  background: #f0fdf4;
+  color: #15803d;
+}
+.sev-pill.MEDIUM {
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.sev-pill.HIGH {
+  border-color: #ffe4c7;
+  background: #fff7ed;
+  color: #c2410c;
+}
+.sev-pill.CRITICAL {
+  border-color: #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+}
+
+/* ====== Bottom Sticky Bar ====== */
+.bottom-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 0;
+
+  background: linear-gradient(to top, rgba(255,255,255,0.98) 70%, rgba(255,255,255,0));
+  border-top: 1px solid rgba(231, 237, 244, 0.7);
+  backdrop-filter: blur(6px);
+}
 </style>

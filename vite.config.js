@@ -34,6 +34,8 @@ export default defineConfig({
                 'src/api/**',
                 'src/stores/**',
                 'src/composables/**',
+                'src/components/ai',
+                'src/views/common',
             ],
         },
     },

@@ -27,6 +27,7 @@
         @page-change="onPageChange"
         @row-click="goDetail"
     >
+      <!-- ✅ 상세검색 폼 -->
       <template #detail-form>
         <div class="detail-form">
           <div class="row">
@@ -60,6 +61,30 @@
           </div>
         </div>
       </template>
+
+      <!-- ✅ 테이블 셀 커스텀 렌더: 상태 -->
+      <template #cell-status="{ row }">
+        <span class="tag" :class="statusTagClass(row?.status)">
+          {{ row?.status ?? "-" }}
+        </span>
+      </template>
+
+      <!-- ✅ 테이블 셀 커스텀 렌더: 멤버십 -->
+      <template #cell-membershipGrade="{ row }">
+        <span class="tag" :class="membershipTagClass(row?.membershipGrade)">
+          {{ row?.membershipGrade ?? "미가입" }}
+        </span>
+      </template>
+
+      <template #cell-loyaltyGrade="{ row }">
+  <span
+      class="tag"
+      :class="loyaltyTagClass(row?.loyaltyGrade)"
+      :style="loyaltyTagStyle(row?.loyaltyGrade)"
+  >
+    {{ row?.loyaltyGrade ?? "-" }}
+  </span>
+      </template>
     </ListView>
 
     <BaseModal v-if="showColumnModal" title="표시 항목 선택" @close="showColumnModal = false">
@@ -77,12 +102,12 @@
     </BaseModal>
   </div>
 
-    <!-- Reason Request Modal -->
-    <ReasonRequestModal
-        v-if="showReasonModal"
-        @close="closeReasonModal"
-        @confirm="onReasonConfirmed"
-    />
+  <!-- Reason Request Modal -->
+  <ReasonRequestModal
+      v-if="showReasonModal"
+      @close="closeReasonModal"
+      @confirm="onReasonConfirmed"
+  />
 </template>
 
 <script setup>
@@ -100,11 +125,9 @@ import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
 import { getLoyaltyGradeList } from "@/api/setting/loyaltyGrade.js";
 
 import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
-
-import { usePermissionGuard } from '@/composables/usePermissionGuard';
+import { usePermissionGuard } from "@/composables/usePermissionGuard";
 
 const { withPermission } = usePermissionGuard();
-
 
 /* base */
 const router = useRouter();
@@ -128,7 +151,7 @@ const normalizeSearchType = (v) => {
 /* dynamic grade options (value는 code로 유지) */
 const membershipGradeOptions = ref([
   { label: "멤버십(전체)", value: "" },
-  { label: "미가입", value: -1 }, // 백에서 -1을 미가입으로 처리
+  { label: "미가입", value: -1 },
 ]);
 
 const loyaltyGradeOptions = ref([
@@ -145,10 +168,7 @@ const loadGradeOptions = async () => {
       { label: "미가입", value: -1 },
       ...(Array.isArray(mList) ? mList : [])
           .filter((g) => g && g.membershipGradeCode != null && g.gradeName)
-          .map((g) => ({
-            label: g.gradeName,
-            value: g.membershipGradeCode,
-          })),
+          .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode })),
     ];
 
     loyaltyGradeOptions.value = [
@@ -156,10 +176,7 @@ const loadGradeOptions = async () => {
       { label: "미가입", value: -1 },
       ...(Array.isArray(lList) ? lList : [])
           .filter((g) => g && g.loyaltyGradeCode != null && g.loyaltyGradeName)
-          .map((g) => ({
-            label: g.loyaltyGradeName,
-            value: g.loyaltyGradeCode,
-          })),
+          .map((g) => ({ label: g.loyaltyGradeName, value: g.loyaltyGradeCode })),
     ];
   } catch (e) {
     console.error("등급 옵션 로딩 실패:", e);
@@ -209,9 +226,7 @@ const filters = computed(() => [
 ]);
 
 /* force rerender when dynamic options change */
-const filtersKey = computed(
-    () => `m:${membershipGradeOptions.value.length}-l:${loyaltyGradeOptions.value.length}`
-);
+const filtersKey = computed(() => `m:${membershipGradeOptions.value.length}-l:${loyaltyGradeOptions.value.length}`);
 
 /* columns */
 const columns = [
@@ -291,9 +306,7 @@ const normalizeFilterValues = (values = {}) => {
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 
 const buildParams = () => {
-  const d =
-      detailForm.value && Object.keys(detailForm.value).length ? detailForm.value : defaultDetailForm();
-
+  const d = detailForm.value && Object.keys(detailForm.value).length ? detailForm.value : defaultDetailForm();
   const fg = filterValues.value;
 
   const params = cleanParams({
@@ -306,7 +319,6 @@ const buildParams = () => {
     nationalityType: fg.nationalityType,
     inflowChannel: fg.inflowChannel,
 
-    // 필터 key는 membershipGrade/loyaltyGrade지만, 실제 value는 code로 들어옴
     membershipGradeCode: fg.membershipGrade,
     loyaltyGradeCode: fg.loyaltyGrade,
 
@@ -339,13 +351,14 @@ const loadCustomers = async () => {
   const res = await getCustomerListApi(buildParams());
   const data = res.data?.data;
 
+  // ✅ rows에는 "값"만 넣고, 칩 렌더는 슬롯에서 처리
   rows.value = (data?.content ?? []).map((it) => ({
     customerCode: it.customerCode,
     customerName: it.customerName,
     primaryContact: it.primaryContact,
     status: it.status,
     membershipGrade: it.membershipGrade ?? "미가입",
-    loyaltyGrade: it.loyaltyGrade ?? "-",
+    loyaltyGrade: it.loyaltyGrade ?? "미가입",
     lastUsedDate: it.lastUsedDate ?? "-",
     inflowChannel: it.inflowChannel ?? "-",
     contractType: it.contractType ?? "-",
@@ -394,9 +407,7 @@ const onPageChange = (p) => {
 /* initial load */
 watch(
     () => hotelGroupCode.value,
-    (v) => {
-      if (v) loadCustomers();
-    },
+    (v) => { if (v) loadCustomers(); },
     { immediate: true }
 );
 
@@ -439,17 +450,16 @@ onBeforeUnmount(() => {
 });
 
 /* row click */
+const showReasonModal = ref(false);
+const selectedCustomerCode = ref(null);
+
 const goDetail = (row) => {
-  withPermission('CUSTOMER_READ',  () => {
+  withPermission("CUSTOMER_READ", () => {
     if (!row?.customerCode) return;
     selectedCustomerCode.value = row.customerCode;
     showReasonModal.value = true;
   });
 };
-
-/* reason modal */
-const showReasonModal = ref(false);
-const selectedCustomerCode = ref(null);
 
 const closeReasonModal = () => {
   showReasonModal.value = false;
@@ -461,30 +471,112 @@ const onReasonConfirmed = (reason) => {
     router.push({
       name: "CustomerDetail",
       params: { id: selectedCustomerCode.value },
-      query: { reason: reason }
+      query: { reason },
     });
   }
   closeReasonModal();
 };
+
+/* ✅ tag class helpers */
+const statusTagClass = (status) => {
+  const s = String(status ?? "").toUpperCase();
+  if (s === "ACTIVE") return "tag--ok";
+  if (s === "CAUTION") return "tag--warn";
+  if (s === "INACTIVE") return "tag--mute";
+  return "tag--base";
+};
+
+const membershipTagClass = (gradeName) => {
+  const g = String(gradeName ?? "").toUpperCase();
+  if (!g || g === "-" || g === "미가입".toUpperCase()) return "tag--mute";
+  if (g.includes("VIP")) return "tag--vip";
+  if (g.includes("GOLD")) return "tag--gold";
+  if (g.includes("SILVER")) return "tag--silver";
+  if (g.includes("BRONZE")) return "tag--bronze";
+  if (g.includes("BASIC")) return "tag--base";
+  return "tag--base";
+};
+
+const loyaltyTagClass = (gradeName) => {
+  const g = String(gradeName ?? "").toUpperCase().trim();
+  if (!g || g === "-" || g === "미가입".toUpperCase()) return "tag--mute";
+
+  if (g.includes("EXCELLENT")) return "tag--loyalty-excellent";
+  if (g.includes("GENERAL")) return "tag--loyalty-general";
+
+  return "tag--base";
+};
+
+const loyaltyTagStyle = (gradeName) => {
+  const g = String(gradeName ?? "").toUpperCase().trim();
+
+  // EXCELLENT = 보라(프리미엄 느낌)
+  if (g.includes("EXCELLENT")) {
+    return { background: "#ede9fe", borderColor: "#c4b5fd", color: "#4c1d95" };
+  }
+
+  if (g.includes("GENERAL")) {
+    return { background: "#ecfeff", borderColor: "#67e8f9", color: "#155e75" };
+  }
+
+  return {};
+};
 </script>
 
 <style scoped>
+/* ===== Tokens (incident/inquiry 톤 통일) ===== */
 .customer-list-page {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --line: #e7edf4;
+  --text: #111827;
+  --muted: #6b7280;
+
+  --r: 14px;
+  --shadow: 0 1px 10px rgba(17, 24, 39, 0.06);
+
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding-top: 10px;
+  color: var(--text);
 }
 
+/* top actions */
 .top-actions {
   display: flex;
   justify-content: flex-end;
 }
 
+/* 버튼 톤 통일(ghost 버튼 pill 느낌) */
+.top-actions :deep(button) {
+  height: 32px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #2563eb !important;
+  font-weight: 700 !important;
+}
+.top-actions :deep(button:hover) {
+  background: #f3f4f6 !important;
+}
+
+/* ===== Detail Form (ListView detail slot) ===== */
 .detail-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 14px;
+  box-shadow: var(--shadow);
+
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+
+@media (max-width: 900px) {
+  .detail-form { grid-template-columns: 1fr; }
 }
 
 .detail-form .row {
@@ -495,25 +587,30 @@ const onReasonConfirmed = (reason) => {
 
 .detail-form label {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 900;
+  letter-spacing: -0.2px;
   color: #374151;
 }
 
 .detail-form input,
 .detail-form select {
-  padding: 8px 10px;
-  border-radius: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
   border: 1px solid #e5e7eb;
+  background: #ffffff;
   font-size: 14px;
+  outline: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
-.hint {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #6b7280;
-  line-height: 1.4;
+.detail-form input:focus,
+.detail-form select:focus {
+  border-color: #cfe3ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
+/* ===== Column picker modal ===== */
 .column-picker {
   display: flex;
   flex-direction: column;
@@ -524,14 +621,59 @@ const onReasonConfirmed = (reason) => {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 700;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fafbfc;
+  font-weight: 800;
   color: #374151;
+}
+
+.chk input {
+  width: 16px;
+  height: 16px;
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
 }
+
+.modal-actions :deep(button) {
+  height: 34px !important;
+  border-radius: 12px !important;
+}
+
+/* ===== Tag (상태/멤버십/로열티 공통 칩) ===== */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.tag--ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.tag--warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+.tag--mute { background: #f3f4f6; border-color: #e5e7eb; color: #6b7280; }
+
+/* membership */
+.tag--vip { background: #111827; border-color: #111827; color: #ffffff; }
+.tag--gold { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.tag--silver { background: #f8fafc; border-color: #e2e8f0; color: #334155; }
+.tag--bronze { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+
+/* loyalty */
+.tag--excellent { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+.tag--general { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
 </style>
