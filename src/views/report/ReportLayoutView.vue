@@ -99,6 +99,7 @@ import { jsPDF } from 'jspdf'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import TemplateGrid from '@/components/report/TemplateGrid.vue'
 import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실운영 템플릿
+import CUSTTemplateGrid from '@/views/report/CUST/CUSTTemplateGrid.vue' // 고객현황 템플릿
 import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
 import TemplateList from '@/components/report/TemplateList.vue'
 import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
@@ -323,8 +324,10 @@ const gridComponent = computed(() => {
   // selectedTemplate은 composable에서 제공되는 ref나 reactive 객체일 수 있으므로 안전하게 접근
   const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
   const tplId = tpl?.templateId ?? tpl?.id
-  // 현재는 templateId === 2 이면 OPS 전용 그리드 사용, 그 외는 기본 그리드 사용
-  return tplId === 2 ? OPSTemplateGrid : TemplateGrid
+  // templateId에 따라 전용 그리드 컴포넌트를 선택 (2: OPS, 3: CUST)
+  if (tplId === 2) return OPSTemplateGrid
+  if (tplId === 3) return CUSTTemplateGrid
+  return TemplateGrid
 })
 
 onMounted(() => { loadLayouts() })
@@ -344,86 +347,47 @@ async function applyPeriodAndReload(){
 </script>
 
 <style scoped>
-.layout-page { display:flex; flex-direction:column; gap:12px; }
-.top-tabs { display:flex; gap:8px; align-items:center; padding:6px 10px; }
-.top-tab { padding:8px 14px; border-radius:8px; background:#f5f7fb; color:#4b5563; cursor:pointer; }
-.top-tab.active { background: linear-gradient(135deg,#e6f0ff,#dfeaff); color:#1e3a8a; font-weight:600 }
-.add-tab { margin-left:6px }
-
-.content-area { display:flex; gap:12px; }
-.left-pane { width:200px; display:flex; flex-direction:column; align-items:flex-start; }
-.left-controls { margin-bottom:8px; }
-.template-list-vertical { display:flex; flex-direction:column; gap:8px; width:100%; }
-.tpl-row { position: relative; display:flex; align-items:center; gap:8px; }
-.tpl-btn { flex:1; padding:8px; border-radius:8px; background:#f6f8fb; border:1px solid #e6eef8; cursor:pointer; text-align:left }
-.tpl-btn.active { background: linear-gradient(135deg,#e6f0ff,#dfeaff); color:#12336a }
-/* position delete icon in top tab */
-.top-tab { position: relative }
-.top-delete { position: relative; display:inline-flex }
-
-/* template list: position delete icon */
-.tpl-delete { position: relative; right:6px; display:inline-flex }
-
-.main-pane { flex:1; overflow:auto; padding:12px 18px; box-sizing:border-box }
-.layout-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px }
-/* Header controls on the right */
-.header-controls { display:flex; gap:8px; align-items:center }
-.header-controls select { padding:6px 8px; border-radius:6px; border:1px solid #dfe6f3; background:#fff }
-
-/* Make the grid place cards as direct children. If .template-widgets wrapper exists, make its children participate in grid. */
-.template-widgets { display: contents; }
-
-.template-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  align-items: stretch;    /* 칸 높이 동일화 */
-  width: 100%;
-  /* 고정된 균일한 카드 높이(최소)와 같은 행에서 균등하게 확장 */
-  grid-auto-rows: minmax(140px, 1fr);
-  align-content: start;
-}
-.card {
+.layout-page {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  height: 100vh;
+}
+
+.content-area {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.main-pane {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.layout-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  height: 100%;            /* grid-auto-rows가 정한 높이를 채움 */
-  padding: 12px 10px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  background: #fff;
-  box-sizing: border-box;
-  text-align: center;
-  min-width: 0;
+  margin-bottom: 16px;
 }
-.card-title { font-weight:700; margin-bottom:8px; font-size:14px }
-.available-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f3f4f6 }
 
-.create-layout-form { display:flex; flex-direction:column; gap:12px; min-width:520px }
-.form-row { display:flex; gap:12px; align-items:flex-start }
-.form-label { width:110px; color:#374151; font-weight:600 }
-.radio-group { display:flex; gap:12px; align-items:center }
-.radio-group label { display:flex; gap:6px; align-items:center }
-.create-layout-form input[type="text"], .create-layout-form textarea { flex:1; padding:8px; border:1px solid #e5e7eb; border-radius:6px }
-
-.kpi-value { font-size:20px; font-weight:800; margin-bottom:6px; word-break:keep-all }
-.kpi-target { color:#6b7280; font-size:12px }
-.kpi-delta { font-size:12px; margin-top:6px }
-.delta-up { color:#0ea5a0 } /* green */
-.delta-down { color:#ef4444 } /* red */
-.delta-neutral { color:#6b7280 } /* gray */
-
-/* 반응형: 작은 화면에서는 열 수 축소 */
-@media (max-width: 1100px) {
-  .template-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.header-controls {
+  display: flex;
+  gap: 8px;
 }
-@media (max-width: 760px) {
-  .template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .left-pane { width: 140px }
+
+.layout-page select {
+  padding: 8px;
+  font-size: 14px;
 }
-@media (max-width: 420px) {
-  .template-grid { grid-template-columns: 1fr; }
-  .left-pane { display:none }
+
+.layout-page h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.layout-page button {
+  margin-left: 8px;
 }
 </style>
