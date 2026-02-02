@@ -58,10 +58,6 @@
               <option value="CAUTION">CAUTION</option>
             </select>
           </div>
-
-          <p class="hint">
-            * 상세검색 값은 서버 파라미터(customerName/phoneNumber/email/customerCode/status)로 반영됩니다.
-          </p>
         </div>
       </template>
     </ListView>
