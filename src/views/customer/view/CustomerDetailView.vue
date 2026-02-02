@@ -518,7 +518,6 @@ import { useAuthStore } from "@/stores/authStore.js";
 import api from "@/api/axios.js";
 import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
 
-// customerDetailApi에서 가져오는게 맞음 (customerApi 건드리지 않음)
 import { getCustomerStatusHistoriesApi } from "@/api/customer/customerDetailApi";
 
 import { formatDate, formatMoney, formatPhone, toYmd } from "@/views/customer/utils/customerDetail.utils.js";

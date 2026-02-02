@@ -1,16 +1,17 @@
-<!-- src/views/voc/InquiryListView.vue (예시 경로) -->
+<!-- src/views/voc/view/InquiryListView.vue -->
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import ListView from "@/components/common/ListView.vue";
 import { getInquiryListApi } from "@/api/voc/inquiryApi.js";
 import InquiryDetailModal from "@/views/voc/inquiry/modal/InquiryDetailModal.vue";
 
-/* Search Types */
+/* Search Types (백엔드 searchType과 1:1 매칭) */
 const searchTypes = [
-  { label: "전체", value: "" },
-  { label: "키워드(제목/내용)", value: "keyword" },
-  { label: "고객명(현재페이지)", value: "customerName" },
-  { label: "담당자(현재페이지)", value: "employee" },
+  { label: "전체", value: "ALL" },
+  { label: "키워드(제목)", value: "TITLE" },
+  { label: "고객명", value: "CUSTOMER_NAME" },
+  { label: "담당자명", value: "EMPLOYEE_NAME" },
+  { label: "담당자ID", value: "EMPLOYEE_ID" },
 ];
 
 /* Filters */
@@ -33,15 +34,15 @@ const filters = [
   },
 ];
 
+/* Columns */
 const columns = [
   { key: "inquiryCode", label: "번호", sortable: true },
   { key: "createdAt", label: "접수일시", sortable: true },
   { key: "customerName", label: "고객명", sortable: false },
+  { key: "inquiryTitle", label: "제목", sortable: false },
   { key: "inquiryCategoryName", label: "유형", sortable: false },
   { key: "inquiryStatus", label: "상태", sortable: true },
-
   { key: "employeeName", label: "담당자명", sortable: false },
-  // { key: "employeeLoginId", label: "담당자ID", sortable: false },
 ];
 
 /* State */
@@ -53,7 +54,9 @@ const pageSize = ref(10);
 
 const sortState = ref({ sortBy: "created_at", direction: "DESC" });
 const filterValues = ref({});
-const quickSearch = ref({ key: "", value: "" });
+
+// SearchBar가 주는 값 저장: { key: searchType, value: keyword }
+const quickSearch = ref({ key: "ALL", value: "" });
 
 const detailForm = ref({
   fromDate: "",
@@ -88,6 +91,13 @@ const formatDateTime = (iso) => {
   return String(iso).replace("T", " ").slice(0, 16);
 };
 
+const toNumberOrNull = (v) => {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
+
 const buildParams = () => {
   const params = {
     page: page.value,
@@ -96,21 +106,25 @@ const buildParams = () => {
     direction: sortState.value.direction || "DESC",
   };
 
+  // filters
   if (filterValues.value.status) params.status = filterValues.value.status;
 
-  const cat =
-      filterValues.value.inquiryCategoryCode || detailForm.value.inquiryCategoryCode;
-  if (cat) params.inquiryCategoryCode = Number(cat);
+  const cat = filterValues.value.inquiryCategoryCode || detailForm.value.inquiryCategoryCode;
+  const catNum = toNumberOrNull(cat);
+  if (catNum != null) params.inquiryCategoryCode = catNum;
 
   if (detailForm.value.fromDate) params.fromDate = detailForm.value.fromDate;
   if (detailForm.value.toDate) params.toDate = detailForm.value.toDate;
-  if (detailForm.value.propertyCode)
-    params.propertyCode = Number(detailForm.value.propertyCode);
 
-  const v = (quickSearch.value.value ?? "").trim();
-  if (v && (quickSearch.value.key === "" || quickSearch.value.key === "keyword")) {
-    params.keyword = v;
-  }
+  const propNum = toNumberOrNull(detailForm.value.propertyCode);
+  if (propNum != null) params.propertyCode = propNum;
+
+  // search (서버에서 searchType + keyword 처리)
+  const searchType = (quickSearch.value.key ?? "ALL").trim() || "ALL";
+  const keyword = (quickSearch.value.value ?? "").trim();
+
+  params.searchType = searchType;
+  if (keyword) params.keyword = keyword;
 
   return params;
 };
@@ -123,43 +137,24 @@ const fetchList = async () => {
   total.value = pageData?.totalElements ?? 0;
 };
 
-const displayRows = computed(() => {
-  const key = quickSearch.value.key;
-  const value = (quickSearch.value.value ?? "").trim();
-  if (!value) return rows.value;
-
-  if (key === "customerName") {
-    return rows.value.filter((r) =>
-        String(r.customerName ?? "").includes(value)
-    );
-  }
-
-  //
-  if (key === "employee") {
-    return rows.value.filter((r) => {
-      const name = String(r.employeeName ?? "");
-      const loginId = String(r.employeeLoginId ?? "");
-      return name.includes(value) || loginId.includes(value);
-    });
-  }
-
-  return rows.value;
-});
+// 서버검색 결과 그대로 보여줌
+const displayRows = computed(() => rows.value);
 
 /* Events */
 const onSearch = async (payload) => {
   page.value = 1;
-  quickSearch.value = { key: payload?.key ?? "", value: payload?.value ?? "" };
 
-  // 서버 검색은 keyword(또는 전체)만
-  if (quickSearch.value.key === "" || quickSearch.value.key === "keyword") {
-    await fetchList();
-  }
+  // SearchBar payload 호환(key/value 또는 type/keyword)
+  const key = payload?.key ?? payload?.type ?? payload?.searchType ?? "ALL";
+  const value = payload?.value ?? payload?.keyword ?? "";
+
+  quickSearch.value = { key, value };
+  await fetchList();
 };
 
 const onFilter = async (values) => {
   page.value = 1;
-  filterValues.value = values;
+  filterValues.value = values ?? {};
   await fetchList();
 };
 
@@ -185,9 +180,14 @@ const onPageChange = async (p) => {
 const onDetailReset = async () => {
   page.value = 1;
   filterValues.value = {};
-  quickSearch.value = { key: "", value: "" };
+  quickSearch.value = { key: "ALL", value: "" };
   sortState.value = { sortBy: "created_at", direction: "DESC" };
   detailForm.value = { fromDate: "", toDate: "", propertyCode: "", inquiryCategoryCode: "" };
+  await fetchList();
+};
+
+const onDetailApply = async () => {
+  page.value = 1;
   await fetchList();
 };
 
@@ -212,6 +212,7 @@ onMounted(fetchList);
         @sort-change="onSortChange"
         @page-change="onPageChange"
         @detail-reset="onDetailReset"
+        @detail-apply="onDetailApply"
         @row-click="openDetailModal"
     >
       <template #cell-createdAt="{ row }">
@@ -222,15 +223,21 @@ onMounted(fetchList);
         {{ statusLabel(row.inquiryStatus) }}
       </template>
 
-      <!-- ✅ 담당자명 / 담당자ID 컬럼 표시 -->
+      <template #cell-customerName="{ row }">
+        {{ row.customerName ?? "-" }}
+      </template>
+
+      <template #cell-inquiryTitle="{ row }">
+        <span class="ellipsis" :title="row.inquiryTitle ?? ''">
+          {{ row.inquiryTitle ?? "-" }}
+        </span>
+      </template>
+
       <template #cell-employeeName="{ row }">
-        {{ row.employeeName ?? "-" }}
+        {{ row.employeeName ? row.employeeName : "미지정" }}
       </template>
 
-      <template #cell-employeeLoginId="{ row }">
-        {{ row.employeeLoginId ?? "-" }}
-      </template>
-
+      <!-- 상세검색 폼: 입력만 (버튼 제거) -->
       <template #detail-form>
         <div class="detail-form">
           <div class="row">
@@ -250,11 +257,16 @@ onMounted(fetchList);
 
           <div class="row">
             <label>카테고리 코드</label>
-            <input
-                v-model="detailForm.inquiryCategoryCode"
-                placeholder="예: 1(문의), 2(클레임)"
-            />
+            <input v-model="detailForm.inquiryCategoryCode" placeholder="예: 1(문의), 2(클레임)" />
           </div>
+        </div>
+      </template>
+
+      <!-- 상세검색 하단 버튼: 여기만 사용 (ListView가 이 슬롯을 지원해야 함) -->
+      <template #detail-footer>
+        <div class="detail-footer">
+          <button type="button" class="btn" @click="onDetailReset">초기화</button>
+          <button type="button" class="btn btn--primary" @click="onDetailApply">적용</button>
         </div>
       </template>
     </ListView>
@@ -296,5 +308,34 @@ onMounted(fetchList);
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
+}
+
+.btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn--primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ellipsis {
+  display: inline-block;
+  max-width: 380px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
 }
 </style>
