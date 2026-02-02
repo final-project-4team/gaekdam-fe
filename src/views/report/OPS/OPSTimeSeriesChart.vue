@@ -11,13 +11,10 @@
       <button class="brush-toggle" :class="{ active: dragEnabled }" @click.stop="toggleBrush" :title="dragEnabled ? '브러시 끄기' : '브러시 켜기'">
         ⊞
       </button>
-      <div class="more-wrapper">
-        <button class="more-btn" @click.stop="menuOpen = !menuOpen">⋯</button>
-        <div v-if="menuOpen" class="more-dropdown" @click.stop>
-          <button class="dropdown-item" @click="onDownloadCSV">CSV 다운로드</button>
-          <button class="dropdown-item" @click="onDownloadImage">이미지 다운로드</button>
-        </div>
-      </div>
+      <!-- CSV / PNG 버튼: CustomerTypeDonut과 동일한 방식으로 표시 -->
+      <button class="toolbar-btn" @click.stop="onDownloadCSV">CSV</button>
+      <button class="toolbar-btn" @click.stop="onDownloadImage">PNG</button>
+
     </div>
     <div class="card-title">{{ widget.title }} <span v-if="pickUnitText(widget)">({{ pickUnitText(widget) }})</span></div>
     <!-- Chart.js는 canvas에 렌더링됩니다 -->
@@ -221,6 +218,8 @@ function buildConfig(widget){
       maintainAspectRatio: false,
       // zoom/pan 설정: 휠(마우스)/핀치(터치)로 확대/축소, 드래그로 pan
       plugins: {
+        // 데이터 라벨 표시를 명시적으로 비활성화하여 각 포인트 위에 숫자가 렌더링되는 것을 방지
+        datalabels: { display: false },
         zoom: {
           zoom: {
             wheel: { enabled: true },
@@ -447,4 +446,5 @@ canvas { display:block }
 .mode-switch { display:flex; gap:6px; margin-right:6px }
 .mode-btn { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; cursor:pointer }
 .mode-btn.active { background:#eef2ff; border-color:#6366f1 }
+.toolbar-btn { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; cursor:pointer; margin-left:6px }
 </style>
