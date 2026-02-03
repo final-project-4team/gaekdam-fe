@@ -12,8 +12,16 @@ import SystemLayout from '@/views/system/SystemLayout.vue'
 import VocLayout from '@/views/voc/VocLayout.vue'
 import TestView from '@/views/TestView.vue'
 import LoginView from '@/views/auth/LoginView.vue'
+import HealthTest from "@/views/HealthTest.vue";
 
 const routes = [
+
+    {
+        path: "/health-test",
+        name: "HealthTest",
+        component: HealthTest,
+    },
+
   {
     path: '/login',
     component: LoginView,
