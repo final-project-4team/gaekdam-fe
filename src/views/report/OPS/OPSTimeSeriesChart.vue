@@ -207,12 +207,94 @@ function buildConfig(widget){
     })
   }
 
+  // 원본 렌더링인 경우(max/min marker 표시)
+  const isOriginalView = !(isCumulativeWidget(widget) && cumulativeMode.value)
+  if (isOriginalView) {
+    try {
+      const vals = Array.isArray(numericData) ? numericData.slice() : []
+      let minVal = Infinity, maxVal = -Infinity, minIdx = -1, maxIdx = -1
+      for (let i = 0; i < vals.length; i++) {
+        const v = vals[i]
+        if (v === null || Number.isNaN(v)) continue
+        if (v > maxVal) { maxVal = v; maxIdx = i }
+        if (v < minVal) { minVal = v; minIdx = i }
+      }
+      const len = Math.max(labels.length, vals.length)
+      if (maxIdx >= 0) {
+        const maxArr = new Array(len).fill(null)
+        maxArr[maxIdx] = maxVal
+        datasets.push({
+          label: '최대',
+          data: maxArr,
+          fill: false,
+          showLine: false,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          backgroundColor: '#f59e0b',
+          borderColor: '#f59e0b',
+          spanGaps: true,
+          order: 2,
+          showValue: true,
+          valueColor: '#f59e0b'
+        })
+      }
+      if (minIdx >= 0 && minIdx !== maxIdx) {
+        const minArr = new Array(len).fill(null)
+        minArr[minIdx] = minVal
+        datasets.push({
+          label: '최소',
+          data: minArr,
+          fill: false,
+          showLine: false,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          backgroundColor: '#10b981',
+          borderColor: '#10b981',
+          spanGaps: true,
+          order: 2,
+          showValue: true,
+          valueColor: '#10b981'
+        })
+      }
+    } catch (e) { /* ignore marker errors */ }
+  }
+
+  const markerValuePlugin = {
+    id: 'markerValuePlugin',
+    afterDatasetsDraw: (chart) => {
+      try {
+        const ctx = chart.ctx
+        chart.data.datasets.forEach((ds, dsIndex) => {
+          if (!ds.showValue) return
+          const meta = chart.getDatasetMeta(dsIndex)
+          meta.data.forEach((el, idx) => {
+            const v = ds.data[idx]
+            if (v === null || v === undefined) return
+            const pos = el.getProps ? el.getProps(['x','y'], true) : { x: el.x, y: el.y }
+            const x = pos.x
+            const y = pos.y
+            ctx.save()
+            ctx.fillStyle = ds.valueColor || ds.borderColor || '#000'
+            ctx.font = '12px sans-serif'
+            ctx.textAlign = 'left'
+            ctx.textBaseline = 'middle'
+            let text = String(v)
+            try { if (typeof formatter === 'function') text = formatter(v) } catch (e) {}
+            ctx.fillText(text, x + 8, y)
+            ctx.restore()
+          })
+        })
+      } catch (e) { /* ignore drawing errors */ }
+    }
+  }
+
   return {
     type: 'line',
     data: {
       labels: labels,
       datasets: datasets
     },
+    plugins: [markerValuePlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -424,27 +506,12 @@ function resetZoom(){
 </script>
 
 <style scoped>
-/* 차트 카드 관련 스타일이 필요하면 여기에 */
-.card { padding: 12px; position: relative }
-.card-title { font-weight:700; margin-bottom:8px }
-canvas { display:block }
-.empty-state { height:220px; display:flex; align-items:center; justify-content:center; color:#9ca3af; font-size:14px }
-.more-menu { position: absolute; right: 10px; top: 10px; display:flex; align-items:center; gap:6px }
-.reset-btn { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; cursor:pointer }
-.reset-btn:hover { background:#f8fafc }
-.more-btn { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 8px; cursor: pointer }
-.more-wrapper { position: relative }
-.more-dropdown { position: absolute; right: 0; top: 36px; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 6px 12px rgba(0,0,0,0.06); border-radius: 6px; overflow: hidden }
-.dropdown-item { display: block; padding: 8px 12px; background: transparent; border: none; width: 160px; text-align: left; cursor: pointer }
-.dropdown-item:hover { background: #f8fafc }
-.reset-zoom { display:none }
-.dropdown-item.toggle { display:flex; align-items:center; justify-content:space-between }
-.dropdown-item.toggle .state { font-size:12px; color:#6b7280 }
-.dropdown-item.toggle.active { background:#eef2ff }
-.brush-toggle { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; margin-right:6px; cursor:pointer }
-.brush-toggle.active { background:#eef2ff; border-color:#6366f1 }
-.mode-switch { display:flex; gap:6px; margin-right:6px }
-.mode-btn { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; cursor:pointer }
-.mode-btn.active { background:#eef2ff; border-color:#6366f1 }
-.toolbar-btn { background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:6px 8px; cursor:pointer; margin-left:6px }
+.card { position:relative; padding:12px; border:1px solid #eee; border-radius:8px; background:#fff }
+.more-menu { position:absolute; top:10px; right:10px; display:flex; gap:6px; align-items:center }
+.mode-switch { display:flex; border-radius:6px; overflow:hidden; border:1px solid #e5e7eb }
+.mode-btn { padding:6px 8px; background:#fff; border:none; cursor:pointer }
+.mode-btn.active { background:#f3f4f6 }
+.reset-btn, .brush-toggle, .toolbar-btn { padding:6px 8px; border-radius:6px; border:1px solid #e5e7eb; background:#fff; cursor:pointer }
+.card-title { font-weight:700; margin-bottom:8px; font-size:14px }
+.empty-state { padding:24px; color:#9ca3af; text-align:center }
 </style>
