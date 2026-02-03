@@ -9,12 +9,48 @@
         :pageSize="pageSize"
         :total="total"
         show-search
+        show-detail
         @search="onSearch"
         @filter="onFilter"
         @sort-change="onSortChange"
         @page-change="onPageChange"
         @row-click="openDetail"
     >
+      <template #detail-form>
+        <div class="detail-card">
+          <div class="detail-grid">
+            <div class="f">
+              <label>기간 (From ~ To)</label>
+              <div class="range-inputs">
+                <input type="date" v-model="detailForm.fromDate" />
+                <span class="dash">~</span>
+                <input type="date" v-model="detailForm.toDate" />
+              </div>
+            </div>
+
+            <div class="f">
+              <label>처리상태</label>
+              <select v-model="detailForm.status">
+                <option value="">전체</option>
+                <option value="IN_PROGRESS">조치중</option>
+                <option value="CLOSED">종결</option>
+              </select>
+            </div>
+
+            <div class="f">
+              <label>심각도</label>
+              <select v-model="detailForm.severity">
+                <option value="">전체</option>
+                <option value="LOW">LOW</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="HIGH">HIGH</option>
+                <option value="CRITICAL">CRITICAL</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </template>
+
       <template #cell-incidentCode="{ row }">
         <span class="mono strong">{{ fmtIncidentNo(row.incidentCode) }}</span>
       </template>
@@ -34,13 +70,13 @@
       </template>
 
       <template #cell-incidentStatus="{ row }">
-        <span :class="['status-pill', row.incidentStatus]">
+        <span :class="['badge', `badge--${row.incidentStatus || 'NEUTRAL'}`]">
           {{ fmtStatus(row.incidentStatus) }}
         </span>
       </template>
 
       <template #cell-severity="{ row }">
-        <span :class="['sev-pill', row.severity]">
+        <span :class="['badge', `badge--${row.severity || 'NEUTRAL'}`]">
           {{ row.severity || "-" }}
         </span>
       </template>
@@ -69,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import ListView from "@/components/common/ListView.vue";
 import BaseButton from "@/components/common/button/BaseButton.vue";
 import IncidentCreateModal from "../modal/IncidentCreateModal.vue";
@@ -121,9 +157,16 @@ const pageSize = ref(10);
 
 const filterState = ref({ status: "", severity: "" });
 const sortState = ref({ sortBy: "created_at", direction: "DESC" });
-
-// ✅ inquiry처럼 key/value로 관리
 const searchState = ref({ key: "ALL", value: "" });
+
+// ✅ Detailed Search Form
+const defaultDetailForm = () => ({
+  fromDate: "",
+  toDate: "",
+  status: "",
+  severity: "",
+});
+const detailForm = ref(defaultDetailForm());
 
 const showCreate = ref(false);
 const showDetail = ref(false);
@@ -148,10 +191,19 @@ const buildParams = () => {
     direction: sortState.value.direction || "DESC",
   };
 
+  // 1. Simple Filter (Chip)
   if (filterState.value.status) params.status = filterState.value.status;
   if (filterState.value.severity) params.severity = filterState.value.severity;
 
-  // ✅ searchType은 항상 보냄(기본 ALL)
+  // 2. Detailed Form (Override or Merge) -> 여기서는 detailForm 값이 있으면 우선시
+  if (detailForm.value.status) params.status = detailForm.value.status;
+  if (detailForm.value.severity) params.severity = detailForm.value.severity;
+
+  // Date Range (Inquiry API 패턴: fromDate, toDate raw string)
+  if (detailForm.value.fromDate) params.fromDate = detailForm.value.fromDate;
+  if (detailForm.value.toDate) params.toDate = detailForm.value.toDate;
+
+  // 3. Search (Keyword)
   const searchType = t(searchState.value.key) || "ALL";
   const keyword = t(searchState.value.value);
 
@@ -175,6 +227,22 @@ const load = async () => {
 };
 
 onMounted(load);
+
+// ✅ Watch Detail Form (Debounce)
+let detailTimer = null;
+watch(
+    () => detailForm.value,
+    (newVal) => {
+      // 값 변경 시 페이지 1로
+      page.value = 1;
+
+      if (detailTimer) clearTimeout(detailTimer);
+      detailTimer = setTimeout(() => {
+        load();
+      }, 300);
+    },
+    { deep: true }
+);
 
 // ✅ payload 호환( key/type/searchType 모두 처리 )
 const onSearch = (payload) => {
@@ -298,9 +366,8 @@ const fmtStatus = (s) => {
   color: var(--text);
 }
 
-/* ====== List Pills (상세 모달 badge와 톤 통일) ====== */
-.status-pill,
-.sev-pill {
+/* ====== Badge (Inquiry/Incident 공통) ====== */
+.badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -308,7 +375,7 @@ const fmtStatus = (s) => {
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 900;
 
   border: 1px solid #e5e7eb;
   background: #f9fafb;
@@ -316,36 +383,41 @@ const fmtStatus = (s) => {
 
   white-space: nowrap;
 }
+.badge--NEUTRAL {
+  border-color: #e5e7eb;
+  background: #f9fafb;
+  color: #374151;
+}
 
 /* status */
-.status-pill.IN_PROGRESS {
+.badge--IN_PROGRESS {
   border-color: #dbeafe;
   background: #eff6ff;
   color: #1d4ed8;
 }
-.status-pill.CLOSED {
+.badge--CLOSED {
   border-color: #dcfce7;
   background: #f0fdf4;
   color: #15803d;
 }
 
 /* severity */
-.sev-pill.LOW {
+.badge--LOW {
   border-color: #dcfce7;
   background: #f0fdf4;
   color: #15803d;
 }
-.sev-pill.MEDIUM {
+.badge--MEDIUM {
   border-color: #dbeafe;
   background: #eff6ff;
   color: #1d4ed8;
 }
-.sev-pill.HIGH {
+.badge--HIGH {
   border-color: #ffe4c7;
   background: #fff7ed;
   color: #c2410c;
 }
-.sev-pill.CRITICAL {
+.badge--CRITICAL {
   border-color: #fecaca;
   background: #fff5f5;
   color: #b91c1c;
@@ -364,5 +436,67 @@ const fmtStatus = (s) => {
   background: linear-gradient(to top, rgba(255,255,255,0.98) 70%, rgba(255,255,255,0));
   border-top: 1px solid rgba(231, 237, 244, 0.7);
   backdrop-filter: blur(6px);
+}
+
+/* ====== Detailed Search Form (InquiryListView 톤) ====== */
+.detail-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+
+@media (max-width: 900px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}
+
+.f {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.f label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #374151;
+}
+
+.f input,
+.f select {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.f input:focus,
+.f select:focus {
+  border-color: #cfe3ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.range-inputs input {
+  flex: 1;
+}
+.dash {
+  font-weight: 800;
+  color: var(--muted);
 }
 </style>

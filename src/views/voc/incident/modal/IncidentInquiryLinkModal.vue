@@ -1,149 +1,128 @@
-<!-- src/views/incident/modal/IncidentInquiryLinkModal.vue -->
 <template>
   <BaseModal title="문의 선택" @close="$emit('close')">
-    <div class="picker">
+    <div class="wrap">
       <div class="search">
-        <!-- 현재 미연동이므로 disabled 처리 (API 붙이면 disabled/remove 하면 됨) -->
-        <input
-            v-model="keyword"
-            placeholder="문의번호/제목 검색 (준비중)"
-            disabled
-        />
-        <div class="icon">🔎</div>
+        <input v-model="keyword" placeholder="제목/내용 검색" @keyup.enter="search" />
+        <BaseButton type="primary" size="sm" @click="search">검색</BaseButton>
       </div>
 
-      <!-- ✅ 지금은 문의 API 미연동: 입력값으로 선택 가능하게 -->
-      <div class="empty">
-        <div class="box">
-          <div class="title">문의번호로 바로 연결</div>
-
-          <div class="inline">
-            <input
-                v-model.number="manualInquiryCode"
-                type="number"
-                min="1"
-                placeholder="문의번호 입력"
-                @keyup.enter="pickManual"
-            />
-            <BaseButton
-                type="primary"
-                size="sm"
-                @click="pickManual"
-                :disabled="!isValidManualCode"
-            >
-              선택
-            </BaseButton>
+      <div class="list">
+        <div
+            v-for="q in rows"
+            :key="q.inquiryCode"
+            class="item"
+            @click="select(q)"
+        >
+          <div class="top">
+            <div class="title">{{ q.inquiryTitle || "-" }}</div>
+            <div class="code">Q-{{ q.inquiryCode }}</div>
           </div>
+          <div class="sub">
+            <span>{{ q.customerName || "-" }}</span>
+            <span class="dot">·</span>
+            <span :class="statusClass(q.inquiryStatus)">{{ statusLabel(q.inquiryStatus) }}</span>
+          </div>
+        </div>
 
-          <p class="hint">※ 문의 조회 API 연결되면, 여기 결과 리스트로 선택하게 바뀝니다.</p>
+        <div v-if="!rows.length" class="empty">
+          <span v-if="!searched">검색어를 입력하세요.</span>
+          <span v-else>검색 결과가 없습니다.</span>
         </div>
       </div>
 
-      <div class="actions">
-        <BaseButton type="ghost" size="md" @click="$emit('close')">닫기</BaseButton>
+      <div class="paging">
+        <BaseButton type="ghost" size="sm" :disabled="page<=1" @click="prev">이전</BaseButton>
+        <span class="p">{{ page }}</span>
+        <BaseButton type="ghost" size="sm" :disabled="rows.length < size" @click="next">다음</BaseButton>
       </div>
     </div>
   </BaseModal>
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import BaseButton from "@/components/common/button/BaseButton.vue";
+import { fetchInquiriesForSelect } from "@/api/voc/inquiryApi.js";
 
 const emit = defineEmits(["close", "pick"]);
 
-const keyword = ref(""); // API 붙일 때 사용
-const manualInquiryCode = ref(null);
+const keyword = ref("");
+const rows = ref([]);
+const searched = ref(false);
 
-const isValidManualCode = computed(() => {
-  const n = Number(manualInquiryCode.value);
-  return Number.isInteger(n) && n > 0;
-});
+const page = ref(1);
+const size = ref(5);
 
-const pickManual = () => {
-  if (!isValidManualCode.value) return;
+const statusLabel = (s) => {
+  if (s === "IN_PROGRESS") return "접수";
+  if (s === "ANSWERED") return "답변완료";
+  return s || "-";
+};
 
-  emit("pick", Number(manualInquiryCode.value));
-  emit("close"); // 선택 후 닫기
+const statusClass = (s) => {
+  if (s === "IN_PROGRESS") return "st-ing";
+  if (s === "ANSWERED") return "st-done";
+  return "";
+};
+
+const search = async () => {
+  page.value = 1;
+  await load();
+};
+
+const load = async () => {
+  searched.value = true;
+  const res = await fetchInquiriesForSelect({
+    page: page.value,
+    size: size.value,
+    keyword: keyword.value || undefined,
+    sortBy: "created_at",
+    direction: "DESC",
+  });
+
+  const data = res.data?.data;
+  rows.value = data?.content ?? [];
+};
+
+const prev = async () => {
+  if (page.value <= 1) return;
+  page.value -= 1;
+  await load();
+};
+
+const next = async () => {
+  page.value += 1;
+  await load();
+};
+
+const select = (q) => {
+  emit("pick", q.inquiryCode);
+  emit("close");
 };
 </script>
 
 <style scoped>
-.picker {
-  width: 520px;
-  max-width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.search {
-  position: relative;
-}
-
+.wrap { display: flex; flex-direction: column; gap: 12px; min-height: 400px; }
+.search { display: flex; gap: 8px; align-items: center; }
 .search input {
-  width: 100%;
-  padding: 12px 42px 12px 12px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #f3f4f6;
-  color: #6b7280;
-  cursor: not-allowed;
+  flex: 1; padding: 9px 10px; border-radius: 10px;
+  border: 1px solid #e5e7eb; font-size: 14px;
 }
+.list { border: 1px solid #e7edf4; border-radius: 12px; overflow: hidden; flex: 1; display: flex; flex-direction: column; }
+.item { padding: 12px 14px; cursor: pointer; border-bottom: 1px solid #eef2f7; }
+.item:hover { background: #f9fafb; }
+.top { display: flex; justify-content: space-between; gap: 10px; }
+.title { font-weight: 800; font-size: 14px; }
+.code { font-weight: 800; color: #1d4ed8; font-size: 13px; }
+.sub { font-size: 12px; color: #6b7280; margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+.dot { opacity: .6; }
 
-.search .icon {
-  position: absolute;
-  right: 12px;
-  top: 10px;
-  opacity: 0.6;
-}
+/* Status colors */
+.st-ing { color: #1d4ed8; font-weight: 800; }
+.st-done { color: #15803d; font-weight: 800; }
 
-.empty {
-  min-height: 320px;
-  border-radius: 14px;
-  border: 1px dashed #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-}
-
-.box {
-  width: 100%;
-  max-width: 420px;
-  background: #f9fafb;
-  border: 1px solid #eef2f7;
-  border-radius: 14px;
-  padding: 16px;
-}
-
-.box .title {
-  font-weight: 800;
-  margin-bottom: 10px;
-}
-
-.inline {
-  display: flex;
-  gap: 10px;
-}
-
-.inline input {
-  flex: 1;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-}
-
-.hint {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.actions {
-  display: flex;
-  justify-content: center;
-}
+.empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 14px; }
+.paging { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: auto; }
+.p { font-weight: 800; font-size: 14px; }
 </style>

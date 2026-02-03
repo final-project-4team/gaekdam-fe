@@ -37,7 +37,7 @@ export function useCardSettingDnd({ lsKey, defaultCardSetting }) {
             if (Array.isArray(parsed) && parsed.length) {
                 cardSettings.value = normalizeCardSetting(parsed);
             }
-        } catch (e) {}
+        } catch (e) { }
     };
     loadCardSetting();
 
@@ -134,18 +134,25 @@ export function useCardSettingDnd({ lsKey, defaultCardSetting }) {
 
             const ghost = target.cloneNode(true);
             ghost.classList.add("drag-ghost");
+            // Basic styles to ensure visibility
+            ghost.style.position = 'absolute';
+            ghost.style.top = '-9999px';
             ghost.style.width = `${target.getBoundingClientRect().width}px`;
+            ghost.style.opacity = '1';
+            ghost.style.background = '#fff';
             document.body.appendChild(ghost);
 
             const rect = target.getBoundingClientRect();
-            const offsetX = Math.min(24, rect.width / 4);
-            const offsetY = Math.min(18, rect.height / 2);
+            // Center the grab point roughly
+            const offsetX = rect.width / 2;
+            const offsetY = rect.height / 2;
+
             e.dataTransfer.setDragImage(ghost, offsetX, offsetY);
 
             setTimeout(() => {
                 if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
             }, 0);
-        } catch (_) {}
+        } catch (_) { }
     };
 
     const onDragStart = (e, id, column) => {
@@ -153,25 +160,25 @@ export function useCardSettingDnd({ lsKey, defaultCardSetting }) {
         overState.value = { column, index: null };
 
         e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.dropEffect = "move";
         e.dataTransfer.setData("text/plain", String(id));
         createDragGhost(e);
     };
 
-    const onDragEnter = (column, index) => {
-        if (!dragState.value.id || dragState.value.column !== column) return;
-        overState.value = { column, index };
-    };
+    // simplified - no op, using dragOver instead
+    const onDragEnter = (column, index) => { };
 
     const onDragOver = (column, index) => {
         if (!dragState.value.id || dragState.value.column !== column) return;
+
+        // Critical for performance: do not update if same
+        if (overState.value.column === column && overState.value.index === index) return;
+
         overState.value = { column, index };
     };
 
     const onDragLeave = (column, index) => {
-        if (!dragState.value.id) return;
-        if (overState.value.column === column && overState.value.index === index) {
-            overState.value = { column: dragState.value.column, index: null };
-        }
+        // Removed to prevent flickering when moving between items
     };
 
     const applyOrder = (orderedList) => {
@@ -189,13 +196,34 @@ export function useCardSettingDnd({ lsKey, defaultCardSetting }) {
         if (fromIndex < 0) return;
 
         const toIndex = Math.max(0, Math.min(targetIndex, list.length));
+
+        // If dropping on itself or same position, just reset
+        if (fromIndex === toIndex || fromIndex === toIndex - 1) {
+            onDragEnd();
+            return;
+        }
+
         const [moved] = list.splice(fromIndex, 1);
-        list.splice(toIndex, 0, moved);
 
+        // Simplified Logic:
+        // We are dropping at 'toIndex'.
+        // If fromIndex < toIndex, we need to adjust because removal of 'from' shifted indices down.
+        const insertionIndex = (fromIndex < toIndex) ? toIndex - 1 : toIndex;
+
+        list.splice(insertionIndex, 0, moved);
+
+        // Re-assign to main list
         applyOrder(list);
-        reflowColumn(column);
 
-        overState.value = { column, index: null };
+        // Now update cardSettingsDraft items to match these new orders
+        list.forEach(item => {
+            const found = cardSettingsDraft.value.find(x => x.id === item.id);
+            if (found) found.order = item.order;
+        });
+
+        reflowColumn(column); // re-sorts just in case
+
+        onDragEnd();
     };
 
     const onDragEnd = () => {

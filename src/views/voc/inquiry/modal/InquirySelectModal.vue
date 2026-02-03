@@ -20,7 +20,7 @@
           <div class="sub">
             <span>{{ q.customerName || "-" }}</span>
             <span class="dot">·</span>
-            <span>{{ q.inquiryStatus || "-" }}</span>
+            <span :class="statusClass(q.inquiryStatus)">{{ statusLabel(q.inquiryStatus) }}</span>
           </div>
         </div>
 
@@ -49,6 +49,18 @@ const rows = ref([]);
 
 const page = ref(1);
 const size = ref(10);
+
+const statusLabel = (s) => {
+  if (s === "IN_PROGRESS") return "접수";
+  if (s === "ANSWERED") return "답변완료";
+  return s || "-";
+};
+
+const statusClass = (s) => {
+  if (s === "IN_PROGRESS") return "st-ing";
+  if (s === "ANSWERED") return "st-done";
+  return "";
+};
 
 const search = async () => {
   page.value = 1;
@@ -97,6 +109,11 @@ const select = (q) => emit("select", q);
 .code { font-weight: 800; color: #1d4ed8; }
 .sub { font-size: 12px; color: #6b7280; margin-top: 4px; display: flex; gap: 8px; align-items: center; }
 .dot { opacity: .6; }
+
+/* Status colors */
+.st-ing { color: #1d4ed8; font-weight: 800; }
+.st-done { color: #15803d; font-weight: 800; }
+
 .empty { padding: 14px; text-align: center; color: #6b7280; }
 .paging { display: flex; justify-content: center; align-items: center; gap: 10px; }
 .p { font-weight: 800; }
