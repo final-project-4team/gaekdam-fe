@@ -290,7 +290,7 @@ async function confirmDelete(){
   const id = selectedLayoutId.value
 
   console.log('Delete layout id' + id)
-  
+
   // 이전: if (!id) { ... } 형태는 id가 0일 때도 삭제를 막음
   // 수정: id가 null 또는 undefined 일 때만 조기 종료
   if (id === null || id === undefined) {
