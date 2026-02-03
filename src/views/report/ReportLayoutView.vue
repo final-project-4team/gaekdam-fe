@@ -101,6 +101,7 @@ import TemplateGrid from '@/components/report/TemplateGrid.vue'
 import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실운영 템플릿
 import CUSTTemplateGrid from '@/views/report/CUST/CUSTTemplateGrid.vue' // 고객현황 템플릿
 import CXTemplateGrid from '@/views/report/CX/CXTemplateGrid.vue' // 고객경험 템플릿
+import REVTemplateGrid from '@/views/report/REV/REVTemplateGrid.vue' // 예약및매출 템플릿
 import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
 import TemplateList from '@/components/report/TemplateList.vue'
 import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
@@ -329,6 +330,7 @@ const gridComponent = computed(() => {
   if (tplId === 2) return OPSTemplateGrid
   if (tplId === 3) return CUSTTemplateGrid
   if (tplId === 4) return CXTemplateGrid
+  if (tplId === 5) return REVTemplateGrid
   return TemplateGrid
 })
 
