@@ -8,13 +8,12 @@ import api from '@/api/axios'
  * - t alias 기준
  */
 const OPERATION_SORT_KEY_MAP = {
-    reservationNo: 't.reservationCode',
-    propertyName: 't.propertyName',
-    customerName: 't.customerNameHash',
-    roomType: 't.roomType',
-    checkinDate: 't.plannedCheckinDate',
-    checkoutDate: 't.plannedCheckoutDate',
-    status: 't.operationStatus',
+    reservationNo: 'r.reservation_code',
+    propertyName: 'p.property_name',
+    customerName: 'c.customer_name_hash',
+    roomType: 'rt.type_name',
+    checkinDate: 'r.checkin_date',
+    checkoutDate: 'r.checkout_date',
 }
 
 /**

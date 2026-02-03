@@ -281,9 +281,13 @@ watch(
 /* ===================== */
 const onFilter = (values) => {
   filterValues.value = {
-    propertyCode: values.propertyCode ?? null,
-    status: values.status ?? null,
+    propertyCode:
+        values.propertyCode !== '' ? values.propertyCode : null,
+
+    status:
+        values.status !== '' ? values.status : null,
   }
+
   page.value = 1
   loadOperationBoard()
 }

@@ -141,10 +141,9 @@ const onFilter = async (values) => {
 const sortState = ref({})
 
 const TODAY_SORT_KEY_MAP = {
-  reservationCode: 't.reservationCode',
-  customerName: 't.customerNameHash',
-  plannedCheckinDate: 't.plannedCheckinDate',
-  plannedCheckoutDate: 't.plannedCheckoutDate',
+  reservationCode: 'r.reservation_code',
+  plannedCheckinDate: 'r.checkin_date',
+  plannedCheckoutDate: 'r.checkout_date',
 }
 
 /* ===================== */
@@ -186,7 +185,7 @@ const detail = reactive({
 /* Columns */
 const columns = [
   { key: 'reservationCode', label: '예약번호' ,sortable: true },
-  { key: 'customerName', label: '고객명',sortable: true },
+  { key: 'customerName', label: '고객명',sortable: false },
   { key: 'roomType', label: '객실유형' },
   { key: 'plannedCheckinDate', label: '체크인 예정',sortable: true },
   { key: 'plannedCheckoutDate', label: '체크아웃 예정',sortable: true },
