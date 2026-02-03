@@ -28,7 +28,7 @@
             </select>
 
             <select v-if="periodType === '월간'" v-model="selectedMonth" @change="applyPeriodAndReload">
-              <option v-for="m in months" :key="m" :value="m">{{ m }}월</option>
+              <option v-for="m in months" :key="m" :value="m.padStart(2,'0')">{{ m.padStart(2,'0') }}월</option>
             </select>
 
             <BaseButton type="primary" size="sm" @click="shareReport">공유</BaseButton>
@@ -46,13 +46,17 @@
       @close="showCreateLayout = false"
       @create="async (payload) => {
         try {
-          // 생성시 기본 조회 권한을 'PRIVATE'으로 강제하여
-          // 만든 사용자만 볼 수 있도록 변경
-          // 이름이 비어있거나 기존 이름과 겹치면 자동으로 다음 이름을 생성
-          let desiredName = payload?.name?.trim()
-          // if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
-          //   desiredName = generateNextLayoutName()
-          // }
+          // 입력값 검증: 이름 비어있음 또는 기존 이름과 중복일 경우 토스트 표시 후 중단
+          const desiredNameRaw = payload?.name ?? ''
+          const desiredName = String(desiredNameRaw).trim()
+          if (!desiredName) {
+            toast?.showToast('레이아웃 이름을 입력해주세요.', 'error')
+            return
+          }
+          if (layouts.some(l => (l.name || '').trim() === desiredName)) {
+            toast?.showToast('이미 존재하는 레이아웃 이름입니다.', 'error')
+            return
+          }
 
           const createPayload = {
             ...payload,
@@ -60,10 +64,10 @@
             visibilityScope: 'PRIVATE',
             employeeCode: auth?.employeeCode ?? 1,
             isDefault: false,
-            dateRangePreset: periodType.value === '월간' ? 'MONTH' : 'YEAR',
+            dateRangePreset: periodType === '월간' ? 'MONTH' : 'YEAR',
             defaultFilterJson: {
-              periodType: periodType.value === '월간' ? 'MONTH' : 'YEAR',
-              period: periodType.value === '월간' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
+              periodType: periodType === '월간' ? 'MONTH' : 'YEAR',
+              period: periodType === '월간' ? `${selectedYear}-${String(selectedMonth).padStart(2,'0')}` : `${selectedYear}`
             }
           }
           await createLayout(createPayload)
@@ -101,6 +105,7 @@ import TemplateGrid from '@/components/report/TemplateGrid.vue'
 import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실운영 템플릿
 import CUSTTemplateGrid from '@/views/report/CUST/CUSTTemplateGrid.vue' // 고객현황 템플릿
 import CXTemplateGrid from '@/views/report/CX/CXTemplateGrid.vue' // 고객경험 템플릿
+import REVTemplateGrid from '@/views/report/REV/REVTemplateGrid.vue' // 예약및매출 템플릿
 import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
 import TemplateList from '@/components/report/TemplateList.vue'
 import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
@@ -108,6 +113,7 @@ import CreateTemplateModal from '@/components/report/modals/CreateTemplateModal.
 import ConfirmModal from '@/components/report/modals/ConfirmModal.vue'
 import { useReportLayouts } from '@/composables/useReportLayouts'
 import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/stores/toastStore'
 
 // composable state & actions
 const {
@@ -132,6 +138,18 @@ const {
 } = useReportLayouts()
 
 const auth = useAuthStore?.()
+const toast = useToastStore?.()
+
+// 기본 기간을 월간(2026-01)으로 설정
+// composable에서 반환된 ref이므로 스크립트 안에서는 .value로 설정합니다.
+try {
+  periodType.value = '월간'
+  selectedYear.value = '2026'
+  selectedMonth.value = '01'
+} catch (e) {
+  // 안전하게 실패 무시
+  console.warn('기본 기간 설정 실패', e)
+}
 
 // local UI state (modals / loading)
 const creatingLayout = ref(false)
@@ -172,9 +190,22 @@ async function handleCreateLayout(){
     const employeeCode = auth?.employeeCode ?? 1
     const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
     const period = preset === 'MONTH' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
+    // 입력값 검증
+    const desiredName = (newLayoutName.value || '').trim()
+    if (!desiredName) {
+      toast?.showToast('레이아웃 이름을 입력해주세요.', 'error')
+      creatingLayout.value = false
+      return
+    }
+    if (layouts.value.some(l => (l.name || '').trim() === desiredName)) {
+      toast?.showToast('이미 존재하는 레이아웃 이름입니다.', 'error')
+      creatingLayout.value = false
+      return
+    }
+
     const payload = {
       employeeCode,
-      name: newLayoutName.value || `레이아웃 ${layouts.value.length + 1}`,
+      name: desiredName,
       description: newLayoutDescription.value,
       isDefault: false,
       visibilityScope: selectedVisibility.value,
@@ -258,6 +289,19 @@ async function confirmAddTemplate(tpl){
   creatingTemplate.value = true
   try{
     const layoutIndex = selectedIndex.value
+    const layout = layouts.value[layoutIndex]
+    // 중복 확인: templateId 기준 우선, 없으면 displayName 기준
+    const exists = !!(layout?.templates?.some(t => {
+      if (t.templateId !== undefined && t.templateId !== null) return t.templateId === tpl.templateId
+      const tName = (t.name || t.displayName || '').trim()
+      return tName && tName === (tpl.displayName || '').trim()
+    }))
+    if (exists) {
+      toast?.showToast('이미 존재하는 템플릿입니다.', 'error')
+      creatingTemplate.value = false
+      return
+    }
+
     const dto = { templateId: tpl.templateId, displayName: tpl.displayName, sortOrder: tpl.sortOrder, isActive: tpl.isActive }
     await addTemplate(layoutIndex, dto, auth?.employeeCode ?? 1)
     showCreateTemplate.value = false
@@ -329,6 +373,7 @@ const gridComponent = computed(() => {
   if (tplId === 2) return OPSTemplateGrid
   if (tplId === 3) return CUSTTemplateGrid
   if (tplId === 4) return CXTemplateGrid
+  if (tplId === 5) return REVTemplateGrid
   return TemplateGrid
 })
 
