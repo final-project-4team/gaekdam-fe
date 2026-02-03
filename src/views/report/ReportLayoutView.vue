@@ -50,9 +50,9 @@
           // 만든 사용자만 볼 수 있도록 변경
           // 이름이 비어있거나 기존 이름과 겹치면 자동으로 다음 이름을 생성
           let desiredName = payload?.name?.trim()
-          if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
-            desiredName = generateNextLayoutName()
-          }
+          // if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
+          //   desiredName = generateNextLayoutName()
+          // }
 
           const createPayload = {
             ...payload,
@@ -100,6 +100,7 @@ import BaseButton from '@/components/common/button/BaseButton.vue'
 import TemplateGrid from '@/components/report/TemplateGrid.vue'
 import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실운영 템플릿
 import CUSTTemplateGrid from '@/views/report/CUST/CUSTTemplateGrid.vue' // 고객현황 템플릿
+import CXTemplateGrid from '@/views/report/CX/CXTemplateGrid.vue' // 고객경험 템플릿
 import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
 import TemplateList from '@/components/report/TemplateList.vue'
 import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
@@ -324,9 +325,10 @@ const gridComponent = computed(() => {
   // selectedTemplate은 composable에서 제공되는 ref나 reactive 객체일 수 있으므로 안전하게 접근
   const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
   const tplId = tpl?.templateId ?? tpl?.id
-  // templateId에 따라 전용 그리드 컴포넌트를 선택 (2: OPS, 3: CUST)
+  // templateId에 따라 전용 그리드 컴포넌트를 선택 (2: OPS, 3: CUST, 4: CX)
   if (tplId === 2) return OPSTemplateGrid
   if (tplId === 3) return CUSTTemplateGrid
+  if (tplId === 4) return CXTemplateGrid
   return TemplateGrid
 })
 
