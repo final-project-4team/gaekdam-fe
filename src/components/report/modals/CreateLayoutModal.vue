@@ -3,7 +3,7 @@
     <div class="create-layout-form">
       <div class="form-row">
         <label class="form-label">레이아웃 이름</label>
-        <input v-model="name" placeholder="레이아웃 이름" />
+        <input v-model="name" placeholder="ex. 객실운영 레이아웃" />
       </div>
 
       <!-- 조회 권한 선택 제거: 생성되는 레이아웃은 기본적으로 본인만 볼 수 있도록 변경 -->
@@ -12,12 +12,12 @@
         <label class="form-label">내용</label>
         <textarea v-model="description" rows="5" placeholder="레이아웃에 대한 설명을 입력하세요"></textarea>
       </div>
-
-      <div style="margin-top:12px; text-align:right">
-        <BaseButton @click="$emit('close')">취소</BaseButton>
-        <BaseButton type="primary" @click="handleCreate" style="margin-left:8px">생성</BaseButton>
-      </div>
     </div>
+
+    <template #footer>
+      <BaseButton @press="handleClose">취소</BaseButton>
+      <BaseButton type="primary" @press="handleCreate" style="margin-left:8px">생성</BaseButton>
+    </template>
   </BaseModal>
 </template>
 
@@ -50,11 +50,29 @@ watch(() => props.initial, (v) => {
   description.value = v?.description || ''
 })
 
+// When modal becomes visible, reset fields to show placeholders unless initial values provided
+watch(() => props.visible, (visible) => {
+  if (visible) {
+    name.value = props.initial?.name || ''
+    description.value = props.initial?.description || ''
+  }
+})
+
+function handleClose(){
+  emit('close')
+  // clear inputs so next open shows placeholders
+  name.value = ''
+  description.value = ''
+}
+
 function handleCreate(){
   // visibilityScope는 부모에서 강제로 'PRIVATE'으로 설정하여
   // 생성된 레이아웃이 기본적으로 만든 사람만 볼 수 있도록 처리합니다.
   const payload = { name: name.value, description: description.value }
   emit('create', payload)
+  // clear after emit so inputs don't persist
+  name.value = ''
+  description.value = ''
 }
 </script>
 
@@ -64,5 +82,5 @@ function handleCreate(){
 .form-label { width:110px; color:#374151; font-weight:600 }
 .radio-group { display:flex; gap:12px; align-items:center }
 .radio-group label { display:flex; gap:6px; align-items:center }
-.create-layout-form input[type="text"], .create-layout-form textarea { flex:1; padding:8px; border:1px solid #e5e7eb; border-radius:6px }
+.create-layout-form input[type="text"], .create-layout-form textarea { flex:1; min-width:520px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px }
 </style>
