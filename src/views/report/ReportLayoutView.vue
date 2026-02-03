@@ -50,9 +50,9 @@
           // 만든 사용자만 볼 수 있도록 변경
           // 이름이 비어있거나 기존 이름과 겹치면 자동으로 다음 이름을 생성
           let desiredName = payload?.name?.trim()
-          if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
-            desiredName = generateNextLayoutName()
-          }
+          // if (!desiredName || layouts.value.some(l => (l.name || '').trim() === desiredName)) {
+          //   desiredName = generateNextLayoutName()
+          // }
 
           const createPayload = {
             ...payload,
