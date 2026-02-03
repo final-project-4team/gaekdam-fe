@@ -5,7 +5,7 @@ import {
     getCustomerSnapshotApi,
     getCustomerTimelineApi,
 } from "@/api/customer/customerDetailApi.js";
-
+import { getInquiryListApi } from "@/api/voc/inquiryApi.js";
 import { formatDate, formatPhone } from "@/views/customer/utils/customerDetail.utils.js";
 
 export const useCustomerDetailPage = ({ hotelGroupCode, customerCode } = {}) => {
@@ -33,6 +33,7 @@ export const useCustomerDetailPage = ({ hotelGroupCode, customerCode } = {}) => 
     });
 
     const timelineItems = ref([]);
+    const recentInquiries = ref([]); // 최근 문의/클레임(최근 3건)
 
     const loadDetail = async () => {
         if (!hotelGroupCode?.value || !customerCode?.value) return;
@@ -75,8 +76,23 @@ export const useCustomerDetailPage = ({ hotelGroupCode, customerCode } = {}) => 
         }));
     };
 
+    const loadRecentInquiries = async () => {
+        if (!hotelGroupCode?.value || !customerCode?.value) return;
+
+        const res = await getInquiryListApi({
+            size: 3,
+            offset: 0,
+            sortBy: "created_at",
+            direction: "DESC",
+            customerCode: customerCode.value,
+            hotelGroupCode: hotelGroupCode.value, // 누락 방지
+        });
+
+        recentInquiries.value = res.data?.data?.content ?? [];
+    };
+
     const loadAllCore = async () => {
-        await Promise.all([loadDetail(), loadSnapshot(), loadTimeline()]);
+        await Promise.all([loadDetail(), loadSnapshot(), loadTimeline(), loadRecentInquiries()]);
     };
 
     // UI computed
@@ -97,17 +113,13 @@ export const useCustomerDetailPage = ({ hotelGroupCode, customerCode } = {}) => 
     });
 
     const primaryPhone = computed(() => {
-        const p = detail.value.contacts?.find(
-            (c) => c.contactType === "PHONE" && c.isPrimary
-        );
+        const p = detail.value.contacts?.find((c) => c.contactType === "PHONE" && c.isPrimary);
         const raw = p?.contactValue || detail.value.primaryPhone || "";
         return formatPhone(raw) || "-";
     });
 
     const primaryEmail = computed(() => {
-        const p = detail.value.contacts?.find(
-            (c) => c.contactType === "EMAIL" && c.isPrimary
-        );
+        const p = detail.value.contacts?.find((c) => c.contactType === "EMAIL" && c.isPrimary);
         return p?.contactValue || detail.value.primaryEmail || "-";
     });
 
@@ -135,11 +147,13 @@ export const useCustomerDetailPage = ({ hotelGroupCode, customerCode } = {}) => 
     });
 
     const timelineTop5 = computed(() => (timelineItems.value ?? []).slice(0, 5));
+    const inquiriesTop3 = computed(() => (recentInquiries.value ?? []).slice(0, 3)); // 화면용
 
     return {
         detail,
         snapshot,
         timelineItems,
+        recentInquiries,
 
         badges,
         chips,
@@ -148,10 +162,12 @@ export const useCustomerDetailPage = ({ hotelGroupCode, customerCode } = {}) => 
         membership,
         loyalty,
         timelineTop5,
+        inquiriesTop3,
 
         // loaders
         loadAllCore,
         loadAll: loadAllCore,
         loadTimeline,
+        loadRecentInquiries,
     };
 };

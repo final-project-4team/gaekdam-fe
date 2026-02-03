@@ -1,6 +1,6 @@
 // src/test/views/voc/inquiry/view/InquiryListView.test.js
 import { mount, flushPromises } from "@vue/test-utils";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import InquiryListView from "@/views/voc/inquiry/view/InquiryListView.vue";
 import { getInquiryListApi } from "@/api/voc/inquiryApi.js";
@@ -57,7 +57,6 @@ const ListViewStub = {
         <button class="emit-filter" @click="$emit('filter', { status: 'IN_PROGRESS', inquiryCategoryCode: '2' })">emit-filter</button>
         <button class="emit-sort" @click="$emit('sort-change', { sortBy: 'createdAt', direction: 'ASC' })">emit-sort</button>
         <button class="emit-page" @click="$emit('page-change', 3)">emit-page</button>
-        <button class="emit-detail-apply" @click="$emit('detail-apply')">emit-detail-apply</button>
         <button class="emit-detail-reset" @click="$emit('detail-reset')">emit-detail-reset</button>
 
         <button class="emit-update-detail"
@@ -98,6 +97,10 @@ const mockPage = (overrides = {}) => ({
 describe("InquiryListView", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it("mount 시 기본 파라미터로 목록 API 호출하고 rows/total 세팅", async () => {
@@ -203,10 +206,12 @@ describe("InquiryListView", () => {
         expect(params).toMatchObject({ page: 3 });
     });
 
-    it("detail v-model 업데이트 + detail-apply 하면 from/to/property/category 반영해서 API 호출", async () => {
+    it("detail v-model 업데이트 하면(디바운스 후) from/to/property/category 반영해서 API 호출", async () => {
+        vi.useFakeTimers();
+
         getInquiryListApi
-            .mockResolvedValueOnce(mockPage())
-            .mockResolvedValueOnce(mockPage({ content: [], totalElements: 0 }));
+            .mockResolvedValueOnce(mockPage()) // mount 1회
+            .mockResolvedValueOnce(mockPage({ content: [], totalElements: 0 })); // detail 변경 후 1회
 
         const wrapper = mount(InquiryListView, {
             global: { stubs: { ListView: ListViewStub, InquiryDetailModal: InquiryDetailModalStub, teleport: true } },
@@ -215,10 +220,11 @@ describe("InquiryListView", () => {
         await flushPromises();
 
         await wrapper.find("button.emit-update-detail").trigger("click");
+
+        vi.advanceTimersByTime(500);
         await flushPromises();
 
-        await wrapper.find("button.emit-detail-apply").trigger("click");
-        await flushPromises();
+        expect(getInquiryListApi).toHaveBeenCalledTimes(2);
 
         const params = getInquiryListApi.mock.calls[1][0];
         expect(params).toMatchObject({
