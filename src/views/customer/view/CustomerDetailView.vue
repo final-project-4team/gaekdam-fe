@@ -231,6 +231,10 @@
                 <span class="info-value">{{ formatDate(membership.joinedAt) }}</span>
               </div>
               <div class="info-row">
+                <span class="info-label">산정일</span>
+                <span class="info-value">{{ formatDate(membership.calculatedAt) }}</span>
+              </div>
+              <div class="info-row">
                 <span class="info-label">만료일</span>
                 <span class="info-value">{{ formatDate(membership.expiredAt) }}</span>
               </div>
@@ -256,10 +260,7 @@
                   {{ loyalty.loyaltyStatus || "-" }}
                 </span>
               </div>
-              <div class="info-row">
-                <span class="info-label">가입일</span>
-                <span class="info-value">{{ formatDate(loyalty.joinedAt) }}</span>
-              </div>
+
               <div class="info-row">
                 <span class="info-label">산정일</span>
                 <span class="info-value">{{ formatDate(loyalty.calculatedAt) }}</span>
@@ -318,7 +319,9 @@
           </div>
           <div class="form-group">
             <label>만료일</label>
-            <input type="date" v-model="membershipChange.expiredAt" class="input-base" />
+            <select v-model="membershipChange.expiredAt" class="input-base">
+              <option v-for="date in expirationDateOptions" :key="date" :value="date">{{ date }}</option>
+            </select>
           </div>
           <div class="form-group full-width">
             <label>변경 사유</label>
@@ -734,14 +737,29 @@ const membershipChange = ref({
 
 import { getMyPage } from "@/api/setting/employeeApi.js";
 
+const expirationDateOptions = computed(() => {
+  const current = new Date().getFullYear();
+  return Array.from({ length: 6 }, (_, i) => `${current + i}-12-31`);
+});
+
 const onMembershipChange = () => {
   withPermission('CUSTOMER_UPDATE', async () => {
     await loadMembershipGrades();
-    const currentExpiredYmd = toYmd(membership.value?.expiredAt) || "";
+
+    // Calculate current or default expiration date (always ending in 12-31)
+    const currentExpired = new Date(membership.value?.expiredAt);
+    let defaultYear = new Date().getFullYear();
+    if (!isNaN(currentExpired.getTime())) {
+      defaultYear = currentExpired.getFullYear();
+    }
+    const defaultDate = `${defaultYear}-12-31`;
+
     membershipChange.value = {
       membershipGradeCode: null,
       membershipStatus: membership.value?.membershipStatus || "ACTIVE",
-      expiredAt: currentExpiredYmd, changeReason: "", employeeCode: null,
+      expiredAt: defaultDate,
+      changeReason: "",
+      employeeCode: null,
     };
 
     // ✅ Auto-fill using getMyPage
@@ -765,7 +783,8 @@ const submitMembershipChange = async () => {
     const payload = {
       membershipGradeCode: Number(membershipChange.value.membershipGradeCode),
       membershipStatus: membershipChange.value.membershipStatus,
-      expiredAt: membershipChange.value.expiredAt ? `${membershipChange.value.expiredAt}T00:00:00` : null,
+      // expiredAt is already "YYYY-12-31", just append time
+      expiredAt: membershipChange.value.expiredAt ? `${membershipChange.value.expiredAt}T23:59:59` : null,
       changeReason: (membershipChange.value.changeReason || "").trim(),
       employeeCode: Number(membershipChange.value.employeeCode),
     };
@@ -809,6 +828,8 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   font-family: Pretendard, sans-serif;
   color: var(--text-main);
 }
+
+
 
 /* Header */
 .detail-header {
