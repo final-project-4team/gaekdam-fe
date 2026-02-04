@@ -1,6 +1,6 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import SystemMyPage from "@/views/system/SystemMyPage.vue";
+import MyPage from "@/views/myPage/MyPage.vue";
 
 /** -----------------------------
  *  mocks
@@ -29,7 +29,7 @@ const BaseButtonStub = {
     template: `<button @click="$emit('click')"><slot/></button>`
 };
 
-describe("SystemMyPage", () => {
+describe("MyPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         global.alert = vi.fn();
@@ -50,7 +50,7 @@ describe("SystemMyPage", () => {
     });
 
     const mountComponent = () => {
-        return mount(SystemMyPage, {
+        return mount(MyPage, {
             global: {
                 stubs: {
                     BaseButton: BaseButtonStub

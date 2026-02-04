@@ -41,7 +41,9 @@ import {
 } from '@/api/message/messageSendHistoryApi'
 import { getPropertyListByHotelGroupApi } from '@/api/property/propertyApi'
 import { getMessageJourneyStagesApi } from '@/api/message/messageStageApi'
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
+const { withPermission } = usePermissionGuard();
 const STATUS_LABEL = {
   SCHEDULED: '예약됨',
   SENT: '발송완료',
@@ -126,9 +128,11 @@ const loadHistories = async () => {
 }
 
 const openDetail = async (row) => {
-  const res = await getMessageSendHistoryDetailApi(row.sendCode)
-  selectedDetail.value = res.data.data
-  showDrawer.value = true
+  withPermission('MESSAGE_READ',  async () => {
+    const res = await getMessageSendHistoryDetailApi(row.sendCode)
+    selectedDetail.value = res.data.data
+    showDrawer.value = true
+  });
 }
 
 const closeDrawer = () => {

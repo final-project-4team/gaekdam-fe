@@ -96,18 +96,46 @@
         </div>
       </div>
     </section>
+
+    <!-- 결과 모달 -->
+    <BaseModal 
+      v-if="isModalOpen" 
+      :title="modalTitle" 
+      @close="closeModal"
+    >
+      <div class="modal-content-text">
+        {{ modalMessage }}
+      </div>
+      <template #footer>
+        <BaseButton type="primary" @click="closeModal">확인</BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/stores/authStore.js";
 import {getMyPage} from "@/api/setting/employeeApi.js";
 import { changePassword } from "@/api/system/myPageApi.js";
 import BaseButton from "@/components/common/button/BaseButton.vue";
+import BaseModal from "@/components/common/modal/BaseModal.vue";
 
 const saving = ref(false);
 const authStore = useAuthStore();
+const isModalOpen = ref(false);
+const modalTitle = ref("");
+const modalMessage = ref("");
+
+const openModal = (title, message) => {
+  modalTitle.value = title;
+  modalMessage.value = message;
+  isModalOpen.value = true;
+};
+
+const closeModal = () => {
+  isModalOpen.value = false;
+};
 const myInfo = ref({
   loginId: '',
   name: '',
@@ -180,17 +208,19 @@ const onChangePassword = async () => {
   // 3. 잠금 시작
 
   try {
-      const password=ref("");
       const samplePassword=await changePassword({
       currentPassword: passwordForm.value.currentPassword,
       newPassword: passwordForm.value.newPassword
     });
-      password.value=samplePassword.data;
-    alert(password.value);
+    
+    // 성공 시 모달 오픈
+    openModal("알림", samplePassword.data);
+    
     passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' };
   } catch (e) {
     console.error("비밀번호 변경 실패", e);
-    alert("비밀번호 변경에 실패했습니다.");
+    const errorMsg = e.response?.data.message || "비밀번호 변경에 실패했습니다.";
+    openModal("오류", errorMsg);
   } finally {
     // 4. 잠금 해제 (항상 실행)
     saving.value = false;
@@ -301,5 +331,13 @@ input.read-only {
   color: #ef4444;
   font-size: 12px;
   margin-top: 4px;
+}
+
+.modal-content-text {
+  font-size: 15px;
+  color: #374151;
+  text-align: center;
+  padding: 20px 0;
+  white-space: pre-wrap;
 }
 </style>

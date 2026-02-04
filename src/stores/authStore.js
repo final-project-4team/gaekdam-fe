@@ -1,6 +1,6 @@
-import {ref, computed} from "vue";
-import {defineStore} from "pinia";
-import {jwtDecode} from "jwt-decode";
+import { ref, computed } from "vue";
+import { defineStore } from "pinia";
+import { jwtDecode } from "jwt-decode";
 import {
   loginApi,
   refreshApi,
@@ -8,7 +8,7 @@ import {
   getMyPermissionsApi
 } from "@/api/auth/authApi";
 import router from "@/router";
-import {getMyPropertyApi} from "@/api/property/propertyApi.js";
+import { getMyPropertyApi } from "@/api/property/propertyApi.js";
 
 export const useAuthStore = defineStore("auth", () => {
 
@@ -35,11 +35,11 @@ export const useAuthStore = defineStore("auth", () => {
     return mine.includes(required);
   };
 
-  // (기존 hasAuthority는 JWT role 기반이므로 별도 유지하거나 제거 가능)
+  //  JWT role 기반임  제거 가능
   const hasAuthority = (authority) =>
-      computed(() => user.value?.authorities?.includes(authority));
+    computed(() => user.value?.authorities?.includes(authority));
 
-  /* setters */
+  //setters
   const setAccessToken = (token) => {
     accessToken.value = token;
     if (token) {
@@ -108,12 +108,36 @@ export const useAuthStore = defineStore("auth", () => {
     } // 권한 복구
   };
 
+
+  const defaultRouteByPermission = () => {
+    // 헬퍼 함수: 목록 중 하나라도 권한이 있는지 확인
+    const hasAny = (perms) => perms.some(p => hasPermission(p));
+    if (hasPermission("REPORT_LAYOUT_LIST")) return "/reports";
+    if (hasAny(["CUSTOMER_LIST", "CUSTOMER_READ"])) return "/customers";
+    if (hasAny(["INQUIRY_LIST", "INCIDENT_LIST"])) return "/voc";
+    if (hasAny([
+      "RESERVATION_LIST", "TODAY_RESERVATION_LIST",
+      "TODAY_FACILITY_USAGE_LIST", "CUSTOMER_TIMELINE_READ"
+    ])) return "/activities";
+    if (hasAny(["MESSAGE_CREATE", "MESSAGE_LIST"])) return "/messages";
+    if (hasAny([
+      "EMPLOYEE_LIST", "SETTING_OBJECTIVE_LIST", "PERMISSION_LIST",
+      "MEMBERSHIP_POLICY_LIST", "LOYALTY_POLICY_LIST"
+    ])) return "/setting";
+    if (hasAny([
+      "LOG_LOGIN_LIST", "LOG_AUDIT_LIST",
+      "LOG_PERMISSION_CHANGED_LIST", "LOG_PERSONAL_INFORMATION_LIST"
+    ])) return "/system";
+    return "/myPage";
+  }
+
+
   /* login */
-  const login = async ({loginId, password}) => {
+  const login = async ({ loginId, password }) => {
     loading.value = true;
     try {
       const res = await loginApi(loginId, password);
-      const {success, data} = res.data;
+      const { success, data } = res.data;
       if (!success) {
         throw new Error();
       }
@@ -127,11 +151,11 @@ export const useAuthStore = defineStore("auth", () => {
         fetchMyHotel()
       ]);
 
-      return {success: true};
+      return { success: true };
     } catch (e) {
       // API 에러 응답에서 메시지 추출
       const msg = e.response?.data?.message || "로그인에 실패했습니다.";
-      return {success: false, message: msg};
+      return { success: false, message: msg };
     } finally {
       loading.value = false;
     }
@@ -155,7 +179,7 @@ export const useAuthStore = defineStore("auth", () => {
         setPermissions(res.data.data);
       } else {
         console.warn("[AuthStore] Unexpected permission data format:",
-            res.data);
+          res.data);
         setPermissions([]);
       }
 
@@ -188,7 +212,7 @@ export const useAuthStore = defineStore("auth", () => {
   /* refresh */
   const refreshTokens = async () => {
     const res = await refreshApi();
-    const {data} = res.data;
+    const { data } = res.data;
 
     setAccessToken(data.accessToken);
     setUserFromToken(data.accessToken);
@@ -231,5 +255,6 @@ export const useAuthStore = defineStore("auth", () => {
 
     loadFromStorage,
     clearAuthState,
+    defaultRouteByPermission,
   };
 });

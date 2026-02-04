@@ -40,6 +40,7 @@ const menus = computed(() => {
     { label: '고객활동', path: '/activities' },
     { label: '고객의소리', path: '/voc' },
     { label: '메시지', path: '/messages' },
+    { label: '마이페이지', path: '/myPage' },
   ];
   //  세팅 메뉴 권한 그룹 (하나라도 만족하면 표시)
   const settingPermissions = [
@@ -61,7 +62,7 @@ const menus = computed(() => {
     'LOG_PERSONAL_INFORMATION_LIST'
   ];
   if (systemPermissions.some(p => authStore.hasPermission(p))) {
-    list.push({ label: '시스템설정', path: '/system' });
+    list.push({ label: '시스템 로그', path: '/system' });
   }
   return list;
 });

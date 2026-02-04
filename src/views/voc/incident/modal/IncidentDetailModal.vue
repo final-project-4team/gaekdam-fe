@@ -149,7 +149,9 @@ import {
   createIncidentActionApi,
   closeIncidentApi,
 } from "@/api/voc/incidentApi.js";
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
+const { withPermission } = usePermissionGuard();
 const props = defineProps({
   incidentCode: { type: [Number, String], required: true },
 });
@@ -223,26 +225,30 @@ const loadActions = async () => {
 };
 
 const submitAction = async () => {
-  const content = (actionContent.value ?? "").trim();
-  if (!content) return alert("조치내용을 입력하세요.");
-  if (!isActionWritable.value) return;
-  if (savingAction.value) return;
+    const content = (actionContent.value ?? "").trim();
+    withPermission('INCIDENT_CREATE', async () => {
+    if (!content) return alert("조치내용을 입력하세요.");
+    if (!isActionWritable.value) return;
+    if (savingAction.value) return;
 
-  savingAction.value = true;
-  try {
-    await createIncidentActionApi(props.incidentCode, { actionContent: content });
-    actionContent.value = "";
-    await loadActions();
-    emit("updated");
-  } catch (e) {
-    console.error(e);
-    alert("조치 추가에 실패했습니다.");
-  } finally {
-    savingAction.value = false;
-  }
+    savingAction.value = true;
+    try {
+      await createIncidentActionApi(props.incidentCode, {actionContent: content});
+      actionContent.value = "";
+      await loadActions();
+      emit("updated");
+    } catch (e) {
+      console.error(e);
+      alert("조치 추가에 실패했습니다.");
+    } finally {
+      savingAction.value = false;
+    }
+  });
+
 };
 
 const closeIncident = async () => {
+  withPermission('INCIDENT_CREATE', async () => {
   if (!isClosable.value) return;
   if (closing.value) return; // 중복 클릭 방지
   if (!confirm("조치를 완료(종결) 처리할까요?")) return;
@@ -260,6 +266,7 @@ const closeIncident = async () => {
   } finally {
     closing.value = false;
   }
+  });
 };
 
 const loadAll = async () => {

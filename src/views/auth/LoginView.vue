@@ -84,7 +84,10 @@ const onLogin = async () => {
     return;
   }
 
-  const redirectPath = route.query.redirect || "/";
+  //const redirectPath = route.query.redirect || "/customers";
+  const redirectPath =
+      route.query.redirect ||  authStore.defaultRouteByPermission();
+
   router.replace(redirectPath);
 };
 </script>
