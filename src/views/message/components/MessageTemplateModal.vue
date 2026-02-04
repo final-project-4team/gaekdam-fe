@@ -81,6 +81,9 @@ import {
 } from '@/api/message/messageTemplateApi'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
 const props = defineProps({
   mode: String,          // 'create' | 'edit'
   stage: Object,
@@ -125,26 +128,28 @@ watch(
 /**
  * 저장
  */
-const save = async () => {
-  if (props.mode === 'create') {
-    await createMessageTemplateApi({
-      stageCode: props.stage.stageCode,
-      visitorType: props.visitorType,
-      languageCode: form.languageCode,
-      title: form.title,
-      content: form.content,
-      isActive: form.active,
-    })
-  } else {
-    await updateMessageTemplateApi(props.template.templateCode, {
-      title: form.title,
-      content: form.content,
-      languageCode: form.languageCode,
-      isActive: form.active,
-    })
-  }
+const save =  () => {
+  withPermission('MESSAGE_UPDATE', async () => {
+    if (props.mode === 'create') {
+      await createMessageTemplateApi({
+        stageCode: props.stage.stageCode,
+        visitorType: props.visitorType,
+        languageCode: form.languageCode,
+        title: form.title,
+        content: form.content,
+        isActive: form.active,
+      })
+    } else {
+      await updateMessageTemplateApi(props.template.templateCode, {
+        title: form.title,
+        content: form.content,
+        languageCode: form.languageCode,
+        isActive: form.active,
+      })
+    }
 
-  emit('saved')
+    emit('saved')
+  });
 }
 </script>
 

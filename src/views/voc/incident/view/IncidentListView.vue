@@ -111,7 +111,9 @@ import BaseButton from "@/components/common/button/BaseButton.vue";
 import IncidentCreateModal from "../modal/IncidentCreateModal.vue";
 import IncidentDetailModal from "../modal/IncidentDetailModal.vue";
 import { getIncidentListApi } from "@/api/voc/incidentApi.js";
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
+const { withPermission } = usePermissionGuard();
 const columns = [
   { key: "incidentCode", label: "사건번호", sortable: true, align: "center" },
   { key: "createdAt", label: "등록일시", sortable: true, align: "center" },
@@ -291,21 +293,26 @@ const onPageChange = (p) => {
   load();
 };
 
-const openCreate = () => (showCreate.value = true);
+const openCreate = () =>
+    withPermission('INCIDENT_CREATE', async () => {
+      (showCreate.value = true);
+    });
 const closeCreate = () => (showCreate.value = false);
 
 const openDetail = (row) => {
-  if (loadingRowClick.value) return;
-  const code = row?.incidentCode;
-  if (!code) return;
+  withPermission('INCIDENT_READ', async () => {
+    if (loadingRowClick.value) return;
+    const code = row?.incidentCode;
+    if (!code) return;
 
-  loadingRowClick.value = true;
-  selectedIncidentCode.value = code;
-  showDetail.value = true;
+    loadingRowClick.value = true;
+    selectedIncidentCode.value = code;
+    showDetail.value = true;
 
-  setTimeout(() => {
-    loadingRowClick.value = false;
-  }, 250);
+    setTimeout(() => {
+      loadingRowClick.value = false;
+    }, 250);
+  });
 };
 
 const closeDetail = () => {

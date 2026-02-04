@@ -59,6 +59,10 @@ import { ref, onMounted } from 'vue'
 import MessageTemplateCard from './components/MessageTemplateCard.vue'
 import MessageTemplateModal from './components/MessageTemplateModal.vue'
 import { getMessageTemplateApi, getMessageTemplateSettingApi } from '@/api/message/messageTemplateApi'
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
+
 
 const stages = ref([])
 const showModal = ref(false)
@@ -72,21 +76,30 @@ const load = async () => {
   stages.value = res.data.data || []
 }
 
-const findTemplate = (stage, visitorType) =>
-    stage.templates?.[visitorType] || null
+const findTemplate =  (stage, visitorType) => {
+  withPermission('MESSAGE_LIST', async () => {
+    return null
+  });
 
-const openEdit = async ({ stage, template, visitorType }) => {
+  return stage.templates?.[visitorType] || null
+
+}
+
+
+const openEdit =  ({ stage, template, visitorType }) => {
   // 템플릿 추가가 없다면, null인 경우는 그냥 막아두기
-  if (!template?.templateCode) return
+  withPermission('MESSAGE_READ',  async () => {
+    if (!template?.templateCode) return
 
-  modalMode.value = 'edit'
-  selectedStage.value = stage
-  selectedVisitorType.value = visitorType
+    modalMode.value = 'edit'
+    selectedStage.value = stage
+    selectedVisitorType.value = visitorType
 
-  const res = await getMessageTemplateApi(template.templateCode)
-  selectedTemplate.value = res.data.data
+    const res = await getMessageTemplateApi(template.templateCode)
+    selectedTemplate.value = res.data.data
 
-  showModal.value = true
+    showModal.value = true
+  });
 }
 
 const closeModal = () => {

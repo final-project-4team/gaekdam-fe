@@ -14,10 +14,6 @@ import ContentTabs from '@/components/layoutComponents/ContentTabs.vue'
 
 
 const tabs = [
-  { 
-    label: '시스템 로그', 
-    path: '/system',
-    activeMatches: ['/system/log', '/system/activity', '/system/permission', '/system/privacy']
-  }
+  { label: '마이페이지', path: '/myPage' },
 ]
 </script>
