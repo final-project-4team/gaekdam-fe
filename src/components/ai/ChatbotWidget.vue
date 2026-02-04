@@ -60,7 +60,7 @@
 
 <script setup>
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
-import { askChat, uploadDoc, getDocStatus } from '@/api/ai'
+import { askChat, getDocStatus } from '@/api/ai'
 
 const open = ref(false)
 const messages = ref([]) // { role: 'user'|'bot', text: '...' }
@@ -198,6 +198,61 @@ function validateFile(file) {
   }
 }
 
+// Presign → PUT → notify flow
+async function presignAndUpload(file, onProgress) {
+  // 1) request presign URL and job id from backend
+  const presignResp = await fetch(`${API_AI}/docs/presign`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(API_KEY ? { 'x-api-key': API_KEY } : {}),
+    },
+    body: JSON.stringify({ filename: file.name, content_type: file.type || 'application/octet-stream' }),
+  })
+  if (!presignResp.ok) {
+    const txt = await presignResp.text().catch(()=>'' )
+    throw new Error(`presign 실패: ${presignResp.status} ${presignResp.statusText} ${txt}`)
+  }
+  const presignData = await presignResp.json()
+  const putUrl = presignData.url || presignData.put_url || presignData.presigned_url || presignData.presignedUrl || presignData.uploadUrl
+  const jobId = presignData.job_id || presignData.jobId || presignData.id
+  const s3Key = presignData.s3_key || presignData.key
+  if (!putUrl || !jobId) throw new Error('presign 응답에 url 또는 job_id가 없습니다')
+
+  // 2) upload file to S3 presigned URL using XHR to get progress
+  await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', putUrl)
+    xhr.upload.onprogress = (ev) => { if (ev.lengthComputable && onProgress) onProgress(ev) }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve()
+      else reject(new Error(`파일 업로드 실패: ${xhr.status} ${xhr.statusText}`))
+    }
+    xhr.onerror = () => reject(new Error('파일 업로드 네트워크 오류'))
+    try { xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream') } catch (e) { /* some presigned urls disallow extra headers */ }
+    xhr.send(file)
+  })
+
+  // 3) notify backend that upload finished so it can enqueue processing (SQS) — best-effort
+  try {
+    const notifyResp = await fetch(`${API_AI}/docs/notify_upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(API_KEY ? { 'x-api-key': API_KEY } : {}),
+      },
+      body: JSON.stringify({ job_id: jobId, s3_key: s3Key }),
+    })
+    if (!notifyResp.ok) {
+      console.warn('notify_upload 실패', await notifyResp.text().catch(()=>''))
+    }
+  } catch (err) {
+    console.warn('notify_upload 예외', err)
+  }
+
+  return { job_id: jobId }
+}
+
 // triggerFilePicker: open hidden file input
 function triggerFilePicker() {
   fileInput.value?.click()
@@ -224,7 +279,7 @@ async function onFileChange(e) {
   uploads.value.unshift(histEntry)
 
   try {
-    const res = await uploadDoc(f, (ev) => {
+    const res = await presignAndUpload(f, (ev) => {
       if (ev.total) uploadProgress.value = Math.round((ev.loaded / ev.total) * 100)
     })
 
@@ -272,7 +327,7 @@ async function onDrop(e) {
   uploads.value.unshift(histEntry)
 
   try {
-    const res = await uploadDoc(f, (ev) => {
+    const res = await presignAndUpload(f, (ev) => {
       if (ev.total) uploadProgress.value = Math.round((ev.loaded / ev.total) * 100)
     })
 
@@ -304,130 +359,4 @@ function pollJobStatus(jobId, historyEntry) {
       const r = await getDocStatus(jobId)
       const status = (r && (r.status || r.state)) || 'unknown'
 
-      if (historyEntry) historyEntry.state = status
-
-      if (status === 'pending' || status === 'processing') {
-        return
-      }
-      if (status === 'done') {
-        messages.value.push({ role: 'bot', text: `문서 인덱싱이 완료되었습니다.` })
-        stopPolling()
-        return
-      }
-      if (status === 'failed') {
-        messages.value.push({ role: 'bot', text: `문서 처리에 실패했습니다.` })
-        stopPolling()
-        return
-      }
-      // fallback: show raw response
-      messages.value.push({ role: 'bot', text: `상태: ${JSON.stringify(r)}` })
-    } catch (err) {
-      messages.value.push({ role: 'bot', text: `상태 확인 실패: ${err?.message}` })
-      stopPolling()
-    }
-  }
-
-  // start immediately and then at interval
-  poll()
-  jobPollInterval.value = setInterval(poll, 1500)
-}
-
-// stopPolling: cancel active poll interval
-function stopPolling() {
-  if (jobPollInterval.value) {
-    clearInterval(jobPollInterval.value)
-    jobPollInterval.value = null
-  }
-}
-
-// Prevent default file open behavior when files are dropped anywhere in the window.
-function preventWindowDrag(e) {
-  e.preventDefault()
-  e.stopPropagation()
-}
-
-onMounted(() => {
-  // Add global listeners so dropping files outside the chat area doesn't open them in browser
-  window.addEventListener('dragover', preventWindowDrag, { passive: false })
-  window.addEventListener('drop', preventWindowDrag, { passive: false })
-})
-
-onUnmounted(() => {
-  // cleanup global listeners
-  window.removeEventListener('dragover', preventWindowDrag, { passive: false })
-  window.removeEventListener('drop', preventWindowDrag, { passive: false })
-})
-</script>
-
-<style scoped>
-.chatbot-root { position: fixed; right: 20px; bottom: 20px; z-index: 10000; }
-
-/* 아이콘 */
-.chat-icon {
-  width: 56px; height: 56px; border-radius: 12px; border: none;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12); background: #fff; cursor: pointer;
-  display:flex; align-items:center; justify-content:center;
-}
-.chat-icon svg { display:block; }
-
-/* 창 */
-.chat-window {
-  width: 500px; max-width: calc(100vw - 48px);
-  height: 80vh; display:flex; flex-direction:column;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden;
-  margin-bottom: 10px; background: #f8fafb;
-}
-
-/* header */
-.chat-header {
-  height: 48px; background:#475569; color:#fff; display:flex;
-  align-items:center; justify-content:space-between; padding:0 12px; font-weight:600;
-}
-.close-btn { background:transparent; border:none; color:#fff; font-size:16px; cursor:pointer; }
-
-/* body */
-.chat-body {
-  flex:1; padding:12px; overflow:auto; display:flex; flex-direction:column; gap:8px;
-  background: linear-gradient(180deg,#ffffff 0%, #fbfdff 100%);
-}
-.msg { display:flex; }
-.msg.user { justify-content:flex-end; }
-.msg.bot { justify-content:flex-start; }
-.bubble {
-  max-width:78%; padding:12px; border-radius:12px; line-height:1.4;
-  background:#fff; color:#111; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-}
-.msg.user .bubble { background:#e6f7ff; }
-
-/* upload area */
-.attach-btn {
-  width:56px; height:56px; border-radius:8px; background:#fff; border:1px solid #e6eef6;
-  display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:20px; line-height:1;
-}
-.attach-btn[disabled] { opacity:0.5; cursor:not-allowed }
-
-.attach-progress {
-  position:relative; width:36px; height:36px; display:inline-block;
-}
-.attach-progress .progress-bar { position:absolute; bottom:-6px; left:0; right:0; height:6px; background:#eef2f7; border-radius:4px; overflow:hidden }
-.attach-progress .progress { height:100%; background:#2b8be6 }
-.progress-text { font-size:12px; color:#6b7280 }
-
-/* upload history */
-.upload-history { padding:8px; border-top:1px dashed #e6eef6; margin-top:6px }
-.history-title { font-size:12px; color:#6b7280; margin-bottom:6px }
-.history-item { display:flex; justify-content:space-between; padding:6px 8px; background:#fff; border-radius:8px; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.03) }
-.history-name { font-size:13px }
-.history-state { font-size:12px; color:#6b7280 }
-
-/* input */
-.chat-input { height:56px; display:flex; gap:8px; padding:8px; border-top:1px solid #e6eef6; background:transparent; }
-.chat-input input { flex:1; border-radius:999px; border:1px solid #dfeaf3; padding:10px 14px; }
-.chat-input button { width:48px; border-radius:999px; background:#2b8be6; color:#fff; border:none; cursor:pointer; }
-
-/* timer style */
-.timer {
-  font-size: 12px; color: #6b7280; margin-top: 4px; margin-left: 8px;
-}
-.elapsed { font-size: 11px; color: #6b7280; margin-top:6px; }
-</style>
+      if
