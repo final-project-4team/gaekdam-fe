@@ -1,442 +1,540 @@
-<!-- src/views/customer/view/CustomerDetailView.vue -->
 <template>
   <div class="customer-detail-page">
-    <section class="card header-card">
-      <div class="h-left">
-        <div class="name-row">
-          <div class="name">{{ detail.customerName || "-" }}</div>
+    <!-- Header Section -->
+    <header class="detail-header">
+      <div class="header-main">
+        <!-- Left: Profile Info -->
+        <div class="header-left">
+          <div class="profile-info">
+            <div class="info-top">
+              <h1 class="customer-name">{{ detail.customerName || "-" }}</h1>
+              <div class="badge-list">
+                <!-- Status Badge -->
+                <span class="badge-pill" :class="statusTagClass(detail.status)">{{ detail.status }}</span>
+                <!-- Membership Badge (if exists) -->
+                <span v-if="membership.gradeName" class="badge-pill" :class="membershipTagClass(membership.gradeName)">
+                  {{ membership.gradeName }}
+                </span>
+                <!-- Loyalty Badge (if exists) -->
+                <span v-if="loyalty.gradeName" class="badge-pill" :style="loyaltyTagStyle(loyalty.gradeName)">
+                  {{ loyalty.gradeName }}
+                </span>
+              </div>
+            </div>
 
-          <div class="badges">
-            <!-- 고객 상태 -->
-            <span class="tag" :class="statusTagClass(detail.status)">
-              {{ detail.status || "-" }}
-            </span>
+            <div class="info-middle">
+              <span class="customer-code">고객코드 #{{ detail.customerCode ?? "-" }}</span>
+              <div class="chip-list">
+                <span v-for="c in chips.filter(c => c !== detail.inflowChannel)" :key="c" class="chip-item">{{ c }}</span>
+              </div>
+            </div>
 
-            <!-- 멤버십 -->
-            <span class="tag" :class="membershipTagClass(membership?.gradeName)">
-              {{ membership?.gradeName || "미가입" }}
-            </span>
-
-            <!-- 로열티 -->
-            <span class="tag" :class="loyaltyTagClass(loyalty?.gradeName)">
-              {{ loyalty?.gradeName || "미가입" }}
-            </span>
+            <!-- (Empty info-bottom removed as combined above or unused) -->
           </div>
         </div>
 
-        <div class="sub-row">
-          <span class="code">고객코드 #{{ detail.customerCode ?? "-" }}</span>
-        </div>
+        <!-- Middle: Meta Info (Grid: Label - Value) -->
+        <div class="header-middle">
+          <div class="meta-grid">
+            <span class="meta-label">대표 연락처</span>
+            <div class="meta-value-row">
+              <span>{{ primaryPhone }}</span>
+              <button class="text-btn" @click="openContactModal">연락처 전체보기</button>
+            </div>
 
-        <!-- ✅ chips: 기존 chips 유지하되 톤만 통일 -->
-        <div class="chips">
-          <span v-for="c in chips" :key="c" class="tag tag--chip">{{ c }}</span>
-        </div>
-      </div>
+            <span class="meta-label">이메일</span>
+            <div class="meta-value-row">
+              <span>{{ primaryEmail }}</span>
+            </div>
 
-      <div class="h-mid">
-        <div class="kv">
-          <div class="k">대표 연락처</div>
-          <div class="v v-inline">
-            <span>{{ primaryPhone }}</span>
-
-            <div class="outline-wrap inline">
-              <BaseButton type="ghost" size="sm" @click="openContactModal">
-                연락처 전체보기
-              </BaseButton>
+            <span class="meta-label">유입경로</span> <!-- or '외부 ID' if strict mapping -->
+            <div class="meta-value-row">
+              <span>{{ detail.inflowChannel || "-" }}</span>
             </div>
           </div>
         </div>
 
-        <div class="kv">
-          <div class="k">이메일</div>
-          <div class="v">{{ primaryEmail }}</div>
-        </div>
-
-        <div class="kv">
-          <div class="k">유입 채널</div>
-          <div class="v">{{ detail.inflowChannel || "-" }}</div>
+        <!-- Right: Actions -->
+        <div class="header-actions">
+          <button class="action-btn primary" @click="goBack">
+            목록으로
+          </button>
+          <button class="action-btn" @click="onMembershipChange">
+            멤버십 변경
+          </button>
+          <button class="action-btn" @click="onCardSetting">
+            카드 설정
+          </button>
         </div>
       </div>
+    </header>
 
-      <div class="h-right">
-        <BaseButton type="ghost" size="sm" @click="goBack">목록으로</BaseButton>
-        <BaseButton type="ghost" size="sm" @click="onMembershipChange">멤버십 변경</BaseButton>
-        <BaseButton type="ghost" size="sm" @click="onCardSetting">카드 설정</BaseButton>
-      </div>
-    </section>
-
-    <div class="grid">
-      <div class="col">
+    <!-- Content Grid -->
+    <main class="dashboard-grid">
+      <!-- Left Column -->
+      <div class="column left-column">
         <template v-for="card in leftCards" :key="card.id">
-          <section v-if="card.id === 'snapshot'" class="card">
-            <div class="card-title">고객 스냅샷</div>
 
-            <div class="snap-grid">
-              <div class="snap">
-                <div class="k2">총 이용횟수</div>
-                <div class="v2">{{ snapshot.totalStayCount ?? 0 }}회</div>
+          <!-- Snapshot Card -->
+          <section v-if="card.id === 'snapshot'" class="dashboard-card snapshot-card">
+            <h3 class="card-heading">고객 스냅샷</h3>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-label">총 이용횟수</span>
+                <span class="stat-value">{{ snapshot.totalStayCount ?? 0 }}<small>회</small></span>
               </div>
-              <div class="snap">
-                <div class="k2">누적 결제(LTV)</div>
-                <div class="v2">{{ formatMoney(snapshot.ltvAmount) }}</div>
+              <div class="stat-item">
+                <span class="stat-label">누적 결제(LTV)</span>
+                <span class="stat-value highlight">{{ formatMoney(snapshot.ltvAmount) }}</span>
               </div>
-              <div class="snap">
-                <div class="k2">최근 이용일</div>
-                <div class="v2">{{ formatDate(snapshot.lastUsedAt) }}</div>
+              <div class="stat-item">
+                <span class="stat-label">최근 이용일</span>
+                <span class="stat-value">{{ formatDate(snapshot.lastUsedAt) }}</span>
               </div>
-              <div class="snap">
-                <div class="k2">미해결 이슈</div>
-                <div class="v2">{{ snapshot.unresolvedInquiryCount ?? 0 }}건</div>
+              <div class="stat-item">
+                <span class="stat-label">미해결 이슈</span>
+                <span class="stat-value alert">{{ snapshot.unresolvedInquiryCount ?? 0 }}<small>건</small></span>
               </div>
             </div>
           </section>
 
-          <section v-else-if="card.id === 'timeline'" class="card">
-            <div class="card-head">
-              <div class="card-title">최근 타임라인</div>
-              <div class="outline-wrap">
-                <BaseButton type="ghost" size="sm" @click="openTimelineAllModal">전체보기</BaseButton>
-              </div>
+          <!-- Timeline Card -->
+          <section v-else-if="card.id === 'timeline'" class="dashboard-card timeline-card">
+            <div class="card-header">
+              <h3 class="card-heading">최근 타임라인</h3>
+              <button class="text-btn" @click="openTimelineAllModal">전체보기</button>
             </div>
-
-            <ul class="timeline">
-              <li v-for="(t, idx) in timelineTop5" :key="idx" class="tl-item">
-                <div class="dot" />
-                <div class="tl-body">
-                  <div class="tl-text">{{ t.text }}</div>
-                  <div class="tl-sub">{{ t.at }} · {{ t.type }}</div>
-                </div>
-              </li>
-
-              <li v-if="timelineTop5.length === 0" class="empty">타임라인 데이터가 없습니다.</li>
-            </ul>
+            <div class="timeline-container">
+              <ul class="timeline-list">
+                <li v-for="(t, idx) in timelineTop5" :key="idx" class="timeline-item">
+                  <div class="timeline-marker"></div>
+                  <div class="timeline-content">
+                    <p class="timeline-text">{{ t.text }}</p>
+                    <span class="timeline-date">{{ t.at }} · {{ t.type }}</span>
+                  </div>
+                </li>
+                <li v-if="timelineTop5.length === 0" class="empty-state">데이터가 없습니다.</li>
+              </ul>
+            </div>
           </section>
 
-          <section v-else-if="card.id === 'reservation'" class="card">
-            <div class="card-head">
-              <div class="card-title">예약/이용 (최근 5건)</div>
-              <div class="outline-wrap">
-                <BaseButton type="ghost" size="sm" @click="onReservationAll">전체보기</BaseButton>
-              </div>
+          <!-- Reservation Card -->
+          <section v-else-if="card.id === 'reservation'" class="dashboard-card">
+            <div class="card-header">
+              <h3 class="card-heading">예약/이용 <span class="sub-count">(최근 5건)</span></h3>
+              <button class="text-btn" @click="onReservationAll">전체보기</button>
             </div>
-
-            <div v-if="reservationLoading" class="empty">예약 데이터를 불러오는 중...</div>
-            <div v-else-if="reservationRows.length === 0" class="empty">예약 데이터가 없습니다.</div>
-
-            <TableWithPaging
-                v-else
-                :columns="reservationColumns"
-                :rows="reservationRows"
-                :pageSize="5"
-                @row-click="openReservationModal"
-            />
+            <div class="table-wrapper">
+              <div v-if="reservationLoading" class="loading-state">로딩 중...</div>
+              <div v-else-if="reservationRows.length === 0" class="empty-state">내역이 없습니다.</div>
+              <TableWithPaging
+                  v-else
+                  :columns="reservationColumns"
+                  :rows="reservationRows"
+                  :pageSize="5"
+                  @row-click="openReservationModal"
+              />
+            </div>
           </section>
 
-          <section v-else-if="card.id === 'voc'" class="card">
-            <div class="card-head">
-              <div class="card-title">문의/클레임 (최근 3건)</div>
-              <div class="outline-wrap">
-                <BaseButton type="ghost" size="sm" @click="onInquiryAll">전체보기</BaseButton>
-              </div>
+          <!-- VOC Card -->
+          <section v-else-if="card.id === 'voc'" class="dashboard-card">
+            <div class="card-header">
+              <h3 class="card-heading">문의/클레임 <span class="sub-count">(최근 3건)</span></h3>
+              <button class="text-btn" @click="onInquiryAll">전체보기</button>
             </div>
-
-            <div v-if="inquiryLoading" class="empty">문의 데이터를 불러오는 중...</div>
-            <div v-else-if="inquiryRows.length === 0" class="empty">문의 데이터가 없습니다.</div>
-
-            <TableWithPaging
-                v-else
-                :columns="inquiryColumns"
-                :rows="inquiryRows"
-                :pageSize="3"
-                @row-click="openInquiryModal"
-            />
+            <div class="table-wrapper">
+              <div v-if="inquiryLoading" class="loading-state">로딩 중...</div>
+              <div v-else-if="inquiryRows.length === 0" class="empty-state">내역이 없습니다.</div>
+              <TableWithPaging
+                  v-else
+                  :columns="inquiryColumns"
+                  :rows="inquiryRows"
+                  :pageSize="3"
+                  @row-click="openInquiryModal"
+              />
+            </div>
           </section>
+
         </template>
       </div>
 
-      <div class="col right-col">
+      <!-- Right Column -->
+      <div class="column right-column">
         <template v-for="card in rightCards" :key="card.id">
+
+          <!-- Memo -->
           <CustomerMemoView
               v-if="card.id === 'memo'"
               :customerCode="customerCode"
+              class="dashboard-card"
               @changed="onMemoChanged"
           />
 
-          <section v-else-if="card.id === 'statusHistory'" class="card">
-            <div class="card-head">
-              <div class="card-title">고객 상태 변경 이력</div>
-              <div class="outline-wrap">
-                <BaseButton type="ghost" size="sm" @click="onStatusHistory">이력 보기</BaseButton>
-              </div>
+          <!-- Status History -->
+          <section v-else-if="card.id === 'statusHistory'" class="dashboard-card">
+            <div class="card-header">
+              <h3 class="card-heading">상태 변경 이력</h3>
+              <button class="text-btn" @click="onStatusHistory">이력 보기</button>
             </div>
-
-            <div class="kv2">
-              <div class="k3">최근 변경</div>
-              <div class="v3 v3-inline">
-                <span class="tag" :class="statusTagClass(statusBeforeLabel)">{{ statusBeforeLabel }}</span>
+            <div class="info-list">
+              <div class="info-row">
+                <span class="info-label">최근 변경</span>
+                <span class="info-value status-badge" :class="statusTagClass(statusBeforeLabel)">
+                  {{ statusBeforeLabel }}
+                </span>
                 <span class="arrow">→</span>
-                <span class="tag" :class="statusTagClass(statusAfterLabel)">{{ statusAfterLabel }}</span>
-              </div>
-
-              <div class="k3">변경 주체</div>
-              <div class="v3">
-                <span class="tag" :class="statusActorLabel === 'SYSTEM' ? 'tag--base' : 'tag--chip'">
-                  {{ statusActorLabel }}
+                <span class="info-value status-badge" :class="statusTagClass(statusAfterLabel)">
+                  {{ statusAfterLabel }}
                 </span>
               </div>
-
-              <div class="k3">변경자</div>
-              <div class="v3">{{ statusEmployeeLabel }}</div>
-
-              <div class="k3">변경일시</div>
-              <div class="v3">{{ statusChangedAtLabel }}</div>
-
-              <div class="k3">사유</div>
-              <div class="v3 v3-ellipsis">{{ statusReasonLabel }}</div>
+              <div class="info-row">
+                <span class="info-label">변경 주체</span>
+                <span class="info-value">{{ statusActorLabel }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">변경자</span>
+                <span class="info-value">{{ statusEmployeeLabel }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">일시</span>
+                <span class="info-value">{{ statusChangedAtLabel }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">사유</span>
+                <span class="info-value text-ellipsis">{{ statusReasonLabel }}</span>
+              </div>
             </div>
           </section>
 
-          <section v-else-if="card.id === 'membership'" class="card">
-            <div class="card-head">
-              <div class="card-title">멤버십</div>
-              <div class="outline-wrap">
-                <BaseButton type="ghost" size="sm" @click="onMembershipHistory">이력 보기</BaseButton>
-              </div>
+          <!-- Membership -->
+          <section v-else-if="card.id === 'membership'" class="dashboard-card membership-card">
+            <div class="card-header">
+              <h3 class="card-heading">멤버십</h3>
+              <button class="text-btn" @click="onMembershipHistory">이력 보기</button>
             </div>
-
-            <div class="kv2">
-              <div class="k3">등급</div>
-              <div class="v3">
-                <span class="tag" :class="membershipTagClass(membership.gradeName)">
+            <div class="info-list">
+              <div class="info-row">
+                <span class="info-label">등급</span>
+                <span class="info-value highlight-text" :class="membershipTagClass(membership.gradeName)">
                   {{ membership.gradeName || "미가입" }}
                 </span>
               </div>
-
-              <div class="k3">상태</div>
-              <div class="v3">
-                <span class="tag" :class="activeInactiveTagClass(membership.membershipStatus)">
+              <div class="info-row">
+                <span class="info-label">상태</span>
+                <span class="info-value" :class="statusTagClass(membership.membershipStatus)">
                   {{ membership.membershipStatus || "-" }}
                 </span>
               </div>
-
-              <div class="k3">가입일</div><div class="v3">{{ formatDate(membership.joinedAt) }}</div>
-              <div class="k3">만료일</div><div class="v3">{{ formatDate(membership.expiredAt) }}</div>
-              <div class="k3">산정일시</div><div class="v3">{{ formatDate(membership.calculatedAt) }}</div>
+              <div class="info-row">
+                <span class="info-label">가입일</span>
+                <span class="info-value">{{ formatDate(membership.joinedAt) }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">만료일</span>
+                <span class="info-value">{{ formatDate(membership.expiredAt) }}</span>
+              </div>
             </div>
           </section>
 
-          <section v-else-if="card.id === 'loyalty'" class="card">
-            <div class="card-head">
-              <div class="card-title">로열티</div>
-              <div class="outline-wrap">
-                <BaseButton type="ghost" size="sm" @click="onLoyaltyHistory">이력 보기</BaseButton>
-              </div>
+          <!-- Loyalty -->
+          <section v-else-if="card.id === 'loyalty'" class="dashboard-card loyalty-card">
+            <div class="card-header">
+              <h3 class="card-heading">로열티</h3>
+              <button class="text-btn" @click="onLoyaltyHistory">이력 보기</button>
             </div>
-
-            <div class="kv2">
-              <div class="k3">등급</div>
-              <div class="v3">
-                <span class="tag" :class="loyaltyTagClass(loyalty.gradeName)">
-                  {{ loyalty.gradeName || "미가입" }}
+            <div class="info-list">
+              <div class="info-row">
+                <span class="info-label">등급</span>
+                <span class="info-value highlight-text" :style="loyaltyTagStyle(loyalty.gradeName)">
+                  {{ loyalty.gradeName || "-" }}
                 </span>
               </div>
-
-              <div class="k3">상태</div>
-              <div class="v3">
-                <span class="tag" :class="activeInactiveTagClass(loyalty.loyaltyStatus)">
+              <div class="info-row">
+                <span class="info-label">상태</span>
+                <span class="info-value" :class="statusTagClass(loyalty.loyaltyStatus)">
                   {{ loyalty.loyaltyStatus || "-" }}
                 </span>
               </div>
-
-              <div class="k3">가입일</div><div class="v3">{{ formatDate(loyalty.joinedAt) }}</div>
-              <div class="k3">산정일시</div><div class="v3">{{ formatDate(loyalty.calculatedAt) }}</div>
+              <div class="info-row">
+                <span class="info-label">가입일</span>
+                <span class="info-value">{{ formatDate(loyalty.joinedAt) }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">산정일</span>
+                <span class="info-value">{{ formatDate(loyalty.calculatedAt) }}</span>
+              </div>
             </div>
           </section>
+
         </template>
       </div>
-    </div>
+    </main>
 
-    <!-- 연락처 모달 -->
+    <!-- Modals (Legacy Structure Preserved) -->
     <BaseModal v-if="showContactModal" title="연락처 전체보기" @close="showContactModal = false">
       <div class="modal-body">
-        <div v-if="(detail.contacts?.length || 0) === 0">연락처 데이터가 없습니다.</div>
-
-        <p v-for="(c, i) in detail.contacts" :key="i" class="contact-row">
-          - {{ c.contactType }} :
-          <span v-if="c.contactType === 'PHONE'">{{ formatPhone(c.contactValue) }}</span>
-          <span v-else>{{ c.contactValue }}</span>
-
-          <span v-if="c.isPrimary" class="primary">(PRIMARY)</span>
-          <span class="optin">{{ c.marketingOptIn ? "마케팅 동의" : "미동의" }}</span>
-        </p>
+        <div v-if="(detail.contacts?.length || 0) === 0" class="empty-state">연락처 데이터가 없습니다.</div>
+        <div v-else class="contact-list">
+          <div v-for="(c, i) in detail.contacts" :key="i" class="contact-item">
+            <span class="contact-type">{{ c.contactType }}</span>
+            <span class="contact-val">
+              {{ c.contactType === 'PHONE' ? formatPhone(c.contactValue) : c.contactValue }}
+            </span>
+            <span v-if="c.isPrimary" class="tag-primary">기본</span>
+            <span class="tag-optin">{{ c.marketingOptIn ? "마케팅 동의" : "미동의" }}</span>
+          </div>
+        </div>
       </div>
-
       <template #footer>
         <BaseButton type="ghost" size="sm" @click="showContactModal = false">닫기</BaseButton>
       </template>
     </BaseModal>
 
-    <!-- 멤버십 변경 모달 -->
     <BaseModal v-if="showMembershipModal" title="멤버십 변경" @close="showMembershipModal=false">
       <div class="modal-body">
-        <div class="change-grid">
-          <div class="field">
+        <div class="form-grid">
+          <div class="form-group">
             <label>고객명</label>
-            <input :value="detail.customerName || '-'" disabled />
+            <input :value="detail.customerName || '-'" disabled class="input-disabled" />
           </div>
-
-          <div class="field">
+          <div class="form-group">
             <label>변경자(직원코드)</label>
-            <input v-model="membershipChange.employeeCode" placeholder="예) 10001" />
+            <input v-model="membershipChange.employeeCode" placeholder="예) 10001" class="input-base" />
           </div>
-
-          <div class="field">
+          <div class="form-group">
             <label>변경 등급</label>
-            <select v-model="membershipChange.membershipGradeCode">
+            <select v-model="membershipChange.membershipGradeCode" class="input-base">
               <option value="">선택</option>
-              <option v-for="g in membershipGradeOptions" :key="g.value" :value="g.value">
-                {{ g.label }}
-              </option>
+              <option v-for="g in membershipGradeOptions" :key="g.value" :value="g.value">{{ g.label }}</option>
             </select>
           </div>
-
-          <div class="field">
+          <div class="form-group">
             <label>변경 상태</label>
-            <select v-model="membershipChange.membershipStatus">
+            <select v-model="membershipChange.membershipStatus" class="input-base">
               <option value="ACTIVE">ACTIVE</option>
               <option value="INACTIVE">INACTIVE</option>
             </select>
           </div>
-
-          <div class="field">
+          <div class="form-group">
             <label>만료일</label>
-            <input type="date" v-model="membershipChange.expiredAt" />
+            <input type="date" v-model="membershipChange.expiredAt" class="input-base" />
           </div>
-
-          <div class="field full">
+          <div class="form-group full-width">
             <label>변경 사유</label>
             <textarea
                 v-model="membershipChange.changeReason"
-                placeholder="예) CS보상 / VIP 고객 대상 기준 상향 / 등급 재산정"
+                class="input-base textarea"
+                placeholder="예) CS보상 / VIP 고객 대상 기준 상향"
             />
           </div>
         </div>
-
-        <p class="hint">
-          * 저장 시: 고객 멤버십 변경 + 이력 적재가 되도록 PATCH API에 연결됩니다.
-        </p>
+        <p class="form-hint">* 저장 시 멤버십 변경 및 이력이 업데이트됩니다.</p>
       </div>
-
       <template #footer>
         <BaseButton type="ghost" size="sm" @click="showMembershipModal=false">취소</BaseButton>
         <BaseButton type="primary" size="sm" :disabled="savingMembership" @click="submitMembershipChange">저장</BaseButton>
       </template>
     </BaseModal>
 
-    <!-- ✅ 카드 설정 모달 (추가) -->
     <BaseModal v-if="showCardSettingModal" title="카드 설정" @close="showCardSettingModal=false">
       <div class="modal-body">
-        <div class="cs-wrap">
-          <div class="cs-col">
-            <div class="cs-title">왼쪽 영역</div>
-
-            <div class="cs-list">
+        <div class="dnd-wrapper">
+          <div class="dnd-column">
+            <h4 class="dnd-title">왼쪽 영역</h4>
+            <div class="dnd-list">
+              <!-- Draggable Items -->
               <div
-                  v-for="(c, idx) in draftLeft"
-                  :key="c.id"
-                  class="cs-item"
-                  :class="{
-                  disabled: !c.enabled,
-                  dragging: dragState.id === c.id,
-                  over: isOver('left', idx),
-                }"
+                  v-for="(c, idx) in draftLeft" :key="c.id"
+                  class="dnd-item"
+                  :class="{ disabled: !c.enabled, dragging: dragState.id === c.id, over: isOver('left', idx) }"
                   draggable="true"
                   @dragstart="onDragStart($event, c.id, 'left')"
-                  @dragenter.prevent="onDragEnter('left', idx)"
+                  @dragenter.prevent
                   @dragover.prevent="onDragOver('left', idx)"
-                  @dragleave="onDragLeave('left', idx)"
                   @drop="onDropAt('left', idx)"
                   @dragend="onDragEnd"
               >
-                <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
-
-                <label class="chk">
-                  <input type="checkbox" v-model="c.enabled" @change="onToggleEnabled('left')" />
-                  <span>{{ c.label }}</span>
-                </label>
-
-                <div v-if="showIndicator('left', idx)" class="drop-indicator" />
+                <div class="dnd-content">
+                  <span class="dnd-handle">⋮⋮</span>
+                  <label class="dnd-check">
+                    <input type="checkbox" v-model="c.enabled" @change="onToggleEnabled('left')" />
+                    <span>{{ c.label }}</span>
+                  </label>
+                </div>
+                <div v-if="showIndicator('left', idx)" class="dnd-indicator" />
               </div>
-
+              <!-- Dropzone -->
               <div
-                  class="cs-dropzone"
+                  class="dnd-dropzone"
                   :class="{ over: isOver('left', draftLeft.length) }"
-                  @dragenter.prevent="onDragEnter('left', draftLeft.length)"
+                  @dragenter.prevent
                   @dragover.prevent="onDragOver('left', draftLeft.length)"
-                  @dragleave="onDragLeave('left', draftLeft.length)"
                   @drop="onDropAt('left', draftLeft.length)"
               >
-                여기로 드롭하면 맨 아래로 이동
-                <div v-if="showIndicator('left', draftLeft.length)" class="drop-indicator" />
+                맨 아래로 이동
+                <div v-if="showIndicator('left', draftLeft.length)" class="dnd-indicator" />
               </div>
             </div>
           </div>
 
-          <div class="cs-col">
-            <div class="cs-title">오른쪽 영역</div>
-
-            <div class="cs-list">
+          <div class="dnd-column">
+            <h4 class="dnd-title">오른쪽 영역</h4>
+            <div class="dnd-list">
               <div
-                  v-for="(c, idx) in draftRight"
-                  :key="c.id"
-                  class="cs-item"
-                  :class="{
-                  disabled: !c.enabled,
-                  dragging: dragState.id === c.id,
-                  over: isOver('right', idx),
-                }"
+                  v-for="(c, idx) in draftRight" :key="c.id"
+                  class="dnd-item"
+                  :class="{ disabled: !c.enabled, dragging: dragState.id === c.id, over: isOver('right', idx) }"
                   draggable="true"
                   @dragstart="onDragStart($event, c.id, 'right')"
-                  @dragenter.prevent="onDragEnter('right', idx)"
+                  @dragenter.prevent
                   @dragover.prevent="onDragOver('right', idx)"
-                  @dragleave="onDragLeave('right', idx)"
                   @drop="onDropAt('right', idx)"
                   @dragend="onDragEnd"
               >
-                <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
-
-                <label class="chk">
-                  <input type="checkbox" v-model="c.enabled" @change="onToggleEnabled('right')" />
-                  <span>{{ c.label }}</span>
-                </label>
-
-                <div v-if="showIndicator('right', idx)" class="drop-indicator" />
+                <div class="dnd-content">
+                  <span class="dnd-handle">⋮⋮</span>
+                  <label class="dnd-check">
+                    <input type="checkbox" v-model="c.enabled" @change="onToggleEnabled('right')" />
+                    <span>{{ c.label }}</span>
+                  </label>
+                </div>
+                <div v-if="showIndicator('right', idx)" class="dnd-indicator" />
               </div>
-
               <div
-                  class="cs-dropzone"
+                  class="dnd-dropzone"
                   :class="{ over: isOver('right', draftRight.length) }"
-                  @dragenter.prevent="onDragEnter('right', draftRight.length)"
+                  @dragenter.prevent
                   @dragover.prevent="onDragOver('right', draftRight.length)"
-                  @dragleave="onDragLeave('right', draftRight.length)"
                   @drop="onDropAt('right', draftRight.length)"
               >
-                여기로 드롭하면 맨 아래로 이동
-                <div v-if="showIndicator('right', draftRight.length)" class="drop-indicator" />
+                맨 아래로 이동
+                <div v-if="showIndicator('right', draftRight.length)" class="dnd-indicator" />
               </div>
             </div>
           </div>
         </div>
       </div>
-
       <template #footer>
         <BaseButton type="ghost" size="sm" @click="resetCardSetting">기본값</BaseButton>
         <BaseButton type="primary" size="sm" @click="saveCardSetting">저장</BaseButton>
       </template>
     </BaseModal>
 
-    <!-- 이하: 네가 원래 가지고 있던 '전체보기/상세/이력 모달'들은 그대로 유지해서 붙여넣으면 됨 -->
+    <BaseModal v-if="showReservationAllModal" title="예약 / 이용 전체" @close="closeReservationAllModal">
+      <div class="modal-body">
+        <div class="filter-bar">
+          <div class="left">
+            <div class="quick">
+              <BaseButton
+                  v-for="m in [1, 3, 6, 12]"
+                  :key="m"
+                  type="ghost"
+                  size="sm"
+                  :class="['pill', { active: reservationRange.months === m }]"
+                  @click="setReservationMonths(m)"
+              >
+                {{ m }}개월
+              </BaseButton>
+            </div>
+          </div>
+          <div class="right">
+            <input class="date" type="date" v-model="reservationRange.from" />
+            <span class="tilde">~</span>
+            <input class="date" type="date" v-model="reservationRange.to" />
+            <BaseButton type="ghost" size="sm" @click="resetReservationRange">초기화</BaseButton>
+            <BaseButton type="primary" size="sm" @click="applyReservationRange">적용</BaseButton>
+          </div>
+        </div>
+        <div v-if="reservationAllLoading" class="loading-state">로딩 중...</div>
+        <div v-else-if="reservationAllRows.length === 0" class="empty-state">데이터가 없습니다.</div>
+        <TableWithPaging v-else :columns="reservationColumns" :rows="reservationAllRows" :pageSize="20" />
+      </div>
+    </BaseModal>
+
+    <BaseModal v-if="showInquiryAllModal" title="문의 / 클레임 전체" @close="closeInquiryAllModal">
+      <div class="modal-body">
+        <div class="filter-bar">
+          <div class="left">
+            <div class="quick">
+              <BaseButton
+                  v-for="m in [1, 3, 6, 12]"
+                  :key="m"
+                  type="ghost"
+                  size="sm"
+                  :class="['pill', { active: inquiryRange.months === m }]"
+                  @click="setInquiryMonths(m)"
+              >
+                {{ m }}개월
+              </BaseButton>
+            </div>
+          </div>
+          <div class="right">
+            <input class="date" type="date" v-model="inquiryRange.from" />
+            <span class="tilde">~</span>
+            <input class="date" type="date" v-model="inquiryRange.to" />
+            <BaseButton type="ghost" size="sm" @click="resetInquiryRange">초기화</BaseButton>
+            <BaseButton type="primary" size="sm" @click="applyInquiryRange">적용</BaseButton>
+          </div>
+        </div>
+        <div v-if="inquiryAllLoading" class="loading-state">로딩 중...</div>
+        <div v-else-if="inquiryAllRows.length === 0" class="empty-state">데이터가 없습니다.</div>
+        <TableWithPaging v-else :columns="inquiryColumns" :rows="inquiryAllRows" :pageSize="20" />
+      </div>
+    </BaseModal>
+
+    <TimelineAllModal :open="showTimelineAllModal" :items="timelineItems" @close="closeTimelineAllModal" />
+
+    <BaseModal v-if="showReservationModal" title="예약 상세" @close="closeReservationModal">
+      <div class="modal-body detail-view-body" v-if="selectedReservationDetail">
+        <div class="detail-row"><span class="label">예약번호</span> <span class="val">{{ selectedReservationDetail.reservationCode }}</span></div>
+        <div class="detail-row"><span class="label">상태</span> <span class="val">{{ selectedReservationDetail.reservationStatus }}</span></div>
+        <div class="detail-row"><span class="label">채널</span> <span class="val">{{ selectedReservationDetail.reservationChannel }}</span></div>
+        <div class="detail-row"><span class="label">투숙기간</span> <span class="val">{{ selectedReservationDetail.checkinDate }} ~ {{ selectedReservationDetail.checkoutDate }}</span></div>
+        <div class="detail-row"><span class="label">객실</span> <span class="val">{{ selectedReservationDetail.roomLabel }}</span></div>
+        <div class="detail-row"><span class="label">인원</span> <span class="val">{{ selectedReservationDetail.guestCount }} ({{ selectedReservationDetail.guestType }})</span></div>
+        <div class="detail-row"><span class="label">총금액</span> <span class="val price">{{ selectedReservationDetail.totalPrice }}</span></div>
+      </div>
+      <div class="modal-body" v-else>로딩 중...</div>
+    </BaseModal>
+
+    <BaseModal v-if="showInquiryModal" title="문의/클레임 상세" @close="closeInquiryModal">
+      <div class="modal-body detail-view-body" v-if="selectedInquiryDetail">
+        <div class="detail-row"><span class="label">문의번호</span> <span class="val">{{ selectedInquiryDetail.inquiryCode }}</span></div>
+        <div class="detail-row"><span class="label">상태</span> <span class="val">{{ selectedInquiryDetail.inquiryStatus }}</span></div>
+        <div class="detail-row"><span class="label">카테고리</span> <span class="val">{{ selectedInquiryDetail.inquiryCategoryName }}</span></div>
+        <div class="detail-row"><span class="label">제목</span> <span class="val">{{ selectedInquiryDetail.inquiryTitle }}</span></div>
+
+        <div class="content-box">
+          <h5 class="content-title">문의 내용</h5>
+          <p class="content-text">{{ selectedInquiryDetail.inquiryContent }}</p>
+        </div>
+
+        <div class="content-box answer" v-if="selectedInquiryDetail.answerContent">
+          <h5 class="content-title">답변</h5>
+          <p class="content-text">{{ selectedInquiryDetail.answerContent }}</p>
+        </div>
+      </div>
+      <div class="modal-body" v-else>로딩 중...</div>
+    </BaseModal>
+
+    <MembershipHistoryModal
+        :open="showMembershipHistoryModal"
+        :customerCode="customerCode"
+        :membership="membership"
+        @close="showMembershipHistoryModal = false"
+    />
+    <LoyaltyHistoryModal
+        :open="showLoyaltyHistoryModal"
+        :customerCode="customerCode"
+        :loyalty="loyalty"
+        @close="showLoyaltyHistoryModal = false"
+    />
+    <CustomerStatusHistoryModal
+        :open="showStatusHistoryModal"
+        :customerCode="customerCode"
+        @close="showStatusHistoryModal = false"
+    />
   </div>
 </template>
 
@@ -457,72 +555,81 @@ import CustomerStatusHistoryModal from "@/views/customer/modal/CustomerStatusHis
 import { useAuthStore } from "@/stores/authStore.js";
 import api from "@/api/axios.js";
 import { getMembershipGradeList } from "@/api/setting/membershipGrade.js";
-import { getCustomerStatusHistoriesApi } from "@/api/customer/customerDetailApi";
-
+import { getCustomerStatusHistoriesApi } from "@/api/customer/customerDetailApi"; // Fix import path if needed
 import { formatDate, formatMoney, formatPhone, toYmd } from "@/views/customer/utils/customerDetail.utils.js";
-
 import { useCustomerDetailPage } from "@/views/customer/composables/useCustomerDetailPage.js";
 import { useCustomerReservations } from "@/views/customer/composables/useCustomerReservations.js";
 import { useCustomerInquiries } from "@/views/customer/composables/useCustomerInquiries.js";
 import { useCardSettingDnd } from "@/views/customer/composables/useCardSettingDnd.js";
-import { usePermissionGuard } from "@/composables/usePermissionGuard";
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
 const { withPermission } = usePermissionGuard();
-
-/* router/store */
 const route = useRoute();
-const router = useRouter();
+const useRouterInstance = useRouter(); // renamed to avoid conflict
+const router = useRouterInstance; // consistent usage
 const authStore = useAuthStore();
 
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 const customerCode = computed(() => Number(route.params.id));
 
-/* detail/snapshot/timeline + header 표시값 */
+/* Composables */
 const {
-  detail,
-  snapshot,
-  timelineItems,
-  badges,
-  chips,
-  primaryPhone,
-  primaryEmail,
-  membership,
-  loyalty,
-  loadAll,
-  loadTimeline,
-} = useCustomerDetailPage({
-  hotelGroupCode,
-  customerCode,
-});
+  detail, snapshot, timelineItems, badges, chips,
+  primaryPhone, primaryEmail, membership, loyalty,
+  loadAll, loadTimeline,
+} = useCustomerDetailPage({ hotelGroupCode, customerCode });
+
+/* Avatar Logic: Default to Icon */
+// Removing text avatar logic to prefer Icon
+
+/* Badge & Tag Logic */
+const statusTagClass = (status) => {
+  const s = String(status ?? "").toUpperCase();
+  if (s === "ACTIVE") return "tag--ok";
+  if (s === "CAUTION") return "tag--warn";
+  if (s === "INACTIVE") return "tag--mute";
+  return "tag--base";
+};
+
+const membershipTagClass = (gradeName) => {
+  const g = String(gradeName ?? "").toUpperCase();
+  if (!g || g === "-" || g === "미가입") return "tag--mute";
+  if (g.includes("VIP")) return "tag--vip";
+  if (g.includes("GOLD")) return "tag--gold";
+  if (g.includes("SILVER")) return "tag--silver";
+  if (g.includes("BRONZE")) return "tag--bronze";
+  return "tag--base";
+};
+
+const loyaltyTagStyle = (gradeName) => {
+  const g = String(gradeName ?? "").toUpperCase().trim();
+  if (g.includes("EXCELLENT")) {
+    return { background: "#e0e7ff", borderColor: "#a5b4fc", color: "#3730a3" }; // Indigo (Distinct from VIP Purple)
+  }
+  if (g.includes("GENERAL")) {
+    return { background: "#ecfeff", borderColor: "#67e8f9", color: "#155e75" }; // Cyan
+  }
+  return {};
+};
 
 const timelineTop5 = computed(() => (timelineItems.value ?? []).slice(0, 5));
 
-/* =========================
-   고객 상태 변경 이력 Top1 (우측 카드 요약용)
-   ========================= */
+/* Status History Top 1 */
 const statusHistoryTop1 = ref(null);
-
 const statusBeforeLabel = computed(() => statusHistoryTop1.value?.beforeStatus ?? "-");
 const statusAfterLabel = computed(() => statusHistoryTop1.value?.afterStatus ?? "-");
-
 const statusActorLabel = computed(() => {
   const src = String(statusHistoryTop1.value?.changeSource ?? "").toUpperCase();
   return src === "SYSTEM" ? "SYSTEM" : (src ? "MANUAL" : "-");
 });
-
 const statusEmployeeLabel = computed(() => {
   if (statusActorLabel.value === "SYSTEM") return "-";
-  const name = statusHistoryTop1.value?.employeeName;
-  if (name) return name;
-  const code = statusHistoryTop1.value?.employeeCode;
-  return code === null || code === undefined ? "-" : String(code);
+  return statusHistoryTop1.value?.employeeName || (statusHistoryTop1.value?.employeeCode ?? "-");
 });
-
 const statusChangedAtLabel = computed(() => {
   const v = statusHistoryTop1.value?.changedAt;
   return v ? formatDate(v) : "-";
 });
-
 const statusReasonLabel = computed(() => statusHistoryTop1.value?.changeReason ?? "-");
 
 const loadStatusTop1 = async () => {
@@ -538,158 +645,79 @@ const loadStatusTop1 = async () => {
   }
 };
 
-/* =========================
-   API (기존 그대로)
-   ========================= */
+/* Access API wrappers */
 const patchMembershipManually = async (customerCode, payload) => {
   const res = await api.patch(`/memberships/customers/${customerCode}/manual`, payload);
   return res.data?.data;
 };
-
-const getReservationsByCustomerApi = async ({ customerCode, size = 5, offset = 0 }) => {
+const getReservationsByCustomerApi = async ({ customerCode, size, offset }) => {
   const res = await api.get("/reservations", { params: { customerCode, size, offset } });
   return res.data?.data;
 };
-
-const getReservationDetailApi = async (reservationCode) => {
-  const res = await api.get(`/reservations/detail/${reservationCode}`);
+const getReservationDetailApi = async (code) => {
+  const res = await api.get(`/reservations/detail/${code}`);
   return res.data?.data;
 };
-
 const getInquiryListApi = async (params) => {
   const res = await api.get("/inquiries", { params });
   return res.data?.data;
 };
-
-const getInquiryDetailApi = async (inquiryCode) => {
-  const res = await api.get(`/inquiries/${inquiryCode}`);
+const getInquiryDetailApi = async (code) => {
+  const res = await api.get(`/inquiries/${code}`);
   return res.data?.data;
 };
 
-/* =========================
-   composables wiring (기존 그대로)
-   ========================= */
+/* Composables Wiring */
 const {
-  reservationColumns,
-  reservationLoading,
-  reservationRows,
-  loadReservationsTop5,
-
-  showReservationModal,
-  selectedReservationDetail,
-  openReservationModal,
-  closeReservationModal,
-
-  showReservationAllModal,
-  reservationAllLoading,
-  reservationAllRows,
-  onReservationAll,
-  closeReservationAllModal,
-
-  reservationRange,
-  setReservationMonths,
-  resetReservationRange,
-  applyReservationRange,
-} = useCustomerReservations({
-  customerCodeRef: customerCode,
-  getReservationsByCustomerApi,
-  getReservationDetailApi,
-});
+  reservationColumns, reservationLoading, reservationRows, loadReservationsTop5,
+  showReservationModal, selectedReservationDetail, openReservationModal, closeReservationModal,
+  showReservationAllModal, reservationAllLoading, reservationAllRows, onReservationAll, closeReservationAllModal,
+  reservationRange, setReservationMonths, resetReservationRange, applyReservationRange,
+} = useCustomerReservations({ customerCodeRef: customerCode, getReservationsByCustomerApi, getReservationDetailApi });
 
 const {
-  inquiryColumns,
-  inquiryLoading,
-  inquiryRows,
-  loadInquiriesTop3,
+  inquiryColumns, inquiryLoading, inquiryRows, loadInquiriesTop3,
+  showInquiryModal, selectedInquiryDetail, openInquiryModal, closeInquiryModal,
+  showInquiryAllModal, inquiryAllLoading, inquiryAllRows, onInquiryAll, closeInquiryAllModal,
+  inquiryRange, setInquiryMonths, resetInquiryRange, applyInquiryRange,
+} = useCustomerInquiries({ customerCodeRef: customerCode, getInquiryListApi, getInquiryDetailApi });
 
-  showInquiryModal,
-  selectedInquiryDetail,
-  openInquiryModal,
-  closeInquiryModal,
-
-  showInquiryAllModal,
-  inquiryAllLoading,
-  inquiryAllRows,
-  onInquiryAll,
-  closeInquiryAllModal,
-
-  inquiryRange,
-  setInquiryMonths,
-  resetInquiryRange,
-  applyInquiryRange,
-} = useCustomerInquiries({
-  customerCodeRef: customerCode,
-  getInquiryListApi,
-  getInquiryDetailApi,
-});
-
-/* ✅ 카드 설정 */
+/* DnD Settings */
 const LS_KEY = "customer_detail_card_setting_v2";
 const defaultCardSetting = () => [
   { id: "snapshot", label: "고객 스냅샷", enabled: true, column: "left", order: 1 },
   { id: "timeline", label: "최근 타임라인", enabled: true, column: "left", order: 2 },
   { id: "reservation", label: "예약/이용(최근 5건)", enabled: true, column: "left", order: 3 },
   { id: "voc", label: "문의/클레임(최근 3건)", enabled: true, column: "left", order: 4 },
-
   { id: "memo", label: "고객 메모", enabled: true, column: "right", order: 1 },
   { id: "statusHistory", label: "고객 상태 변경 이력", enabled: true, column: "right", order: 2 },
   { id: "membership", label: "멤버십", enabled: true, column: "right", order: 3 },
   { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 4 },
 ];
-
 const {
-  showCardSettingModal,
-  onCardSetting,
-  saveCardSetting,
-  resetCardSetting,
-
-  leftCards,
-  rightCards,
-  draftLeft,
-  draftRight,
-
-  onToggleEnabled,
-  dragState,
-  isOver,
-  showIndicator,
-  onDragStart,
-  onDragEnter,
-  onDragOver,
-  onDragLeave,
-  onDropAt,
-  onDragEnd,
+  showCardSettingModal, onCardSetting, saveCardSetting, resetCardSetting,
+  leftCards, rightCards, draftLeft, draftRight, onToggleEnabled,
+  dragState, isOver, showIndicator, onDragStart, onDragEnter, onDragOver, onDragLeave, onDropAt, onDragEnd,
 } = useCardSettingDnd({ lsKey: LS_KEY, defaultCardSetting });
 
-/* =========================
-   mount
-   ========================= */
+/* Page Load */
 const loadPage = async () => {
   await Promise.all([loadAll(), loadReservationsTop5(), loadInquiriesTop3(), loadStatusTop1()]);
 };
 onMounted(loadPage);
 
-/* =========================
-   header actions / modals
-   ========================= */
+/* Actions */
 const goBack = () => router.push({ name: "CustomerList" });
-
 const showContactModal = ref(false);
 const openContactModal = () => (showContactModal.value = true);
+const onMemoChanged = async () => { await Promise.all([loadTimeline(), loadStatusTop1()]); };
 
-const onMemoChanged = async () => {
-  await Promise.all([loadTimeline(), loadStatusTop1()]);
-};
-
-/* =========================
-   membership change (기존 로직 유지)
-   ========================= */
+/* Membership */
 const showMembershipModal = ref(false);
 const savingMembership = ref(false);
-
 const membershipGrades = ref([]);
 const membershipGradeOptions = computed(() =>
-    membershipGrades.value
-        .filter((g) => g?.membershipGradeStatus !== "INACTIVE")
+    membershipGrades.value.filter((g) => g?.membershipGradeStatus !== "INACTIVE")
         .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode }))
 );
 
@@ -697,31 +725,34 @@ const loadMembershipGrades = async () => {
   try {
     const list = await getMembershipGradeList();
     membershipGrades.value = Array.isArray(list) ? list : [];
-  } catch {
-    membershipGrades.value = [];
-  }
+  } catch { membershipGrades.value = []; }
 };
 
 const membershipChange = ref({
-  membershipGradeCode: null,
-  membershipStatus: "ACTIVE",
-  expiredAt: "",
-  changeReason: "",
-  employeeCode: null,
+  membershipGradeCode: null, membershipStatus: "ACTIVE", expiredAt: "", changeReason: "", employeeCode: null,
 });
 
-const onMembershipChange = () => {
-  withPermission("CUSTOMER_UPDATE", async () => {
-    await loadMembershipGrades();
+import { getMyPage } from "@/api/setting/employeeApi.js";
 
+const onMembershipChange = () => {
+  withPermission('CUSTOMER_UPDATE', async () => {
+    await loadMembershipGrades();
     const currentExpiredYmd = toYmd(membership.value?.expiredAt) || "";
     membershipChange.value = {
       membershipGradeCode: null,
       membershipStatus: membership.value?.membershipStatus || "ACTIVE",
-      expiredAt: currentExpiredYmd,
-      changeReason: "",
-      employeeCode: null,
+      expiredAt: currentExpiredYmd, changeReason: "", employeeCode: null,
     };
+
+    // ✅ Auto-fill using getMyPage
+    try {
+      const me = await getMyPage();
+      if (me && me.employeeCode) {
+        membershipChange.value.employeeCode = me.employeeCode;
+      }
+    } catch (e) {
+      console.warn("Failed to auto-fill employee code:", e);
+    }
 
     showMembershipModal.value = true;
   });
@@ -729,7 +760,6 @@ const onMembershipChange = () => {
 
 const submitMembershipChange = async () => {
   if (savingMembership.value) return;
-
   savingMembership.value = true;
   try {
     const payload = {
@@ -739,486 +769,737 @@ const submitMembershipChange = async () => {
       changeReason: (membershipChange.value.changeReason || "").trim(),
       employeeCode: Number(membershipChange.value.employeeCode),
     };
-
     await patchMembershipManually(customerCode.value, payload);
-
     alert("멤버십 변경 완료");
     showMembershipModal.value = false;
-
     await Promise.all([loadAll(), loadStatusTop1()]);
-  } catch (e) {
-    alert("멤버십 변경 실패(형식/값 확인)");
-  } finally {
-    savingMembership.value = false;
-  }
+  } catch { alert("멤버십 변경 실패"); }
+  finally { savingMembership.value = false; }
 };
 
+/* Sub-Modals */
 const showMembershipHistoryModal = ref(false);
 const showLoyaltyHistoryModal = ref(false);
+const showStatusHistoryModal = ref(false);
+const showTimelineAllModal = ref(false);
 const onMembershipHistory = () => (showMembershipHistoryModal.value = true);
 const onLoyaltyHistory = () => (showLoyaltyHistoryModal.value = true);
-
-const showStatusHistoryModal = ref(false);
 const onStatusHistory = () => (showStatusHistoryModal.value = true);
-
-const showTimelineAllModal = ref(false);
 const openTimelineAllModal = () => (showTimelineAllModal.value = true);
 const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 
-/* =========================
-   ✅ 리스트와 동일한 Tag Class 룰
-   ========================= */
-const statusTagClass = (status) => {
-  const s = String(status ?? "").toUpperCase();
-  if (s === "ACTIVE") return "tag--ok";
-  if (s === "CAUTION") return "tag--warn";
-  if (s === "INACTIVE") return "tag--mute";
-  return "tag--base";
-};
-
-const membershipTagClass = (gradeName) => {
-  const g = String(gradeName ?? "").toUpperCase();
-  if (!g || g === "-" || g === "미가입".toUpperCase()) return "tag--mute";
-  if (g.includes("VIP")) return "tag--vip";
-  if (g.includes("GOLD")) return "tag--gold";
-  if (g.includes("SILVER")) return "tag--silver";
-  if (g.includes("BRONZE")) return "tag--bronze";
-  if (g.includes("BASIC")) return "tag--base";
-  return "tag--base";
-};
-
-const loyaltyTagClass = (gradeName) => {
-  const g = String(gradeName ?? "").toUpperCase();
-  if (!g || g === "-" || g === "미가입".toUpperCase()) return "tag--mute";
-  if (g.includes("EXCELLENT")) return "tag--excellent";
-  if (g.includes("GENERAL")) return "tag--general";
-  return "tag--base";
-};
-
-const activeInactiveTagClass = (v) => {
-  const s = String(v ?? "").toUpperCase();
-  if (s === "ACTIVE") return "tag--ok";
-  if (s === "INACTIVE") return "tag--mute";
-  return "tag--base";
-};
 </script>
 
 <style scoped>
-/* ====== Tokens ====== */
+/* Page Layout */
 .customer-detail-page {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --line: #e7edf4;
-  --text: #111827;
-  --muted: #6b7280;
+  --primary-color: #2563eb;
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-main: #1e293b;
+  --text-sub: #64748b;
+  --border-color: #e2e8f0;
 
-  --r: 14px;
-  --pad: 16px;
-  --shadow: 0 1px 10px rgba(17, 24, 39, 0.06);
-
-  font-family: ui-sans-serif, system-ui, -apple-system, "Pretendard Variable", Pretendard,
-  "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-
-  color: var(--text);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 10px;
+  gap: 24px;
+  padding: 24px;
+  background: var(--bg-color);
+  min-height: 100vh;
+  font-family: Pretendard, sans-serif;
+  color: var(--text-main);
 }
 
-/* ====== Cards ====== */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: var(--pad);
-  box-shadow: var(--shadow);
-}
-
-.card-title {
-  font-weight: 900;
-  font-size: 15px;
-  letter-spacing: -0.2px;
-  margin-bottom: 12px;
-}
-
-.card-head {
+/* Header */
+.detail-header {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 24px 32px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
+  flex-direction: column;
+  gap: 24px;
 }
 
-/* ====== Header card ====== */
-.header-card {
+.header-main {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 0.7fr;
-  gap: 12px;
+  grid-template-columns: 1.2fr 2fr auto;
+  gap: 32px;
+  align-items: center;
 }
 
-@media (max-width: 1100px) {
-  .header-card { grid-template-columns: 1fr; }
-  .h-right { flex-direction: row; justify-content: flex-end; flex-wrap: wrap; }
-}
-
-.name-row {
+/* Left: Profile */
+.header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  height: 100%;
 }
 
-.name {
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: -0.3px;
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center vertically together */
+  gap: 8px; /* Tighter gap */
+  height: 100%;
 }
 
-.sub-row {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 12px;
+.info-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.customer-name {
+  font-size: 32px; /* Increased size */
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1;
+}
+
+.badge-list {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.badge-pill {
+  font-size: 11px;
   font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid transparent;
 }
 
-.code { font-variant-numeric: tabular-nums; }
+/* Badge Colors */
+.tag--ok { background-color: #dcfce7 !important; color: #166534 !important; border-color: #bbf7d0 !important; }
+.tag--warn { background-color: #ffedd5 !important; color: #c2410c !important; border-color: #fed7aa !important; }
+.tag--mute { background-color: #f1f5f9 !important; color: #94a3b8 !important; }
+.tag--vip { background-color: #f3e8ff !important; color: #7e22ce !important; border-color: #d8b4fe !important; }
+.tag--gold { background-color: #fefce8 !important; color: #a16207 !important; border-color: #fde047 !important; }
+.tag--silver { background-color: #f8fafc !important; color: #475569 !important; border-color: #cbd5e1 !important; }
+.tag--bronze { background-color: #fff7ed !important; color: #9a3412 !important; border-color: #ffedd5 !important; }
+.tag--base { background-color: #eff6ff !important; color: #2563eb !important; border-color: #bfdbfe !important; }
 
-.badges {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-/* ✅ Tag (리스트와 동일 톤) */
-.tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  color: #374151;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: -0.2px;
-  white-space: nowrap;
-}
-
-.tag--ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
-.tag--warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
-.tag--mute { background: #f3f4f6; border-color: #e5e7eb; color: #6b7280; }
-.tag--base { background: #f9fafb; border-color: #e5e7eb; color: #374151; }
-
-/* membership */
-.tag--vip { background: #111827; border-color: #111827; color: #ffffff; }
-.tag--gold { background: #fffbeb; border-color: #fde68a; color: #92400e; }
-.tag--silver { background: #f8fafc; border-color: #e2e8f0; color: #334155; }
-.tag--bronze { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
-
-/* loyalty */
-.tag--excellent { background: #ede9fe; border-color: #c4b5fd; color: #4c1d95; }
-.tag--general { background: #ecfeff; border-color: #67e8f9; color: #155e75; }
-
-
-/* header chips (세그먼트용) */
-.tag--chip {
-  border-color: #dbeafe;
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-/* chip wrapper */
-.chips {
-  margin-top: 10px;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-/* ====== Middle kv ====== */
-.h-mid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.kv {
-  display: grid;
-  grid-template-columns: 92px 1fr;
-  gap: 10px;
-  font-size: 13px;
-  align-items: center;
-}
-
-.k { color: var(--muted); font-weight: 800; }
-.v { color: var(--text); font-weight: 800; }
-
-.v-inline {
+.info-middle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
 }
 
-/* ====== Right buttons ====== */
-.h-right {
+.customer-code {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.chip-list {
   display: flex;
-  flex-direction: column;
   gap: 8px;
-  align-items: flex-end;
+  flex-wrap: wrap;
 }
 
-.h-right :deep(button) {
-  min-width: 110px;
+.chip-item {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: #eff6ff;
+  border-radius: 6px;
+  color: #1e293b;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Middle: Meta */
+.header-middle {
+  display: flex;
+  justify-content: flex-start;
+  height: 100%;
+  align-items: center;
+  padding-left: 24px;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 24px;
+  row-gap: 12px;
+  width: 100%;
+}
+
+.meta-label {
+  font-size: 13px;
+  color: #1e293b;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.meta-value-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+/* Action Group */
+.header-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   justify-content: center;
+  height: 100%;
 }
 
-/* 공통 outline ghost 버튼 톤 */
-.outline-wrap :deep(button) {
-  height: 32px !important;
-  padding: 0 12px !important;
-  border-radius: 999px !important;
-  background: #fff !important;
-  border: 1px solid #e5e7eb !important;
-  color: #2563eb !important;
-  font-weight: 800 !important;
-}
-.outline-wrap :deep(button:hover) { background: #f3f4f6 !important; }
-.outline-wrap.inline :deep(button) {
-  height: 26px !important;
-  padding: 0 10px !important;
-  font-size: 12px !important;
+.action-btn {
+  background: white;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  min-width: 110px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 
-/* ====== Main grid ====== */
-.grid {
+.action-btn:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.action-btn.primary {
+  background: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+}
+
+.action-btn.primary:hover {
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.text-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  padding: 0;
+}
+
+.text-btn:hover {
+  text-decoration: underline;
+}
+
+.divider {
+  display: none;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 12px;
-}
-@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
-
-.col { display: flex; flex-direction: column; gap: 12px; }
-
-/* ====== Snapshot ====== */
-.snap-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 24px;
 }
 
-.snap {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px;
-  background: #fafbfc;
-  box-shadow: 0 1px 6px rgba(17, 24, 39, 0.04);
-}
-
-.k2 { font-size: 12px; color: var(--muted); font-weight: 800; }
-.v2 { font-size: 16px; font-weight: 900; margin-top: 6px; letter-spacing: -0.2px; }
-
-/* ====== Timeline ====== */
-.timeline {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.column {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 24px;
 }
 
-.tl-item { display: flex; gap: 10px; align-items: flex-start; }
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #2563eb;
-  margin-top: 7px;
-  flex: 0 0 auto;
-}
-.tl-body { min-width: 0; }
-.tl-text { font-size: 13px; font-weight: 900; line-height: 1.35; color: var(--text); }
-.tl-sub { font-size: 12px; color: var(--muted); font-weight: 700; margin-top: 3px; }
-
-/* empty */
-.empty {
-  padding: 12px;
-  border: 1px dashed #e5e7eb;
-  border-radius: 12px;
-  color: var(--muted);
-  font-size: 13px;
-  background: #fafbfc;
+.dashboard-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); /* Slight elevation */
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-/* ====== KV2 blocks ====== */
-.kv2 {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 10px;
-  font-size: 13px;
-  align-items: start;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-.k3 { color: var(--muted); font-weight: 800; }
-.v3 { color: var(--text); font-weight: 800; min-width: 0; }
-
-.v3-inline {
+.card-heading {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+}
+
+.sub-count {
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.stat-item {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.stat-value small {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-left: 2px;
+}
+
+.stat-value.highlight { color: #2563eb; }
+.stat-value.alert { color: #f59e0b; }
+
+/* Filter Bar (Ported from TimelineAllModal) */
+.filter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.filter-bar .left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.filter-bar .quick {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.filter-bar .right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.filter-bar .date {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+  outline: none;
+}
+
+.filter-bar .tilde {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* BaseButton overrides for Pill style */
+.pill {
+  border-radius: 999px !important;
+  font-weight: 600;
+}
+
+.pill.active {
+  border-color: #93c5fd !important;
+  background: #eef6ff !important;
+  color: #1d4ed8 !important;
+}
+
+/* Timeline */
+.timeline-container {
+  padding-left: 8px;
+}
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+}
+
+.timeline-list::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: #e2e8f0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+
+.timeline-marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  border: 4px solid #3b82f6;
+  z-index: 1;
+  flex-shrink: 0;
+  margin-top: 3px;
+  box-shadow: 0 0 0 2px white;
+}
+
+.timeline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.timeline-date {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Status & Info Lists */
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.info-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.info-value {
+  color: #1e293b;
+  font-weight: 600;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid transparent;
 }
 
 .arrow {
-  color: #9ca3af;
-  font-weight: 900;
+  color: #cbd5e1;
+  font-size: 12px;
 }
 
-.v3-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ====== Modal generic ====== */
-.modal-body { color: var(--text); }
-
-/* 연락처 rows */
-.contact-row { margin: 6px 0; font-size: 13px; }
-.primary { margin-left: 8px; font-weight: 900; color: #111827; }
-.optin { margin-left: 8px; color: var(--muted); font-weight: 700; }
-
-/* ====== Membership Change Form ====== */
-.change-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 14px;
-}
-@media (max-width: 900px) { .change-grid { grid-template-columns: 1fr; } }
-
-.field { display: flex; flex-direction: column; gap: 6px; }
-.field.full { grid-column: 1 / -1; }
-
-.field label { font-size: 13px; font-weight: 900; color: #374151; }
-
-.field input,
-.field select,
-.field textarea {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 10px 12px;
+.highlight-text {
+  color: #2563eb;
   font-weight: 700;
-  font-size: 14px;
-  outline: none;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
-  background: #fff;
 }
 
-.field textarea { min-height: 110px; resize: vertical; line-height: 1.55; }
-
-.field input:focus,
-.field select:focus,
-.field textarea:focus {
-  border-color: #cfe3ff;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+.text-ellipsis {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.hint { margin-top: 10px; font-size: 12px; color: var(--muted); font-weight: 700; }
-
-/* ====== Card Setting DnD (추가) ====== */
-.cs-wrap {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+/* Modals */
+.modal-body {
+  padding: 4px 0;
 }
 
-@media (max-width: 900px) {
-  .cs-wrap { grid-template-columns: 1fr; }
-}
-
-.cs-col {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px;
-  background: #fafbfc;
-}
-
-.cs-title {
-  font-size: 13px;
-  font-weight: 900;
-  margin-bottom: 10px;
-}
-
-.cs-list {
+/* Contact List Modal */
+.contact-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.cs-item {
-  position: relative;
+.contact-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 10px;
-  background: #fff;
-  transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease;
-}
-
-.cs-item.disabled { opacity: 0.6; }
-.cs-item.dragging {
-  border-color: #bfdbfe;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-  transform: scale(0.995);
-}
-.cs-item.over {
-  border-color: #93c5fd;
-  background: #f8fbff;
-}
-
-.drag-handle {
-  width: 18px;
-  text-align: center;
-  color: #9ca3af;
-  cursor: grab;
-  user-select: none;
-  font-weight: 900;
-}
-
-.chk {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 800;
-  color: #374151;
-}
-
-.cs-dropzone {
-  position: relative;
-  margin-top: 6px;
   padding: 12px;
-  border: 1px dashed #e5e7eb;
-  border-radius: 12px;
-  color: #9ca3af;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.contact-type {
   font-size: 12px;
-  text-align: center;
-  background: #fff;
+  font-weight: 700;
+  width: 50px;
+  color: #64748b;
+}
+
+.contact-val {
+  flex: 1;
+  font-weight: 600;
+  color: #334155;
+}
+
+.tag-primary {
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.tag-optin {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+/* Form Styles */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.input-base, .input-disabled {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.input-base:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.input-disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Detail View in Modal */
+.detail-view-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 8px;
+}
+
+.detail-row .label {
+  color: #64748b;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.detail-row .val {
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.val.price {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.content-box {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.content-title {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 4px 0;
+}
+
+.content-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #334155;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* DnD Styles */
+.dnd-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  min-height: 300px;
+}
+
+.dnd-column {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.dnd-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.dnd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dnd-item {
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: grab;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.dnd-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dnd-item.dragging {
+  opacity: 0.8;
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.dnd-item.over {
+  border-top: 2px solid #3b82f6;
+  transform: translateY(-2px);
+}
+
+.dnd-handle {
+  color: #cbd5e1;
+  cursor: grab;
   font-weight: 800;
+  font-size: 16px;
 }
 
-.cs-dropzone.over {
-  border-color: #93c5fd;
-  background: #f8fbff;
+.dnd-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
 }
 
-.drop-indicator {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -6px;
-  height: 2px;
-  border-radius: 2px;
-  background: #93c5fd;
+.dnd-dropzone {
+  padding: 12px;
+  border: 2px dashed #e2e8f0;
+  border-radius: 8px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.dnd-dropzone.over {
+  background: #eff6ff;
+  border-color: #3b82f6;
 }
 </style>

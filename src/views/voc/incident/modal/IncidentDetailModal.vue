@@ -55,7 +55,7 @@
             <div class="row">
               <span class="k">상태</span>
               <span class="v">
-                <span class="badge" :class="statusBadgeClass(d.incidentStatus)">
+                <span class="badge" :class="`badge--${d.incidentStatus || 'NEUTRAL'}`">
                   {{ statusLabel(d.incidentStatus) }}
                 </span>
               </span>
@@ -64,7 +64,7 @@
             <div class="row">
               <span class="k">심각도</span>
               <span class="v">
-                <span class="badge" :class="severityBadgeClass(d.severity)">
+                <span class="badge" :class="`badge--${d.severity || 'NEUTRAL'}`">
                   {{ severityLabel(d.severity) }}
                 </span>
               </span>
@@ -194,22 +194,6 @@ const statusLabel = (v) => {
 };
 
 const severityLabel = (v) => (v ? v : "-");
-
-const statusBadgeClass = (v) => {
-  const s = String(v ?? "").toUpperCase();
-  if (s === "IN_PROGRESS") return "badge--in";
-  if (s === "CLOSED") return "badge--done";
-  return "badge--neutral";
-};
-
-const severityBadgeClass = (v) => {
-  const s = String(v ?? "").toUpperCase();
-  if (s === "LOW") return "badge--low";
-  if (s === "MEDIUM") return "badge--mid";
-  if (s === "HIGH") return "badge--high";
-  if (s === "CRITICAL") return "badge--crit";
-  return "badge--neutral";
-};
 
 const loadDetail = async () => {
   loading.value = true;
@@ -430,39 +414,41 @@ watch(() => props.incidentCode, loadAll, { immediate: true });
   color: #374151;
   white-space: nowrap;
 }
-
-.badge--in {
-  border-color: #dbeafe;
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-.badge--done {
-  border-color: #dcfce7;
-  background: #f0fdf4;
-  color: #15803d;
-}
-.badge--neutral {
+.badge--NEUTRAL {
   border-color: #e5e7eb;
   background: #f9fafb;
   color: #374151;
 }
 
-.badge--low {
-  border-color: #dcfce7;
-  background: #f0fdf4;
-  color: #15803d;
-}
-.badge--mid {
+/* status */
+.badge--IN_PROGRESS {
   border-color: #dbeafe;
   background: #eff6ff;
   color: #1d4ed8;
 }
-.badge--high {
+.badge--CLOSED {
+  border-color: #dcfce7;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+/* severity */
+.badge--LOW {
+  border-color: #dcfce7;
+  background: #f0fdf4;
+  color: #15803d;
+}
+.badge--MEDIUM {
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.badge--HIGH {
   border-color: #ffe4c7;
   background: #fff7ed;
   color: #c2410c;
 }
-.badge--crit {
+.badge--CRITICAL {
   border-color: #fecaca;
   background: #fff5f5;
   color: #b91c1c;

@@ -47,7 +47,7 @@
             <div class="row">
               <span class="k">처리상태</span>
               <span class="v">
-                <span class="badge" :class="badgeClass(detail?.inquiryStatus)">
+                <span class="badge" :class="`badge--${detail?.inquiryStatus || 'NEUTRAL'}`">
                   {{ statusLabel(detail?.inquiryStatus) }}
                 </span>
               </span>
@@ -116,12 +116,6 @@ const statusLabel = (v) => {
   if (v === "IN_PROGRESS") return "접수";
   if (v === "ANSWERED") return "답변완료";
   return v ?? "-";
-};
-
-const badgeClass = (v) => {
-  if (v === "IN_PROGRESS") return "badge--in";
-  if (v === "ANSWERED") return "badge--done";
-  return "badge--neutral";
 };
 
 const fmt = (iso) => {
@@ -274,19 +268,19 @@ watch(() => props.inquiryCode, fetchDetail, { immediate: true });
   color: #374151;
 }
 
-.badge--in {
+.badge--IN_PROGRESS {
   border-color: #dbeafe;
   background: #eff6ff;
   color: #1d4ed8;
 }
 
-.badge--done {
+.badge--ANSWERED {
   border-color: #dcfce7;
   background: #f0fdf4;
   color: #15803d;
 }
 
-.badge--neutral {
+.badge--NEUTRAL {
   border-color: #e5e7eb;
   background: #f9fafb;
   color: #374151;
