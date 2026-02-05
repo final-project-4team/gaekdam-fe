@@ -33,15 +33,18 @@ const { visible } = storeToRefs(useLoadingStore())
   height: 36px;
   border-radius: 50%;
 
-  /* base ring */
+  /* 기본 링 */
   border: 2.5px solid rgba(120,130,150,0.22);
 
-  /* gradient illusion */
-  border-top-color: rgba(113, 125, 186, 0.75);
-
+  /* 그라데이션 착시 (빛 방향) */
+  border-top-color: rgba(85,109,165,0.95);
 
   background: transparent;
-  box-shadow: none;
+
+
+  box-shadow:
+      inset 0 1px 0 rgba(234, 234, 234, 0.35),
+      inset 0 -1px 0 rgba(96, 96, 96, 0.12);
 
   animation: spin 1.25s linear infinite;
 }
