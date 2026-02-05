@@ -2,16 +2,21 @@
 <template>
   <div
       class="card"
-      :class="{ inactive: template && !template.active, disabled: !template }"
+      :class="{
+      inactive: template && !template.active,
+      disabled: !template
+    }"
       @click="onClick"
       role="button"
+      :aria-disabled="!template"
   >
     <div class="top">
       <div class="badge" :class="visitorType === 'FIRST' ? 'first' : 'repeat'">
         {{ visitorType === 'FIRST' ? '첫방문자' : '재방문자' }}
       </div>
 
-      <div v-if="template" class="chip" :class="{ on: template.active }">
+      <!-- 상태 칩 -->
+      <div v-if="template" class="chip" :class="{ on: template.active, off: !template.active }">
         <span class="dot"></span>
         {{ template.active ? '사용중' : '비활성' }}
       </div>
@@ -26,12 +31,21 @@
         {{ template?.title ?? '템플릿이 없습니다' }}
       </div>
       <div class="sub">
-        {{ template?.languageCode ?? '-' }} · {{ template?.templateCode ? `#${template.templateCode}` : '' }}
+        {{ template?.languageCode ?? '-' }}
+        <span v-if="template?.templateCode"> · #{{ template.templateCode }}</span>
       </div>
     </div>
 
     <div class="footer">
-      <span class="hint">{{ template ? '클릭하여 수정' : '템플릿이 없어 수정할 수 없습니다' }}</span>
+      <span class="hint">
+        {{
+          !template
+              ? '템플릿이 없어 수정할 수 없습니다'
+              : template.active
+                  ? '클릭하여 수정'
+                  : '클릭하여 활성화/수정'
+        }}
+      </span>
       <span class="arrow">→</span>
     </div>
   </div>
@@ -48,6 +62,7 @@ const emit = defineEmits(['edit'])
 
 const onClick = () => {
   if (!props.template) return
+
   emit('edit', {
     stage: props.stage,
     template: props.template,
@@ -57,34 +72,83 @@ const onClick = () => {
 </script>
 
 <style scoped>
+/* =====================
+   Card Base
+===================== */
 .card {
   border-radius: 14px;
   border: 1px solid #e5e7eb;
   background: #ffffff;
   padding: 12px 12px 10px;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      box-shadow 0.15s;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
+/* =====================
+   Hover (기본)
+===================== */
 .card:hover {
-  transform: translateY(-1px);
   border-color: #c7d2fe;
-  box-shadow: 0 10px 26px rgba(17, 24, 39, 0.08);
+  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.06);
 }
 
+/* =====================
+   Disabled (템플릿 없음)
+===================== */
 .card.disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.45;
 }
+
 .card.disabled:hover {
-  transform: none;
   box-shadow: none;
   border-color: #e5e7eb;
 }
 
+/* =====================
+   Inactive (비활성 · 클릭 가능)
+===================== */
+.card.inactive {
+  background: #f8fafc;
+  border-color: #e5e7eb;
+  filter: grayscale(0.45) brightness(0.98);
+}
+
+/* hover는 있지만 거의 느낌만 */
+.card.inactive:hover {
+  box-shadow: 0 2px 6px rgba(17, 24, 39, 0.04);
+  border-color: #d1d5db;
+}
+
+/* 텍스트 더 강하게 톤 다운 */
+.card.inactive .title {
+  color: #6b7280;
+}
+
+.card.inactive .sub,
+.card.inactive .hint {
+  color: #9ca3af;
+}
+
+/* 화살표도 거의 힘 빼기 */
+.card.inactive .arrow {
+  color: #d1d5db;
+}
+
+/* 뱃지도 살짝 죽이기 */
+.card.inactive .badge {
+  opacity: 0.75;
+}
+
+/* =====================
+   Top
+===================== */
 .top {
   display: flex;
   align-items: center;
@@ -102,17 +166,20 @@ const onClick = () => {
 }
 
 .badge.first {
-  background: rgba(79, 70, 229, 0.10);
-  color: #4f46e5;
-  border: 1px solid rgba(79, 70, 229, 0.20);
+  color: #656565;
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  background: rgba(163, 160, 255, 0.05);
 }
 
 .badge.repeat {
-  background: rgba(16, 185, 129, 0.10);
-  color: #059669;
-  border: 1px solid rgba(16, 185, 129, 0.20);
+  color: #6a6a6a;
+  border: 1px solid rgba(108, 136, 207, 0.2);
+  background: rgba(108, 136, 207, 0.05);
 }
 
+/* =====================
+   Chip
+===================== */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -135,7 +202,7 @@ const onClick = () => {
 .chip.on {
   color: #16a34a;
   background: rgba(22, 163, 74, 0.08);
-  border-color: rgba(22, 163, 74, 0.20);
+  border-color: rgba(22, 163, 74, 0.2);
 }
 
 .chip.on .dot {
@@ -146,6 +213,19 @@ const onClick = () => {
   color: #9ca3af;
 }
 
+/* inactive 상태에서 chip도 힘 빼기 */
+.card.inactive .chip {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.card.inactive .chip .dot {
+  background: #d1d5db;
+}
+
+/* =====================
+   Body
+===================== */
 .body {
   margin-top: 12px;
 }
@@ -164,6 +244,9 @@ const onClick = () => {
   color: #6b7280;
 }
 
+/* =====================
+   Footer
+===================== */
 .footer {
   margin-top: 12px;
   display: flex;
@@ -179,9 +262,5 @@ const onClick = () => {
 .arrow {
   font-size: 14px;
   color: #4f46e5;
-}
-
-.card.inactive .arrow {
-  color: #9ca3af;
 }
 </style>

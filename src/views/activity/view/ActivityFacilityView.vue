@@ -27,7 +27,6 @@
           @search="onSearch"
           @sort-change="onSortChange"
           @page-change="onPageChange"
-          @row-click="onRowClick"
       />
     </template>
 

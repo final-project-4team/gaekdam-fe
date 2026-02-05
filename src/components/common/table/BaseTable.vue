@@ -1,8 +1,7 @@
 <template>
   <div class="table-wrapper">
     <table class="base-table">
-      <!-- 컬럼 폭 -->
-      <colgroup>
+      <colgroup ref="colgroupRef">
         <col
             v-for="col in columns"
             :key="col.key"
@@ -13,43 +12,50 @@
       <thead>
       <tr>
         <th
-            v-for="col in columns"
+            v-for="(col, index) in columns"
             :key="col.key"
-            :class="['th', { sortable: col.sortable, active: sortKey === col.key }]"
+            :class="[
+              'th',
+              { sortable: col.sortable, active: sortKey === col.key },
+              { resizing: resizeIndex === index }
+            ]"
             @click="onSort(col)"
         >
-          <span class="th-label">
-            {{ col.label }}
-          </span>
+          <span class="th-label">{{ col.label }}</span>
 
           <span v-if="col.sortable" class="sort-icon">
-            <!-- 기본 -->
-            <svg
-                v-if="sortKey !== col.key"
-                viewBox="0 0 24 24"
-                class="icon inactive"
-            >
-              <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />
-            </svg>
+              <svg
+                  v-if="sortKey !== col.key"
+                  viewBox="0 0 24 24"
+                  class="icon inactive"
+              >
+                <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />
+              </svg>
 
-            <!-- ASC -->
-            <svg
-                v-else-if="sortOrder === 'ASC'"
-                viewBox="0 0 24 24"
-                class="icon active"
-            >
-              <path d="M8 14l4-4 4 4" />
-            </svg>
+              <svg
+                  v-else-if="sortOrder === 'ASC'"
+                  viewBox="0 0 24 24"
+                  class="icon active"
+              >
+                <path d="M8 14l4-4 4 4" />
+              </svg>
 
-            <!-- DESC -->
-            <svg
-                v-else
-                viewBox="0 0 24 24"
-                class="icon active"
-            >
-              <path d="M8 10l4 4 4-4" />
-            </svg>
-          </span>
+              <svg
+                  v-else
+                  viewBox="0 0 24 24"
+                  class="icon active"
+              >
+                <path d="M8 10l4 4 4-4" />
+              </svg>
+            </span>
+
+          <!-- resize handle -->
+          <span
+              v-if="index < columns.length - 1"
+              class="resize-handle"
+              @mousedown.stop.prevent="startResize($event, index)"
+              @click.stop
+          />
         </th>
       </tr>
       </thead>
@@ -87,25 +93,27 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
+
+const MIN_WIDTH = 60
 
 const props = defineProps({
   columns: { type: Array, default: () => [] },
   rows: { type: Array, default: () => [] },
-
-  /**  row 식별자 (기본값 안전하게) */
   rowKey: { type: String, default: 'id' },
 })
 
 const emit = defineEmits(['row-click', 'sort-change'])
 
-/* ===================== */
-/* 정렬 상태 */
-/* ===================== */
+/* =====================
+   정렬
+===================== */
 const sortKey = ref('')
-const sortOrder = ref('ASC') // 서버 기준
+const sortOrder = ref('ASC')
+let isResizing = false
 
 const onSort = (col) => {
+  if (isResizing) return
   if (!col.sortable) return
 
   if (sortKey.value === col.key) {
@@ -121,22 +129,95 @@ const onSort = (col) => {
   })
 }
 
-/* ===================== */
-/* columns 변경 시 정렬 보호 */
-/* ===================== */
+/* =====================
+   엑셀 방식 컬럼 리사이즈
+===================== */
+const colgroupRef = ref(null)
+
+let resizeIndex = null
+let startX = 0
+let startWidth = 0
+let startNextWidth = 0
+let rafId = null
+
+const startResize = (e, index) => {
+  const cols = colgroupRef.value?.children
+  const cur = cols?.[index]
+  const next = cols?.[index + 1]
+  if (!cur || !next) return
+
+  isResizing = true
+  resizeIndex = index
+  startX = e.clientX
+  startWidth = cur.getBoundingClientRect().width
+  startNextWidth = next.getBoundingClientRect().width
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', stopResize)
+}
+
+const onMouseMove = (e) => {
+  if (resizeIndex === null || rafId) return
+
+  rafId = requestAnimationFrame(() => {
+    const cols = colgroupRef.value?.children
+    const cur = cols?.[resizeIndex]
+    const next = cols?.[resizeIndex + 1]
+    if (!cur || !next) {
+      stopResize()
+      rafId = null
+      return
+    }
+
+    const delta = e.clientX - startX
+    const w1 = startWidth + delta
+    const w2 = startNextWidth - delta
+
+    if (w1 < MIN_WIDTH || w2 < MIN_WIDTH) {
+      rafId = null
+      return
+    }
+
+    cur.style.width = `${w1}px`
+    next.style.width = `${w2}px`
+    rafId = null
+  })
+}
+
+const stopResize = () => {
+  if (resizeIndex === null) return
+
+  const cols = colgroupRef.value?.children
+  if (cols?.[resizeIndex] && cols?.[resizeIndex + 1]) {
+    props.columns[resizeIndex].width = cols[resizeIndex].style.width
+    props.columns[resizeIndex + 1].width = cols[resizeIndex + 1].style.width
+  }
+
+  isResizing = false
+  resizeIndex = null
+  rafId = null
+
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', stopResize)
+}
+
 watch(
     () => props.columns,
     () => {
-      if (sortKey.value && !props.columns.some(c => c.key === sortKey.value)) {
-        sortKey.value = ''
-        sortOrder.value = 'ASC'
-        emit('sort-change', undefined)
-      }
+      if (resizeIndex !== null) stopResize()
     }
 )
+
+onBeforeUnmount(() => {
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', stopResize)
+})
 </script>
 
 <style scoped>
+/* =====================
+   Layout
+===================== */
 .table-wrapper {
   background: white;
   border-radius: 12px;
@@ -150,7 +231,9 @@ watch(
   table-layout: fixed;
 }
 
-/* 공통 셀 */
+/* =====================
+   Cell
+===================== */
 th, td {
   padding: 12px;
   border-top: 1px solid #eef2f7;
@@ -160,7 +243,6 @@ th, td {
   white-space: nowrap;
 }
 
-/* 헤더 */
 th {
   position: relative;
   background: #f8fafc;
@@ -173,32 +255,59 @@ th {
 }
 
 .th-label {
-  display: inline-block;
-}
-
-/* 정렬 아이콘 */
-.sort-icon {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
+  padding-right: 20px;
 }
 
 th.sortable {
   cursor: pointer;
 }
 
-th.sortable:hover {
-  background: #eef2ff;
+
+.sort-icon {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-th.active {
-  color: #1d4ed8;
+/* =====================
+   Resize handle (정제된 UX)
+===================== */
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 10px;              /* 클릭 영역 */
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
 }
 
-/* 아이콘 */
+/* 항상 보이는 연한 라인 */
+.resize-handle::before {
+  content: '';
+  position: absolute;
+  right: 4px;
+  top: 0;
+  width: 1px;               /* 두께 고정 */
+  height: 100%;
+  background: rgba(196, 227, 255, 0.25); /* slate-400 연톤 */
+  transition: background 0.15s ease;
+}
+
+/* hover 시 */
+th:hover .resize-handle::before {
+  background: rgba(156, 201, 255, 0.45);  /* blue-400 연톤 */
+}
+
+/* 드래그 중 */
+th.resizing .resize-handle::before {
+  background: rgba(37,99,235,0.65);   /* blue-600 */
+}
+
+/* =====================
+   Icon
+===================== */
 .icon {
   width: 14px;
   height: 14px;
@@ -207,23 +316,14 @@ th.active {
   stroke-width: 2;
 }
 
-.icon.inactive {
-  color: #cbd5e1;
-}
+.icon.inactive { color: #cbd5e1; }
+.icon.active { color: #5e89ff; }
 
-.icon.active {
-  color: #1d4ed8;
-}
-
-/* 바디 */
-.table-row {
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.table-row:hover {
-  background: #f1f5ff;
-}
+/* =====================
+   Body
+===================== */
+.table-row { cursor: pointer; }
+.table-row:hover { background: #f1f5ff; }
 
 .empty {
   text-align: center;
@@ -231,7 +331,6 @@ th.active {
   padding: 24px 12px;
 }
 
-/* 정렬 */
 .align-left { text-align: left; }
 .align-center { text-align: center; }
 .align-right { text-align: right; }

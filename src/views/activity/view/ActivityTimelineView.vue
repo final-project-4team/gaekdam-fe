@@ -11,6 +11,7 @@
         :pageSize="size"
         :total="total"
         :searchTypes="customerSearchTypes"
+        :disableSkeleton="true"
         @search="onCustomerSearch"
         @row-click="onCustomerSelect"
         @page-change="onPageChange"
@@ -113,6 +114,7 @@ const stays = ref([])
 const selectedStay = ref(null)
 
 const timeline = ref(null)
+const hasSearched = ref(false)
 
 /* =====================
    Columns
