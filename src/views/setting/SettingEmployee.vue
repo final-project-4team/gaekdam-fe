@@ -149,6 +149,7 @@ import {
 import EmployeeDetailModal from "@/views/setting/modal/EmployeeDetailModal.vue";
 import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
 import {usePermissionGuard} from '@/composables/usePermissionGuard';
+import {ElMessageBox} from "element-plus";
 // ...
 const {withPermission} = usePermissionGuard();
 
@@ -191,6 +192,7 @@ const filters = [
       {label: 'ACTIVE', value: 'ACTIVE'},
       {label: 'LOCKED', value: 'LOCKED'},
       {label: 'DORMANCY', value: 'DORMANCY'},
+      {label: 'INACTIVE', value: 'INACTIVE'},
     ],
   }
 ]
@@ -431,7 +433,10 @@ const handleAction = (action, row) => {
           return
         }
         await lockEmployee(row.employeeCode)
-        alert('잠금 처리되었습니다.')
+        await ElMessageBox.alert('잠금 되었습니다', '알림', {
+          confirmButtonText: '확인',
+          type: 'warning', // success, warning, info, error 아이콘 자동 생성
+        });
       } else if (action === 'activate') {
         if (!confirm(`${row.employeeName} 님을 활성화하시겠습니까?`)) {
           return

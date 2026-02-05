@@ -1,8 +1,8 @@
 import api from "@/api/axios.js";
 
-export const getLoyaltyGradeList = async () => {
-    const res = await api.get("/loyalty-grade");
-    return res.data.data;
+export const getLoyaltyGradeList = async (params = {}) => {
+  const res = await api.get("/loyalty-grade", { params });
+  return res.data.data;
 };
 
 export const getLoyaltyGradeDetail = async (loyaltyGradeCode) => {
