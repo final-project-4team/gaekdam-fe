@@ -1,7 +1,33 @@
 <template>
   <div class="customer-detail-page">
-    <!-- Header Section -->
-    <header class="detail-header">
+
+    <!-- Top Navigation (Tabs + Common Actions) -->
+    <div class="page-top-nav">
+      <div class="nav-tabs">
+        <button
+            class="nav-tab-btn"
+            :class="{ active: activeTab === 'basic' }"
+            @click="setTab('basic')"
+        >
+          기본 정보
+        </button>
+        <button
+            class="nav-tab-btn"
+            :class="{ active: activeTab === 'report' }"
+            @click="setTab('report')"
+        >
+          분석 리포트
+        </button>
+      </div>
+      <div class="nav-actions">
+        <button class="action-btn outline" @click="goBack">
+          목록으로
+        </button>
+      </div>
+    </div>
+
+    <!-- Header Section (Basic Info Only) -->
+    <header class="detail-header" v-show="activeTab === 'basic'">
       <div class="header-main">
         <!-- Left: Profile Info -->
         <div class="header-left">
@@ -56,9 +82,7 @@
 
         <!-- Right: Actions -->
         <div class="header-actions">
-          <button class="action-btn primary" @click="goBack">
-            목록으로
-          </button>
+          <!-- 'Back to List' removed as it is now in top-nav -->
           <button class="action-btn" @click="onMembershipChange">
             멤버십 변경
           </button>
@@ -67,10 +91,12 @@
           </button>
         </div>
       </div>
+
+      <!-- Old Tabs Removed -->
     </header>
 
-    <!-- Content Grid -->
-    <main class="dashboard-grid">
+    <!-- Tab 1: Basic Information -->
+    <main class="dashboard-grid" v-show="activeTab === 'basic'">
       <!-- Left Column -->
       <div class="column left-column">
         <template v-for="card in leftCards" :key="card.id">
@@ -131,7 +157,9 @@
                   v-else
                   :columns="reservationColumns"
                   :rows="reservationRows"
+                  :page="1"
                   :pageSize="5"
+                  :total="reservationRows.length"
                   @row-click="openReservationModal"
               />
             </div>
@@ -150,7 +178,9 @@
                   v-else
                   :columns="inquiryColumns"
                   :rows="inquiryRows"
+                  :page="1"
                   :pageSize="3"
+                  :total="inquiryRows.length"
                   @row-click="openInquiryModal"
               />
             </div>
@@ -451,7 +481,13 @@
         </div>
         <div v-if="reservationAllLoading" class="loading-state">로딩 중...</div>
         <div v-else-if="reservationAllRows.length === 0" class="empty-state">데이터가 없습니다.</div>
-        <TableWithPaging v-else :columns="reservationColumns" :rows="reservationAllRows" :pageSize="20" />
+        <TableWithPaging v-else
+                         :columns="reservationColumns"
+                         :rows="reservationAllRows"
+                         :page="1"
+                         :pageSize="20"
+                         :total="reservationAllRows.length"
+        />
       </div>
     </BaseModal>
 
@@ -482,7 +518,13 @@
         </div>
         <div v-if="inquiryAllLoading" class="loading-state">로딩 중...</div>
         <div v-else-if="inquiryAllRows.length === 0" class="empty-state">데이터가 없습니다.</div>
-        <TableWithPaging v-else :columns="inquiryColumns" :rows="inquiryAllRows" :pageSize="20" />
+        <TableWithPaging v-else
+                         :columns="inquiryColumns"
+                         :rows="inquiryAllRows"
+                         :page="1"
+                         :pageSize="20"
+                         :total="inquiryAllRows.length"
+        />
       </div>
     </BaseModal>
 
@@ -521,6 +563,16 @@
       <div class="modal-body" v-else>로딩 중...</div>
     </BaseModal>
 
+    <!-- Tab 2: Analysis Report -->
+    <div v-if="activeTab === 'report'" class="report-tab-wrapper">
+      <CustomerReportView
+          :customerCode="customerCode"
+          :membershipGrade="membership?.gradeName"
+          :loyaltyGrade="loyalty?.gradeName"
+      />
+    </div>
+
+    <!-- Modals -->
     <MembershipHistoryModal
         :open="showMembershipHistoryModal"
         :customerCode="customerCode"
@@ -549,6 +601,7 @@ import BaseButton from "@/components/common/button/BaseButton.vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import TableWithPaging from "@/components/common/table/TableWithPaging.vue";
 
+import CustomerReportView from "@/views/customer/view/CustomerReportView.vue";
 import CustomerMemoView from "@/views/customer/view/CustomerMemoView.vue";
 import MembershipHistoryModal from "@/views/customer/modal/MembershipHistoryModal.vue";
 import LoyaltyHistoryModal from "@/views/customer/modal/LoyaltyHistoryModal.vue";
@@ -572,6 +625,10 @@ const useRouterInstance = useRouter(); // renamed to avoid conflict
 const router = useRouterInstance; // consistent usage
 const authStore = useAuthStore();
 
+const activeTab = computed(() => route.query.tab || 'basic');
+const setTab = (tab) => {
+  router.replace({ query: { ...route.query, tab } });
+};
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 const customerCode = computed(() => Number(route.params.id));
 
@@ -1522,5 +1579,56 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 .dnd-dropzone.over {
   background: #eff6ff;
   border-color: #3b82f6;
+}
+
+/* Top Navigation */
+.page-top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eef2f7;
+  padding: 0 4px;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 28px;
+}
+
+.nav-tab-btn {
+  background: none;
+  border: none;
+  padding: 16px 4px; /* Slightly taller for top nav */
+  font-size: 16px;   /* Slightly larger text */
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.nav-tab-btn:hover {
+  color: #334155;
+}
+
+.nav-tab-btn.active {
+  color: #577ce6;
+  font-weight: 700;
+}
+
+.nav-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 100%;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(to right, #7bb0f1, #6f93f6);
+}
+
+.report-tab-wrapper {
+  margin-top: 0; /* Remove margin as it's now top-level */
 }
 </style>

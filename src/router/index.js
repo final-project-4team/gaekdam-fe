@@ -66,6 +66,7 @@ const routes = [
             component: () => import('@/views/customer/view/CustomerListView.vue'),
             meta: {permission: 'CUSTOMER_LIST'}
           },
+
           {
             path: ':id',
             name: 'CustomerDetail',
