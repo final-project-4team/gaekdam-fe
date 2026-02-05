@@ -179,21 +179,21 @@ const normalizeSearchType = (v) => {
 };
 
 /* dynamic grade options */
-const membershipGradeOptions = ref([{ label: "멤버십(전체)", value: "" }, { label: "미가입", value: -1 }]);
-const loyaltyGradeOptions = ref([{ label: "로열티(전체)", value: "" }, { label: "미가입", value: -1 }]);
+const membershipGradeOptions = ref([{ label: "멤버십", value: "" }, { label: "미가입", value: -1 }]);
+const loyaltyGradeOptions = ref([{ label: "로열티", value: "" }, { label: "미가입", value: -1 }]);
 
 const loadGradeOptions = async () => {
   try {
     const [mList, lList] = await Promise.all([getMembershipGradeList(), getLoyaltyGradeList()]);
     membershipGradeOptions.value = [
-      { label: "멤버십(전체)", value: "" },
+      { label: "멤버십", value: "" },
       { label: "미가입", value: -1 },
       ...(Array.isArray(mList) ? mList : [])
           .filter((g) => g && g.membershipGradeCode != null && g.gradeName)
           .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode })),
     ];
     loyaltyGradeOptions.value = [
-      { label: "로열티(전체)", value: "" },
+      { label: "로열티", value: "" },
       { label: "미가입", value: -1 },
       ...(Array.isArray(lList) ? lList : [])
           .filter((g) => g && g.loyaltyGradeCode != null && g.loyaltyGradeName)
@@ -210,7 +210,7 @@ const filters = computed(() => [
   {
     key: "status",
     options: [
-      { label: "상태(전체)", value: "" },
+      { label: "상태", value: "" },
       { label: "ACTIVE", value: "ACTIVE" },
       { label: "INACTIVE", value: "INACTIVE" },
       { label: "CAUTION", value: "CAUTION" },
@@ -219,7 +219,7 @@ const filters = computed(() => [
   {
     key: "contractType",
     options: [
-      { label: "계약주체(전체)", value: "" },
+      { label: "계약주체", value: "" },
       { label: "INDIVIDUAL", value: "INDIVIDUAL" },
       { label: "CORPORATE", value: "CORPORATE" },
     ],
@@ -227,7 +227,7 @@ const filters = computed(() => [
   {
     key: "nationalityType",
     options: [
-      { label: "국적(전체)", value: "" },
+      { label: "국적", value: "" },
       { label: "DOMESTIC", value: "DOMESTIC" },
       { label: "FOREIGN", value: "FOREIGN" },
     ],
@@ -235,7 +235,7 @@ const filters = computed(() => [
   {
     key: "inflowChannel",
     options: [
-      { label: "유입채널(전체)", value: "" },
+      { label: "유입채널", value: "" },
       { label: "WEB", value: "WEB" },
       { label: "OFFLINE", value: "OFFLINE" },
       { label: "OTA", value: "OTA" },

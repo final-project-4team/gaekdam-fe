@@ -47,6 +47,11 @@ const onPress = () => {
       transform 0.1s ease;
 }
 
+.btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .btn:active {
   transform: translateY(1px);
 }

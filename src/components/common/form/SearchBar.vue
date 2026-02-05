@@ -1,10 +1,10 @@
 <template>
   <div class="search-bar">
     <!-- 검색 기준 -->
-    <div v-if="searchTypes?.length" class="select-wrap">
+    <div v-if="props.searchTypes?.length" class="select-wrap">
       <select v-model="selectedKey">
         <option
-            v-for="item in searchTypes"
+            v-for="item in props.searchTypes"
             :key="item.value"
             :value="item.value"
         >
@@ -35,7 +35,7 @@
           v-else
           class="input"
           :type="current?.type === 'number' ? 'number' : 'text'"
-          :placeholder="placeholder"
+          :placeholder="props.placeholder"
           v-model="value"
           @keyup.enter="submit"
       />
@@ -47,7 +47,7 @@
     </BaseButton>
 
     <BaseButton
-        v-if="showDetail"
+        v-if="props.showDetail"
         type="primary"
         size="sm"
         @click="$emit('detail')"
@@ -58,9 +58,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 
+/* =====================
+   Props (중요)
+===================== */
 const props = defineProps({
   placeholder: {
     type: String,
@@ -69,7 +72,7 @@ const props = defineProps({
   searchTypes: {
     type: Array,
     default: () => [],
-    // [{ label, key, type, options? }]
+    // [{ label, value, type, options? }]
   },
   showDetail: {
     type: Boolean,
@@ -79,13 +82,36 @@ const props = defineProps({
 
 const emit = defineEmits(['search', 'detail'])
 
-const selectedKey = ref(props.searchTypes[0]?.value ?? '')
+/* =====================
+   State
+===================== */
+const selectedKey = ref('')
 const value = ref(null)
 
+/* =====================
+   Computed
+===================== */
 const current = computed(() =>
     props.searchTypes.find(t => t.value === selectedKey.value)
 )
 
+/* =====================
+   Watch: searchTypes 바뀌면 기본값 재설정
+===================== */
+watch(
+    () => props.searchTypes,
+    (list) => {
+      if (!list?.length) return
+      if (!selectedKey.value) {
+        selectedKey.value = list[0].value
+      }
+    },
+    { immediate: true }
+)
+
+/* =====================
+   Actions
+===================== */
 const submit = () => {
   emit('search', {
     key: selectedKey.value ?? '',
@@ -94,15 +120,22 @@ const submit = () => {
 }
 </script>
 
-
 <style scoped>
+/* =====================
+   Search bar (줄바꿈 방지)
+===================== */
 .search-bar {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
+
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
-/* select */
+/* =====================
+   Select
+===================== */
 .select-wrap select {
   height: 32px;
   padding: 0 10px;
@@ -112,19 +145,30 @@ const submit = () => {
   font-size: 13px;
 }
 
-/* input */
+/* =====================
+   Input
+===================== */
 .input-wrap {
   position: relative;
 }
 
 .input {
-  width: 260px;
   height: 32px;
   padding: 0 36px 0 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   font-size: 13px;
+
+  width: 220px;
+  min-width: 160px;
+
   transition: all 0.2s;
+}
+
+@media (max-width: 1200px) {
+  .input {
+    width: 180px;
+  }
 }
 
 .input:focus {
@@ -132,6 +176,4 @@ const submit = () => {
   border-color: #bfdbfe;
   box-shadow: 0 0 0 1px rgba(191,219,254,.4);
 }
-
-
 </style>

@@ -1,19 +1,23 @@
 <template>
   <div class="filters">
-    <select
+    <div
         v-for="filter in filters"
         :key="filter.key"
-        :value="values[filter.key]"
-        @change="e => onChange(filter.key, e.target.value)"
+        class="select-wrap"
     >
-      <option
-          v-for="opt in filter.options"
-          :key="opt.value"
-          :value="opt.value"
+      <select
+          :value="values[filter.key]"
+          @change="e => onChange(filter.key, e.target.value)"
       >
-        {{ opt.label }}
-      </option>
-    </select>
+        <option
+            v-for="opt in filter.options"
+            :key="opt.value"
+            :value="opt.value"
+        >
+          {{ opt.label }}
+        </option>
+      </select>
+    </div>
   </div>
 </template>
 
@@ -42,15 +46,81 @@ const onChange = (key, value) => {
 </script>
 
 <style scoped>
+/* =====================
+   Filters container
+===================== */
 .filters {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
+/* =====================
+   Select wrapper
+===================== */
+.select-wrap {
+  position: relative;
+}
+
+/* =====================
+   Select base
+===================== */
 select {
-  padding: 6px 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  height: 30px;
+  line-height: 30px;
+  padding: 0 20px 0 10px; /* 오른쪽 화살표 공간 */
+
   border-radius: 6px;
   border: 1px solid #d1d5db;
   font-size: 13px;
+  color: #374151;
+  background-color: #ffffff;
+
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* =====================
+   Dropdown arrow
+===================== */
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 10px;
+
+  width: 6px;
+  height: 6px;
+
+  border-right: 2px solid #6b7280;
+  border-bottom: 2px solid #6b7280;
+
+  transform: translateY(-50%) rotate(45deg);
+  pointer-events: none;
+}
+
+/* =====================
+   Hover / Focus
+===================== */
+select:hover {
+  background-color: #f9fafb;
+}
+
+select:focus {
+  outline: none;
+  border-color: #508bba;
+}
+
+/* =====================
+   Disabled (optional)
+===================== */
+select:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
 }
 </style>
