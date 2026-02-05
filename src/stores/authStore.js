@@ -169,7 +169,6 @@ export const useAuthStore = defineStore("auth", () => {
       // 백엔드 응답 구조에 따라 res.data.data 등 확인 필요
       // 만약 res.data가 바로 배열인 경우 등 구조 확인용
       const content = res.data?.data || res.data;
-      console.log("[AuthStore] Parsed permissions content:", content);
 
       // 안전하게 배열 여부 확인하여 저장
       if (Array.isArray(content)) {
@@ -211,11 +210,17 @@ export const useAuthStore = defineStore("auth", () => {
 
   /* refresh */
   const refreshTokens = async () => {
-    const res = await refreshApi();
-    const { data } = res.data;
+    try {
+      const res = await refreshApi();
+      const {data} = res.data;
 
-    setAccessToken(data.accessToken);
-    setUserFromToken(data.accessToken);
+      setAccessToken(data.accessToken);
+      setUserFromToken(data.accessToken);
+    }
+    catch(e){
+      alert("다른 유저가 로그인 하였습니다.");
+      throw e;
+    }
   };
 
   /* logout */

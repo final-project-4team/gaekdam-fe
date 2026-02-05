@@ -69,6 +69,10 @@ export const unlockEmployee = async (employeeCode) => {
   return res.data;
 };
 
+export const inactiveEmployee = async (employeeCode) => {
+  const res = await api.patch(`/employee/inactive/${employeeCode}`);
+  return res.data;
+};
 export const resetEmployeePassword = async (employeeCode) => {
   const res = await api.patch(`/employee/password-reset/${employeeCode}`);
   return res.data;

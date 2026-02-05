@@ -169,7 +169,16 @@
 import { ref, onMounted, computed } from 'vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
-import { getEmployeeDetail, updateEmployee, updateEmployeeStatus, createEmployee, unlockEmployee, getDepartmentList, getHotelPositionList } from '@/api/setting/employeeApi.js'
+import {
+  getEmployeeDetail,
+  updateEmployee,
+  updateEmployeeStatus,
+  createEmployee,
+  unlockEmployee,
+  getDepartmentList,
+  getHotelPositionList,
+  inactiveEmployee
+} from '@/api/setting/employeeApi.js'
 import {getPermissionNameList} from "@/api/setting/permissionApi.js";
 
 
@@ -394,12 +403,12 @@ const save = async () => {
 
 // 상태 변경
 const toggleStatus = async (targetStatus) => {
-    if(!confirm(targetStatus === 'LOCKED' ? "사용자를 비활성화(잠금) 하시겠습니까?" : "사용자를 활성화 하시겠습니까?")) return;
+    if(!confirm(targetStatus === 'LOCKED' ? "사용자를 비활성화하시겠습니까?" : "사용자를 활성화 하시겠습니까?")) return;
     try {
         if (targetStatus === 'ACTIVE') {
             await unlockEmployee(props.employeeCode)
         } else {
-            await updateEmployeeStatus(props.employeeCode, targetStatus)
+            await inactiveEmployee(props.employeeCode)
         }
         await fetchDetail() 
     } catch(e) {

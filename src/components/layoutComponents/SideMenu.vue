@@ -35,14 +35,45 @@ const hotelName = computed(() => {
 const menus = computed(() => {
   // 기본 메뉴 (항상 보임)
   const list = [
-    { label: '리포트', path: '/reports' },
-    { label: '고객관리', path: '/customers' },
-    { label: '고객활동', path: '/activities' },
-    { label: '고객의소리', path: '/voc' },
-    { label: '메시지', path: '/messages' },
-    { label: '마이페이지', path: '/myPage' },
   ];
-  //  세팅 메뉴 권한 그룹 (하나라도 만족하면 표시)
+  const reportPermission=[
+   'REPORT_LAYOUT_LIST'
+  ]
+  if(reportPermission.some(p=>authStore.hasPermission(p))){
+    list.push({label:'리포트',path:'/reports'})
+  }
+  const customerPermission=[
+      'CUSTOMER_LIST',
+    'CUSTOMER_DETAIL'
+  ]
+  if(customerPermission.some(p=>authStore.hasPermission(p))){
+    list.push({label:'고객 관리',path:'/customers'})
+  }
+  const activitiesPermission = [
+      'RESERVATION_LIST',
+    'TODAY_RESERVATION_LIST',
+    'TODAY_FACILITY_USAGE_LIST',
+    'CUSTOMER_TIMELINE_READ'
+  ]
+  if(activitiesPermission.some(p=>authStore.hasPermission(p))){
+    list.push({label:'고객 활동',path:'/activities'})
+  }
+  const vocPermission=[
+    'INQUIRY_LIST',
+    'INCIDENT_LIST'
+  ];
+  if(vocPermission.some(p=>authStore.hasPermission(p))){
+   list.push({label:'고객의소리',path:'/voc'})
+  }
+  const messagePermissions = [
+    'MESSAGE_LIST'
+  ];
+  if (messagePermissions.some(p => authStore.hasPermission(p))) {
+    list.push({ label: '메시지', path: '/messages' });
+  }
+  // list.push({ label: '마이페이지', path: '/myPage' });
+
+  //  세팅 메뉴 권한 그룹 ( 하나라도 만족하면 표시)
   const settingPermissions = [
     'EMPLOYEE_LIST',
     'SETTING_OBJECTIVE_LIST',
