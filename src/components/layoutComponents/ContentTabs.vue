@@ -40,9 +40,12 @@ const isActive = (tab) => {
   gap: 28px;
   padding: 0 20px;
   border-bottom: 1px solid #eef2f7;
+
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y : hidden;
 }
 
-/* 기본 탭 */
 .tab {
   position: relative;
   padding: 14px 2px;
@@ -51,6 +54,9 @@ const isActive = (tab) => {
   cursor: pointer;
   font-weight: 500;
   transition: color 0.15s ease;
+
+  white-space: nowrap;   /* 핵심 */
+  flex-shrink: 0;        /* 줄어들며 찌그러지지 않게 */
 }
 
 /* hover */
@@ -79,4 +85,5 @@ const isActive = (tab) => {
       #6f93f6
   );
 }
+
 </style>
