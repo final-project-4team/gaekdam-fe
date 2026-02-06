@@ -3,7 +3,7 @@
     <div class="create-layout-form">
       <div class="form-row">
         <label class="form-label">레이아웃 이름</label>
-        <input v-model="name" placeholder="ex. 객실운영 레이아웃" />
+        <input v-model="name" placeholder="ex. 2026년 1월 레이아웃" />
       </div>
 
       <!-- 조회 권한 선택 제거: 생성되는 레이아웃은 기본적으로 본인만 볼 수 있도록 변경 -->

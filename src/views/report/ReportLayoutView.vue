@@ -35,6 +35,9 @@
           </div>
         </div>
 
+        <!-- 섹션 제목: templateId에 따라 동적으로 렌더링 (전체요약 제외) -->
+        <h4 v-if="sectionTitle" class="section-title">{{ sectionTitle }}</h4>
+
         <!-- 템플릿 ID에 따라 적절한 그리드 컴포넌트를 동적으로 렌더링합니다. -->
         <component :is="gridComponent" :widgets="selectedTemplate[0]?.widgets || []" />
       </section>
@@ -111,6 +114,7 @@ import TemplateList from '@/components/report/TemplateList.vue'
 import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
 import CreateTemplateModal from '@/components/report/modals/CreateTemplateModal.vue'
 import ConfirmModal from '@/components/report/modals/ConfirmModal.vue'
+import SummaryTemplateGrid from '@/components/report/SummaryTemplateGrid.vue'
 import { useReportLayouts } from '@/composables/useReportLayouts'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
@@ -369,12 +373,28 @@ const gridComponent = computed(() => {
   // selectedTemplate은 composable에서 제공되는 ref나 reactive 객체일 수 있으므로 안전하게 접근
   const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
   const tplId = tpl?.templateId ?? tpl?.id
-  // templateId에 따라 전용 그리드 컴포넌트를 선택 (2: OPS, 3: CUST, 4: CX)
+  // templateId에 따라 전용 그리드 컴포넌트를 선택 (1: SUMMARY, 2: OPS, 3: CUST, 4: CX)
+  if (tplId === 1) return SummaryTemplateGrid
   if (tplId === 2) return OPSTemplateGrid
   if (tplId === 3) return CUSTTemplateGrid
   if (tplId === 4) return CXTemplateGrid
   if (tplId === 5) return REVTemplateGrid
   return TemplateGrid
+})
+
+// 섹션 제목 매핑: templateId -> 한글 소제목
+const sectionTitle = computed(() => {
+  const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
+  const tplId = tpl?.templateId ?? tpl?.id
+  const map = {
+    1: '전체요약',
+    2: '객실운영',
+    3: '고객현황',
+    4: '고객경험',
+    5: '예약및매출'
+  }
+  // 전체요약은 SummaryTemplateGrid 내부 섹션을 가지고 있으나 상단의 총제목도 표시함
+  return map[tplId] || ''
 })
 
 onMounted(() => { loadLayouts() })
@@ -436,5 +456,14 @@ async function applyPeriodAndReload(){
 
 .layout-page button {
   margin-left: 8px;
+}
+
+.section-title {
+  margin: 16px 0 8px;
+  font-size: 18px;
+  font-weight: 500;
+  color: #333;
+  text-align: center;
+  width: 100%;
 }
 </style>
