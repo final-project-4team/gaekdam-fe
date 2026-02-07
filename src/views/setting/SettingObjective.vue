@@ -33,18 +33,25 @@
     </div>
 
     <div class="kpi-grid">
-      <div v-for="(kpi, idx) in kpis" :key="kpi.code" class="kpi-card">
-        <div class="kpi-title">{{ kpi.name }}</div>
-        <div class="kpi-input-row">
-          <input
-            v-model="targets[kpi.code]"
-            class="kpi-input"
-            type="text"
-            :placeholder="kpi.placeholder || '목표값 입력'"
-          />
-          <div class="kpi-unit">{{ kpi.unit }}</div>
+      <section v-for="(group, idx) in groups" :key="idx" class="summary-section">
+        <h4 class="section-title">{{ titles[idx] }}</h4>
+        <div class="cards">
+          <div class="card" v-for="kpi in group" :key="kpi.code">
+            <div class="card-title">{{ kpi.name }}</div>
+            <div class="card-body">
+              <div class="kpi-input-row">
+                <input
+                  v-model="targets[kpi.code]"
+                  class="kpi-input"
+                  type="text"
+                  :placeholder="kpi.placeholder || '목표값 입력'"
+                />
+                <div class="kpi-unit">{{ kpi.unit }}</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
 
     <BaseModal v-if="showImportModal" title="엑셀 입력" @close="showImportModal = false">
@@ -94,7 +101,7 @@ const kpis = _ref([]) // will hold objects: { code, name, unit, description }
 
 // Targets state keyed by kpi.code
 const targets = reactive({})
-// initialize targets when kpis are loaded
+// ensure targets initialized for dynamic kpis after kpis loaded
 const initTargetsForKpis = () => {
   kpis.value.forEach(k => {
     if (!(k.code in targets)) targets[k.code] = ''
@@ -285,6 +292,51 @@ onMounted(async () => {
   await loadTargets()
 })
 
+const titles = ['객실운영', '고객현황', '고객경험', '예약및매출']
+
+// map desired labels per section in the order you specified
+const desiredLayout = [
+  ['체크인', '체크아웃', '평균객실단가', '객실점유율'],
+  ['투숙객', '재방문율', '멤버십 비율', '외국인 비율'],
+  ['고객 문의', '고객 클레임', '미처리 문의 비율', '평균응답시간'],
+  ['예약', '예약 취소율', '노쇼율', '객실 외 매출비율']
+]
+
+// If backend doesn't provide unit for some KPIs, enforce sensible defaults here
+const unitOverrides = {
+  '객실 외 매출비율': 'PERCENT',
+  '객실점유율': 'PERCENT',
+  '예약 취소율': 'PERCENT',
+  '노쇼율': 'PERCENT',
+  '재방문율': 'PERCENT',
+  '멤버십 비율': 'PERCENT',
+  '미처리 문의 비율': 'PERCENT',
+  '평균응답시간': 'HOURS'
+}
+
+const groups = computed(() => {
+  const items = kpis.value || []
+  const out = []
+  for (let i = 0; i < desiredLayout.length; i++) {
+    const labels = desiredLayout[i]
+    const group = labels.map(label => {
+      // try to find KPI by exact name, fallback to includes, else return a placeholder
+      let found = items.find(k => (k.name || '').trim() === label)
+      if (!found) found = items.find(k => (k.name || '').includes(label))
+      if (found) {
+        // apply unit override if backend omitted unit
+        if ((!found.unit || String(found.unit).trim() === '') && unitOverrides[label]) {
+          found.unit = unitOverrides[label]
+        }
+        return found
+      }
+      // placeholder so layout remains consistent
+      return { code: `ph_${i}_${label}`, name: label, unit: unitOverrides[label] || '' }
+    })
+    out.push(group)
+  }
+  return out
+})
 </script>
 
 <style scoped>
@@ -323,61 +375,22 @@ onMounted(async () => {
 }
 
 .kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 18px;
-  align-items: stretch;
 }
 
-.kpi-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 18px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 100px;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.03);
-}
+.summary-section { margin-bottom: 28px; text-align: center; }
+.section-title { font-size: 16px; font-weight:700; color:#374151; margin: 6px auto 12px; display: inline-block; text-align: center; }
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+.card { display:flex; flex-direction:column; justify-content:flex-start; align-items:flex-start; padding:18px; border:1px solid #f1f5f9; border-radius:10px; background:#fff; text-align:left; box-sizing:border-box; width:100%; }
+.card-title { font-weight:700; margin-bottom:8px; font-size:14px }
+.card-body { width:100%; }
 
-.kpi-title {
-  font-weight: 700;
-  color: #111827;
-  font-size: 15px;
-}
+.kpi-input-row { display:flex; gap:10px; align-items:center; justify-content:flex-start }
+.kpi-input { padding: 10px 12px; border-radius: 8px; border: 1px solid #e5e7eb; background: #ffffff; width: 100%; box-sizing: border-box; font-size:16px }
+.kpi-unit { color:#6b7280; font-size:12px; margin-left:8px }
 
-.kpi-input {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-}
-
-.import-body {
-  padding: 12px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.import-hint {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.kpi-input-row { display:flex; gap:10px; align-items:center; }
-.kpi-unit { color:#6b7280; font-size:13px; min-width:48px; text-align:left; }
-
-@media (max-width: 900px) {
-  .kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .kpi-grid {
-    grid-template-columns: 1fr;
-  }
-}
+@media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 760px) { .cards { grid-template-columns: repeat(1, minmax(0,1fr)); } }
 </style>
