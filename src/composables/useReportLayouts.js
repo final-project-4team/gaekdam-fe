@@ -132,7 +132,7 @@ export function useReportLayouts() {
   // 2) 특정 레이아웃의 템플릿 목록 로드
   // - layoutId: 서버에 요청할 id
   // - index: 로컬 layouts 배열의 인덱스 (있으면 해당 인덱스에 결과를 넣음)
-  const loadTemplatesForLayout = async (layoutId, index) => {
+  const loadTemplatesForLayout = async (layoutId, index, desiredTemplateIndex) => {
     try {
       const res = await listLayoutTemplates(layoutId)
       const payload = res?.data?.data
@@ -148,11 +148,19 @@ export function useReportLayouts() {
       const idx = typeof index === 'number' ? index : layouts.value.findIndex(l => l.id === layoutId)
       if (idx !== -1) {
         layouts.value[idx].templates = mapped
-        if (selectedIndex.value === idx) selectedTemplateIndex.value = 0
+        if (selectedIndex.value === idx) {
+          // honor desiredTemplateIndex when provided, otherwise default to 0
+          if (typeof desiredTemplateIndex === 'number' && desiredTemplateIndex >= 0 && desiredTemplateIndex < mapped.length) {
+            selectedTemplateIndex.value = desiredTemplateIndex
+          } else {
+            selectedTemplateIndex.value = 0
+          }
+        }
       }
       if (selectedIndex.value === idx) {
-        const tpl = layouts.value[idx].templates[0]
-        if (tpl) loadWidgetsForTemplate(tpl)
+        const chosenIdx = (typeof desiredTemplateIndex === 'number' && desiredTemplateIndex >= 0 && desiredTemplateIndex < mapped.length) ? desiredTemplateIndex : 0
+        const tpl = layouts.value[idx].templates[chosenIdx]
+        if (tpl) await loadWidgetsForTemplate(tpl)
       }
     } catch (err) {
       console.error('[useReportLayouts] loadTemplatesForLayout failed', err)

@@ -73,7 +73,7 @@
         <h4 v-if="sectionTitle" class="section-title">{{ sectionTitle }}</h4>
 
         <!-- 템플릿 ID에 따라 적절한 그리드 컴포넌트를 동적으로 렌더링합니다. -->
-        <component :is="gridComponent" :widgets="selectedTemplate[0]?.widgets || []" />
+        <component :is="gridComponent" :widgets="_currentSelectedTemplate?.widgets || []" />
       </section>
     </div>
 
@@ -111,7 +111,15 @@
     <CreateTemplateModal :visible="showCreateTemplate" :templates="availableTemplates" @close="showCreateTemplate = false" @add="confirmAddTemplate" />
 
     <!-- 템플릿 삭제 확인 모달 -->
-    <ConfirmModal :visible="showDeleteTemplateModal" title="템플릿 삭제" message="템플릿을 삭제하시겠습니까?" @close="showDeleteTemplateModal = false" @confirm="handleDeleteTemplate" />
+    <!-- Listen to both 'confirm' and 'confirmed' to be resilient to modal emit name differences -->
+    <ConfirmModal
+      :visible="showDeleteTemplateModal"
+      title="템플릿 삭제"
+      message="템플릿을 삭제하시겠습니까?"
+      @close="showDeleteTemplateModal = false"
+      @confirm="handleDeleteTemplate"
+      @confirmed="handleDeleteTemplate"
+    />
 
     <!-- 레이아웃 삭제 모달 -->
     <ConfirmModal
@@ -252,6 +260,39 @@ function selectLayout(i){
    if (layout && layout.id) loadTemplatesForLayout(layout.id, i)
  }
 
+const onSelectTemplateLocal = async (li, ti) => {
+  // Update selection indexes immediately for responsive UI
+  selectedIndex.value = li
+  selectedTemplateIndex.value = ti
+
+  const layout = layouts.value[li]
+  const existingTemplates = layout?.templates
+
+  // If templates already present and requested index exists, avoid reloading the templates list
+  if (Array.isArray(existingTemplates) && existingTemplates.length > 0 && existingTemplates[ti]) {
+    const tpl = existingTemplates[ti]
+    try {
+      await loadWidgetsForTemplate(tpl)
+    } catch (e) {
+      console.warn('loadWidgetsForTemplate failed', e)
+    }
+    return
+  }
+
+  // Otherwise request templates from server and request widgets for the desired index when loaded
+  if (layout && layout.id) {
+    try {
+      await loadTemplatesForLayout(layout.id, li, ti)
+    } catch (e) {
+      console.warn('loadTemplatesForLayout failed', e)
+    }
+    const tpl = layouts.value[li]?.templates?.[ti]
+    if (tpl) {
+      try { await loadWidgetsForTemplate(tpl) } catch (e) { console.warn('loadWidgetsForTemplate failed', e) }
+    }
+  }
+}
+
 function onSelectTemplate(idx){
    selectedTemplateIndex.value = idx
    const tpl = currentLayout.value?.templates?.[idx]
@@ -367,30 +408,28 @@ async function shareReport() {
 
 function confirmDeleteTemplate(idx){ deleteTemplateIndex.value = idx; showDeleteTemplateModal.value = true }
 
-/* Sidebar helpers - allow creating/selecting/deleting templates within a specific layout */
-function openCreateTemplateForLayout(li){
-  // ensure layout is selected so the create modal adds to correct layout
-  selectedIndex.value = li
-  showCreateTemplate.value = true
-}
-
-async function onSelectTemplateLocal(li, ti){
-  selectedIndex.value = li
-  selectedTemplateIndex.value = ti
-  const layout = layouts.value[li]
-  if (layout && layout.id) {
-    try { await loadTemplatesForLayout(layout.id, li) } catch (e) { console.warn('loadTemplatesForLayout failed', e) }
-    const tpl = layouts.value[li]?.templates?.[ti]
-    if (tpl) {
-      try { await loadWidgetsForTemplate(tpl) } catch (e) { console.warn('loadWidgetsForTemplate failed', e) }
+// 실제 템플릿 삭제 처리: ConfirmModal에서 @confirm으로 호출됩니다.
+async function handleDeleteTemplate(){
+  if (deletingTemplate.value) return
+  deletingTemplate.value = true
+  try{
+    const li = selectedIndex.value
+    const ti = deleteTemplateIndex.value
+    console.log('handleDeleteTemplate called', { li, ti })
+    // deleteTemplate(layoutIndex, templateIndex)
+    await deleteTemplate(li, ti)
+    // reload templates for current layout to ensure UI sync and set selection to previous index
+    const layout = layouts.value[li]
+    if (layout && layout.id) {
+      try { await loadTemplatesForLayout(layout.id, li, Math.max(0, ti - 1)) } catch(e) { console.warn('reload templates after delete failed', e) }
     }
+  } catch(e){
+    console.error('handleDeleteTemplate error', e)
+  } finally {
+    showDeleteTemplateModal.value = false
+    deleteTemplateIndex.value = -1
+    deletingTemplate.value = false
   }
-}
-
-function confirmDeleteTemplateLocal(li, ti){
-  selectedIndex.value = li
-  deleteTemplateIndex.value = ti
-  showDeleteTemplateModal.value = true
 }
 
 // Layout delete
