@@ -429,9 +429,21 @@ function generateNextLayoutName(){
   return `${prefix} ${next}`
 }
 
-// 컴포넌트 선택 로직: selectedTemplate의 첫 번째 항목(templateId)을 보고 그리드 컴포넌트를 결정
+// Robust selection: derive currently selected template from currentLayout + selectedTemplateIndex
+const _currentSelectedTemplate = computed(() => {
+  // prefer currentLayout + selectedTemplateIndex (composable maintains these per-layout)
+  const layout = (currentLayout && currentLayout.value) ? currentLayout.value : currentLayout
+  const idx = (selectedTemplateIndex && typeof selectedTemplateIndex.value !== 'undefined') ? selectedTemplateIndex.value : selectedTemplateIndex
+  let tpl = layout?.templates?.[idx]
+  // fallback to composable's selectedTemplate ref if present
+  if (!tpl && selectedTemplate) {
+    tpl = (selectedTemplate.value && selectedTemplate.value[0]) ? selectedTemplate.value[0] : selectedTemplate[0]
+  }
+  return tpl || null
+})
+
 const gridComponent = computed(() => {
-  const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
+  const tpl = _currentSelectedTemplate.value
   const tplId = tpl?.templateId ?? tpl?.id
   if (tplId === 1) return SummaryTemplateGrid
   if (tplId === 2) return OPSTemplateGrid
@@ -441,9 +453,9 @@ const gridComponent = computed(() => {
   return TemplateGrid
 })
 
-// 섹션 제목 매핑: templateId -> 한글 소제목
+// 섹션 제목 매핑: templateId -> 한글 소제목 (uses same reliable source)
 const sectionTitle = computed(() => {
-  const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
+  const tpl = _currentSelectedTemplate.value
   const tplId = tpl?.templateId ?? tpl?.id
   const map = {
     1: '전체요약',
@@ -526,5 +538,5 @@ onMounted(() => { loadLayouts() })
 .main-pane { flex:1; padding:20px; overflow-y:auto; }
 .layout-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px }
 .layout-header h3 { font-size:20px; font-weight:600; margin:0 }
-.section-title { font-size:16px; font-weight:600; margin:18px 0; text-align:center; color:#0b2440 }
+.section-title { font-size:20px; font-weight:600; margin:20px 0; text-align:center; color:#0b2440 }
 </style>
