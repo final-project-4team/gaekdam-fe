@@ -176,8 +176,37 @@ export function useReportLayouts() {
     try {
       const res = await createReportLayout(payload)
       const newId = res?.data?.data
-      layouts.value.push({ id: newId ?? `layout-${Date.now()}`, name: payload.name, templates: [], defaultFilterJson: payload.defaultFilterJson })
+      const newLayout = { id: newId ?? `layout-${Date.now()}`, name: payload.name, templates: [], defaultFilterJson: payload.defaultFilterJson }
+      // add to local list and select it
+      layouts.value.push(newLayout)
       selectedIndex.value = layouts.value.length - 1
+      selectedTemplateIndex.value = 0
+
+      // If payload contains templates to apply immediately, add them to the newly created layout.
+      if (Array.isArray(payload?.templates) && payload.templates.length) {
+        for (const tpl of payload.templates) {
+          try {
+            // addTemplate will persist and load widgets for the added template
+            await addTemplate(selectedIndex.value, { templateId: tpl.templateId, displayName: tpl.displayName, sortOrder: tpl.sortOrder, isActive: tpl.isActive }, auth?.employeeCode ?? 1)
+          } catch (err) {
+            console.warn('[useReportLayouts] failed to add template during createLayout', err)
+          }
+        }
+      }
+
+      // Ensure layout period is applied/persisted on server and reload widgets for the currently selected template
+      try {
+        await applyPeriodToLayout(newLayout)
+      } catch (err) {
+        console.warn('[useReportLayouts] applyPeriodToLayout after createLayout failed', err)
+      }
+
+      // If there is at least one template, make sure its widgets are loaded
+      const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
+      if (tpl) {
+        try { await loadWidgetsForTemplate(tpl) } catch (e) { /* ignore */ }
+      }
+
       return layouts.value[selectedIndex.value]
     } catch (err) {
       console.error('[useReportLayouts] createLayout failed', err)

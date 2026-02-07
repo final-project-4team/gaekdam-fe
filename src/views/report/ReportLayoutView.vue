@@ -49,9 +49,7 @@
       @close="showCreateLayout = false"
       @create="async (payload) => {
          try {
-           // 입력값 검증: 이름 비어있음 또는 기존 이름과 중복일 경우 토스트 표시 후 중단
-           const desiredNameRaw = payload?.name ?? ''
-           const desiredName = String(desiredNameRaw).trim()
+           const desiredName = String(payload?.name ?? '').trim()
            if (!desiredName) {
              toast?.showToast('레이아웃 이름을 입력해주세요.', 'error')
              return
@@ -60,19 +58,12 @@
              toast?.showToast('이미 존재하는 레이아웃 이름입니다.', 'error')
              return
            }
-
-           // Use current layout-specific period selections for the new layout's defaultFilterJson
            const createPayload = {
              ...payload,
              name: desiredName,
              visibilityScope: 'PRIVATE',
              employeeCode: auth?.employeeCode ?? 1,
              isDefault: false,
-             dateRangePreset: currentPeriodType === '월간' ? 'MONTH' : 'YEAR',
-             defaultFilterJson: {
-               periodType: currentPeriodType === '월간' ? 'MONTH' : 'YEAR',
-               period: currentPeriodType === '월간' ? `${currentSelectedYear}-${String(currentSelectedMonth).padStart(2,'0')}` : `${currentSelectedYear}`
-             }
            }
            await createLayout(createPayload)
            showCreateLayout = false
