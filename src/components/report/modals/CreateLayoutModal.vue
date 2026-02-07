@@ -35,9 +35,9 @@
       <div class="form-row full-width templates-section">
         <label class="form-label">템플릿 선택</label>
         <div class="template-cards">
-          <div v-for="tpl in templatesToShow" :key="tpl.templateId" class="tpl-card" :class="{selected: selectedTemplateIds.includes(tpl.templateId)}" @click="toggleTemplate(tpl.templateId)">
+          <div v-for="tpl in templatesWithAll" :key="tpl.templateId" class="tpl-card" :class="{selected: isTplSelected(tpl.templateId)}" @click="toggleTemplate(tpl.templateId)">
             <div class="tpl-name">{{ tpl.displayName || tpl.name || tpl.templateName }}</div>
-            <div class="tpl-badge" v-if="selectedTemplateIds.includes(tpl.templateId)">✓</div>
+            <div class="tpl-badge" v-if="isTplSelected(tpl.templateId)">✓</div>
           </div>
         </div>
       </div>
@@ -109,7 +109,43 @@ const templatesToShow = computed(() => props.templates && props.templates.length
   { templateId: 5, displayName: '예약및매출 요약 템플릿' }
 ])
 
+// Add explicit baseTemplates and include an "ALL" card at the top for quick-select
+const baseTemplates = computed(() => props.templates && props.templates.length ? props.templates : [
+  { templateId: 1, displayName: '전체 요약 템플릿' },
+  { templateId: 2, displayName: '객실운영 요약 템플릿' },
+  { templateId: 3, displayName: '고객현황 요약 템플릿' },
+  { templateId: 4, displayName: '고객경험 요약 템플릿' },
+  { templateId: 5, displayName: '예약및매출 요약 템플릿' }
+])
+
+const templatesWithAll = computed(() => {
+  const allCard = { templateId: 'ALL', displayName: '전체 템플릿(5종) 선택' }
+  return [allCard, ...baseTemplates.value]
+})
+
+// expose templatesWithAll to template usage (replace templatesToShow usage)
+
+function isTplSelected(id){
+  if (id === 'ALL') {
+    // ALL considered selected when every base template is selected
+    const base = baseTemplates.value || []
+    if (!base.length) return false
+    return base.every(t => selectedTemplateIds.value.includes(t.templateId))
+  }
+  return selectedTemplateIds.value.includes(id)
+}
+
 function toggleTemplate(id){
+  if (id === 'ALL') {
+    const base = baseTemplates.value || []
+    const allSelected = base.length > 0 && base.every(t => selectedTemplateIds.value.includes(t.templateId))
+    if (allSelected) {
+      selectedTemplateIds.value = []
+    } else {
+      selectedTemplateIds.value = base.map(t => t.templateId)
+    }
+    return
+  }
   const idx = selectedTemplateIds.value.indexOf(id)
   if (idx === -1) selectedTemplateIds.value.push(id)
   else selectedTemplateIds.value.splice(idx, 1)
