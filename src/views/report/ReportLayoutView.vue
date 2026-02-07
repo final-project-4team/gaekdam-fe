@@ -1,17 +1,51 @@
 <template>
   <div class="layout-page">
-    <!-- Top: layout tabs with + 버튼 -->
-    <ReportTopTabs
-      :layouts="layouts"
-      :selectedIndex="selectedIndex"
-      @select="selectLayout"
-      @create="openCreateLayout"
-      @delete="openDeleteModal"
-    />
+    <!-- Top tabs removed: left sidebar now contains layout & template controls -->
 
     <div class="content-area">
-      <!-- Left: 레이아웃 내 템플릿 리스트 -->
-      <TemplateList :templates="currentLayout.templates" :selectedIndex="selectedTemplateIndex" @select="onSelectTemplate" @add="openCreateTemplate" @delete="confirmDeleteTemplate" />
+      <!-- Left: 레이아웃 및 템플릿 트리 (왼쪽에 몰아 깔끔하게 표시) -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-title">레이아웃 & 템플릿</div>
+          <div class="sidebar-actions">
+            <button class="add-layout-btn" @click="openCreateLayout">＋ 레이아웃</button>
+          </div>
+        </div>
+
+        <ul class="layouts-list">
+          <li v-for="(layout, li) in layouts" :key="layout.id" :class="['layout-item', { 'is-active': li === selectedIndex }]">
+            <div class="layout-row">
+              <button
+                class="layout-select"
+                @click="selectLayout(li)"
+                :aria-expanded="li === selectedIndex ? 'true' : 'false'"
+                :title="layout.description || layout.name"
+              >
+                <span class="chev">{{ li === selectedIndex ? '▾' : '▸' }}</span>
+                <div class="layout-text">
+                  <div class="layout-name">{{ layout.name }}</div>
+                  <div v-if="layout.description" class="layout-desc">{{ layout.description }}</div>
+                </div>
+              </button>
+              <div class="layout-controls">
+                <button class="icon-btn" title="템플릿 추가" @click.stop="openCreateTemplateForLayout(li)">＋</button>
+                <button class="icon-btn danger" title="레이아웃 삭제" @click.stop="openDeleteModal(layout)">🗑</button>
+              </div>
+            </div>
+
+            <ul class="templates-sublist" v-show="li === selectedIndex">
+              <li v-for="(tpl, ti) in layout.templates || []" :key="tpl.templateId ?? tpl.id" :class="['template-item', { 'is-active': ti === selectedTemplateIndex }]">
+                <button class="template-select" @click="onSelectTemplateLocal(li, ti)">
+                  <span class="tpl-dot">●</span>
+                  <span class="tpl-text">{{ tpl.displayName || tpl.name || '템플릿' }}</span>
+                </button>
+                <button class="template-del" title="템플릿 삭제" @click.stop="confirmDeleteTemplateLocal(li, ti)">삭제</button>
+              </li>
+              <li class="template-add-row"><button class="add-template-btn" @click.stop="openCreateTemplateForLayout(li)">＋ 템플릿 추가</button></li>
+            </ul>
+          </li>
+        </ul>
+      </aside>
 
       <!-- Main: 템플릿 카드 그리드 -->
       <section class="main-pane">
@@ -101,8 +135,6 @@ import OPSTemplateGrid from '@/views/report/OPS/OPSTemplateGrid.vue' // 객실�
 import CUSTTemplateGrid from '@/views/report/CUST/CUSTTemplateGrid.vue' // 고객현황 템플릿
 import CXTemplateGrid from '@/views/report/CX/CXTemplateGrid.vue' // 고객경험 템플릿
 import REVTemplateGrid from '@/views/report/REV/REVTemplateGrid.vue' // 예약및매출 템플릿
-import ReportTopTabs from '@/components/report/ReportTopTabs.vue'
-import TemplateList from '@/components/report/TemplateList.vue'
 import CreateLayoutModal from '@/components/report/modals/CreateLayoutModal.vue'
 import CreateTemplateModal from '@/components/report/modals/CreateTemplateModal.vue'
 import ConfirmModal from '@/components/report/modals/ConfirmModal.vue'
@@ -335,87 +367,93 @@ async function shareReport() {
 
 function confirmDeleteTemplate(idx){ deleteTemplateIndex.value = idx; showDeleteTemplateModal.value = true }
 
-async function handleDeleteTemplate(){
-   if (deletingTemplate.value) return
-   deletingTemplate.value = true
-   try{
-     await deleteTemplate(selectedIndex.value, deleteTemplateIndex.value)
-   } catch(e){ console.error(e) }
-   finally{
-     showDeleteTemplateModal.value = false
-     deleteTemplateIndex.value = -1
-     deletingTemplate.value = false
-   }
- }
+/* Sidebar helpers - allow creating/selecting/deleting templates within a specific layout */
+function openCreateTemplateForLayout(li){
+  // ensure layout is selected so the create modal adds to correct layout
+  selectedIndex.value = li
+  showCreateTemplate.value = true
+}
+
+async function onSelectTemplateLocal(li, ti){
+  selectedIndex.value = li
+  selectedTemplateIndex.value = ti
+  const layout = layouts.value[li]
+  if (layout && layout.id) {
+    try { await loadTemplatesForLayout(layout.id, li) } catch (e) { console.warn('loadTemplatesForLayout failed', e) }
+    const tpl = layouts.value[li]?.templates?.[ti]
+    if (tpl) {
+      try { await loadWidgetsForTemplate(tpl) } catch (e) { console.warn('loadWidgetsForTemplate failed', e) }
+    }
+  }
+}
+
+function confirmDeleteTemplateLocal(li, ti){
+  selectedIndex.value = li
+  deleteTemplateIndex.value = ti
+  showDeleteTemplateModal.value = true
+}
 
 // Layout delete
- function openDeleteModal(layout){
-   console.log('openDeleteModal', layout)
-   selectedLayoutId.value = layout?.id ?? null; showDeleteModal.value = true
- }
+function openDeleteModal(layout){
+  console.log('openDeleteModal', layout)
+  selectedLayoutId.value = layout?.id ?? null; showDeleteModal.value = true
+}
 
- async function confirmDelete(){
-   const id = selectedLayoutId.value
-
-   console.log('Delete layout id' + id)
-
-   // 이전: if (!id) { ... } 형태는 id가 0일 때도 삭제를 막음
-   // 수정: id가 null 또는 undefined 일 때만 조기 종료
-   if (id === null || id === undefined) {
-     showDeleteModal.value = false
-     selectedLayoutId.value = null
-     return
-   }
-   if (deletingLayout.value) return
-   deletingLayout.value = true
-   try{
-     await deleteLayout(id)
-   } catch(e){ console.error(e) }
-   finally{ showDeleteModal.value = false; selectedLayoutId.value = null; deletingLayout.value = false }
- }
+async function confirmDelete(){
+  const id = selectedLayoutId.value
+  console.log('Delete layout id' + id)
+  if (id === null || id === undefined) {
+    showDeleteModal.value = false
+    selectedLayoutId.value = null
+    return
+  }
+  if (deletingLayout.value) return
+  deletingLayout.value = true
+  try{
+    await deleteLayout(id)
+  } catch(e){ console.error(e) }
+  finally{ showDeleteModal.value = false; selectedLayoutId.value = null; deletingLayout.value = false }
+}
 
 // 기본 레이아웃 이름 생성: 기존 레이아웃 이름에서 숫자 suffix를 찾아 다음 번호로 생성
- function generateNextLayoutName(){
-   const prefix = '레이아웃'
-   const nums = layouts.value
-     .map(l => (l.name || '').trim())
-     .map(n => {
-       const m = n.match(new RegExp(`^${prefix}\s*(\\d+)$`))
-       return m ? Number(m[1]) : null
-     })
-     .filter(x => x !== null)
-   const next = nums.length ? Math.max(...nums) + 1 : 1
-   return `${prefix} ${next}`
- }
+function generateNextLayoutName(){
+  const prefix = '레이아웃'
+  const nums = layouts.value
+    .map(l => (l.name || '').trim())
+    .map(n => {
+      const m = n.match(new RegExp(`^${prefix}\\s*(\\d+)$`))
+      return m ? Number(m[1]) : null
+    })
+    .filter(x => x !== null)
+  const next = nums.length ? Math.max(...nums) + 1 : 1
+  return `${prefix} ${next}`
+}
 
 // 컴포넌트 선택 로직: selectedTemplate의 첫 번째 항목(templateId)을 보고 그리드 컴포넌트를 결정
- const gridComponent = computed(() => {
-   // selectedTemplate은 composable에서 제공되는 ref나 reactive 객체일 수 있으므로 안전하게 접근
-   const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
-   const tplId = tpl?.templateId ?? tpl?.id
-   // templateId에 따라 전용 그리드 컴포넌트를 선택 (1: SUMMARY, 2: OPS, 3: CUST, 4: CX)
-   if (tplId === 1) return SummaryTemplateGrid
-   if (tplId === 2) return OPSTemplateGrid
-   if (tplId === 3) return CUSTTemplateGrid
-   if (tplId === 4) return CXTemplateGrid
-   if (tplId === 5) return REVTemplateGrid
-   return TemplateGrid
- })
+const gridComponent = computed(() => {
+  const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
+  const tplId = tpl?.templateId ?? tpl?.id
+  if (tplId === 1) return SummaryTemplateGrid
+  if (tplId === 2) return OPSTemplateGrid
+  if (tplId === 3) return CUSTTemplateGrid
+  if (tplId === 4) return CXTemplateGrid
+  if (tplId === 5) return REVTemplateGrid
+  return TemplateGrid
+})
 
- // 섹션 제목 매핑: templateId -> 한글 소제목
- const sectionTitle = computed(() => {
-   const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
-   const tplId = tpl?.templateId ?? tpl?.id
-   const map = {
-     1: '전체요약',
-     2: '객실운영',
-     3: '고객현황',
-     4: '고객경험',
-     5: '예약및매출'
-   }
-   // 전체요약은 SummaryTemplateGrid 내부 섹션을 가지고 있으나 상단의 총제목도 표시함
-   return map[tplId] || ''
- })
+// 섹션 제목 매핑: templateId -> 한글 소제목
+const sectionTitle = computed(() => {
+  const tpl = (selectedTemplate && selectedTemplate.value) ? selectedTemplate.value[0] : selectedTemplate[0]
+  const tplId = tpl?.templateId ?? tpl?.id
+  const map = {
+    1: '전체요약',
+    2: '객실운영',
+    3: '고객현황',
+    4: '고객경험',
+    5: '예약및매출'
+  }
+  return map[tplId] || ''
+})
 
 onMounted(() => { loadLayouts() })
 
@@ -431,59 +469,62 @@ onMounted(() => { loadLayouts() })
      console.error('applyPeriodAndReload error', e)
    }
  }
+
 </script>
 
 <style scoped>
-.layout-page {
-   display: flex;
-   flex-direction: column;
-   height: 100vh;
- }
+.layout-page { display:flex; flex-direction:column; height:100vh; }
+.content-area { flex:1; display:flex; overflow:hidden; }
 
- .content-area {
-   flex: 1;
-   display: flex;
-   overflow: hidden;
- }
+/* Sidebar (refreshed styles) */
+.sidebar {
+  width:300px;
+  min-width:260px;
+  background: linear-gradient(180deg,#ffffff 0%, #fbfdff 100%);
+  border-right: 1px solid #eef3fb;
+  padding: 12px;
+  overflow-y: auto;
+  box-shadow: 0 1px 0 rgba(20,40,80,0.02) inset;
+}
+.sidebar-header {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:12px; margin-bottom:8px; border-radius:8px;
+  background: linear-gradient(180deg, rgba(240,248,255,0.6), rgba(245,250,255,0.4));
+}
+.sidebar-title { font-weight:700; font-size:15px; color:#0f1724 }
+.sidebar-actions { display:flex; gap:8px }
+.add-layout-btn {
+  padding:8px 12px; font-size:13px; color:#0757d1; background:#eaf3ff; border:1px solid #cfe6ff;
+  border-radius:8px; cursor:pointer; box-shadow:0 1px 2px rgba(10,30,80,0.04);
+}
+.add-layout-btn:hover { transform:translateY(-1px); }
+.layouts-list { list-style:none; padding:6px; margin:0; }
+.layout-item { padding:8px; margin-bottom:8px; border-radius:10px; transition:all .12s ease; }
+.layout-item.is-active { background:#f0f7ff; border:1px solid #d8ecff; box-shadow: 0 4px 10px rgba(14,56,114,0.04); }
+.layout-row { display:flex; align-items:center; justify-content:space-between; gap:8px }
+.layout-select { display:flex; align-items:center; gap:10px; border:none; background:transparent; padding:6px; text-align:left; width:100%; cursor:pointer }
+.chev { font-size:12px; color:#0b61ff; width:20px; text-align:center }
+.layout-text { display:flex; flex-direction:column }
+.layout-name { font-weight:600; color:#08203a }
+.layout-desc { font-size:12px; color:#6b7280; margin-top:4px }
+.layout-controls { display:flex; gap:6px }
+.icon-btn { border:none; background:#fff; padding:6px; border-radius:8px; cursor:pointer; font-size:14px }
+.icon-btn:hover { background:#f4f8ff }
+.icon-btn.danger { color:#c43b3b }
+.templates-sublist { list-style:none; padding:6px 6px 6px 16px; margin-top:8px; background:transparent }
+.template-item { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px; border-radius:8px }
+.template-select { display:flex; align-items:center; gap:8px; border:none; background:transparent; padding:6px; cursor:pointer; width:100%; text-align:left }
+.template-item.is-active .template-select { background:#eef7ff; border-radius:8px }
+.tpl-dot { color:#3b82f6; font-size:10px }
+.tpl-text { color:#0f1724 }
+.template-del { border:none; background:transparent; color:#64748b; cursor:pointer; padding:6px }
+.template-del:hover { color:#0b61ff }
+.add-template-btn { width:100%; border:1px dashed #dbeeff; background:transparent; padding:8px; border-radius:8px; cursor:pointer }
 
- .main-pane {
-   flex: 1;
-   padding: 16px;
-   overflow-y: auto;
- }
-
- .layout-header {
-   display: flex;
-   justify-content: space-between;
-   align-items: center;
-   margin-bottom: 16px;
- }
-
- .header-controls {
-   display: flex;
-   gap: 8px;
- }
-
- .layout-page select {
-   padding: 8px;
-   font-size: 14px;
- }
-
- .layout-page h3 {
-   margin: 0;
-   font-size: 24px;
- }
-
- .layout-page button {
-   margin-left: 8px;
- }
-
- .section-title {
-   margin: 16px 0 8px;
-   font-size: 18px;
-   font-weight: 500;
-   color: #333;
-   text-align: center;
-   width: 100%;
- }
- </style>
+.header-controls { display:flex; gap:8px; align-items:center; margin-top:8px }
+.header-controls select { padding:8px; font-size:14px; border:1px solid #e6eef8; border-radius:6px; background:#fff }
+.main-pane { flex:1; padding:20px; overflow-y:auto; }
+.layout-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px }
+.layout-header h3 { font-size:20px; font-weight:600; margin:0 }
+.section-title { font-size:16px; font-weight:600; margin:18px 0; text-align:center; color:#0b2440 }
+</style>
