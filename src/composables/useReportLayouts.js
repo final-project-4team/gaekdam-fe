@@ -34,10 +34,74 @@ export function useReportLayouts() {
   })
 
   function pad(n){ return String(n).padStart(2,'0') }
+  // Get period string for current layout (layout-specific defaultFilterJson wins, otherwise fall back to global selectors)
   function getPeriod(){
+    const def = currentLayout.value?.defaultFilterJson
+    if (def && def.period) return def.period
     const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
     return preset === 'MONTH' ? `${selectedYear.value}-${pad(selectedMonth.value)}` : `${selectedYear.value}`
   }
+
+  // Helpers to map layout.defaultFilterJson -> UI values and setters
+  function _layoutToUI(layout){
+    const def = layout?.defaultFilterJson || {}
+    const pt = def.periodType === 'MONTH' ? '월간' : '연간'
+    const period = def.period || ''
+    let y = String(currentYear)
+    let m = String(new Date().getMonth() + 1).padStart(2,'0')
+    if (period) {
+      const parts = String(period).split('-')
+      y = parts[0] || y
+      if (parts[1]) m = String(parts[1]).padStart(2,'0')
+    }
+    return { periodTypeUI: pt, year: y, month: m }
+  }
+
+  const currentPeriodType = computed({
+    get(){ return _layoutToUI(currentLayout.value).periodTypeUI },
+    set(v){
+      const layout = currentLayout.value
+      if (!layout) return
+      const pt = v === '월간' ? 'MONTH' : 'YEAR'
+      const ui = _layoutToUI(layout)
+      const period = pt === 'MONTH' ? `${ui.year}-${ui.month}` : `${ui.year}`
+      if (!layout.defaultFilterJson) layout.defaultFilterJson = {}
+      layout.defaultFilterJson.periodType = pt
+      layout.defaultFilterJson.period = period
+    }
+  })
+
+  const currentSelectedYear = computed({
+    get(){ return _layoutToUI(currentLayout.value).year },
+    set(v){
+      const layout = currentLayout.value
+      if (!layout) return
+      const ui = _layoutToUI(layout)
+      const pt = (layout.defaultFilterJson?.periodType === 'MONTH') ? 'MONTH' : (periodType.value === '월간' ? 'MONTH' : 'YEAR')
+      const year = String(v)
+      const month = ui.month
+      const period = pt === 'MONTH' ? `${year}-${month}` : `${year}`
+      if (!layout.defaultFilterJson) layout.defaultFilterJson = {}
+      layout.defaultFilterJson.periodType = pt
+      layout.defaultFilterJson.period = period
+    }
+  })
+
+  const currentSelectedMonth = computed({
+    get(){ return _layoutToUI(currentLayout.value).month },
+    set(v){
+      const layout = currentLayout.value
+      if (!layout) return
+      const ui = _layoutToUI(layout)
+      const pt = (layout.defaultFilterJson?.periodType === 'MONTH') ? 'MONTH' : (periodType.value === '월간' ? 'MONTH' : 'YEAR')
+      const year = ui.year
+      const month = String(v).padStart(2,'0')
+      const period = pt === 'MONTH' ? `${year}-${month}` : `${year}`
+      if (!layout.defaultFilterJson) layout.defaultFilterJson = {}
+      layout.defaultFilterJson.periodType = pt
+      layout.defaultFilterJson.period = period
+    }
+  })
 
   // --- 주요 함수들 ---
   // 1) 레이아웃 목록 조회: 서버에서 레이아웃을 가져와 내부 상태에 설정
@@ -47,7 +111,7 @@ export function useReportLayouts() {
       const res = await listReportLayouts(employeeCode)
       const data = res?.data?.data || []
       // backend shape에 따라 id/name/templates 추출
-      layouts.value = data.map(r => ({ id: r.layoutId ?? r.id, name: r.name, templates: r.templates || [] }))
+      layouts.value = data.map(r => ({ id: r.layoutId ?? r.id, name: r.name, templates: r.templates || [], defaultFilterJson: r.defaultFilterJson || (r.dateRangePreset ? { periodType: r.dateRangePreset === 'MONTH' ? 'MONTH' : 'YEAR', period: r.defaultFilterJson?.period || (r.dateRangePreset === 'MONTH' ? `${String(currentYear)}-${String(new Date().getMonth()+1).padStart(2,'0')}` : `${String(currentYear)}`) } : undefined) }))
       const initial = layouts.value[selectedIndex.value]
       if (initial && initial.id) loadTemplatesForLayout(initial.id, selectedIndex.value)
     } catch (err) {
@@ -112,7 +176,7 @@ export function useReportLayouts() {
     try {
       const res = await createReportLayout(payload)
       const newId = res?.data?.data
-      layouts.value.push({ id: newId ?? `layout-${Date.now()}`, name: payload.name, templates: [] })
+      layouts.value.push({ id: newId ?? `layout-${Date.now()}`, name: payload.name, templates: [], defaultFilterJson: payload.defaultFilterJson })
       selectedIndex.value = layouts.value.length - 1
       return layouts.value[selectedIndex.value]
     } catch (err) {
@@ -141,13 +205,15 @@ export function useReportLayouts() {
 
   // 6) 레이아웃의 기본 기간(defaultFilterJson) 적용 (PATCH)
   const applyPeriodToLayout = async (layout) => {
-    if (!layout || !layout.id) return
-    const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
-    const period = preset === 'MONTH' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
-    const payload = { layoutId: layout.id, defaultFilterJson: { periodType: preset, period } }
+    const target = layout && layout.id ? layout : currentLayout.value
+    if (!target || !target.id) return
+    const def = target.defaultFilterJson || {}
+    const preset = def.periodType === 'MONTH' ? 'MONTH' : (periodType.value === '월간' ? 'MONTH' : 'YEAR')
+    const period = def.period || (preset === 'MONTH' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`)
+    const payload = { layoutId: target.id, defaultFilterJson: { periodType: preset, period } }
     try {
-      await updateReportLayout(layout.id, payload)
-      const idx = layouts.value.findIndex(l => l.id === layout.id)
+      await updateReportLayout(target.id, payload)
+      const idx = layouts.value.findIndex(l => l.id === target.id)
       if (idx !== -1) layouts.value[idx].defaultFilterJson = payload.defaultFilterJson
       const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
       if (tpl) await loadWidgetsForTemplate(tpl)
@@ -221,6 +287,10 @@ export function useReportLayouts() {
     months,
     selectedYear,
     selectedMonth,
+    // per-layout period bindings
+    currentPeriodType,
+    currentSelectedYear,
+    currentSelectedMonth,
     loadLayouts,
     loadTemplatesForLayout,
     loadWidgetsForTemplate,
