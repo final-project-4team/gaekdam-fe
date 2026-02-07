@@ -139,7 +139,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import BaseButton from '@/components/common/button/BaseButton.vue'
@@ -329,97 +329,82 @@ function onPeriodTypeChange(){
 
  // Non-blocking PDF generator: run in background, do not change UI selection or render DOM
 const pdfGenerating = ref(false)
-function shareReport(){
+async function shareReport(){
   if (pdfGenerating.value) { toast?.showToast('이미 PDF 생성 작업이 진행중입니다.', 'info'); return }
   pdfGenerating.value = true
-  toast?.showToast('PDF 생성 작업을 백그라운드에서 시작했습니다. 완료되면 다운로드됩니다.', 'info')
+  toast?.showToast('PDF 생성 작업을 시작합니다. 화면이 잠시 변경될 수 있습니다.', 'info')
 
-  // background async task (do not await) — keeps UI responsive
-  ;(async () => {
-    try {
-      const exportLayouts = Array.isArray(layouts.value) ? JSON.parse(JSON.stringify(layouts.value)) : []
-
-      // For each layout, ensure templates/widgets are available by fetching data via composable functions
-      for (let li = 0; li < exportLayouts.length; li++) {
-        const layout = exportLayouts[li]
-        if (!layout) continue
-        try {
-          // fetch templates if missing
-          if (!Array.isArray(layout.templates) || layout.templates.length === 0) {
-            const resIdx = layouts.value.findIndex(l=>l.id===layout.id)
-            await loadTemplatesForLayout(layout.id, resIdx !== -1 ? resIdx : undefined)
-            // read back into our local copy
-            const fresh = layouts.value.find(l=>l.id===layout.id)
-            layout.templates = fresh ? JSON.parse(JSON.stringify(fresh.templates || [])) : []
-          }
-          // fetch widgets for each template (without touching UI selection)
-          for (let ti = 0; ti < (layout.templates || []).length; ti++){
-            const tpl = layout.templates[ti]
-            try { await loadWidgetsForTemplate(tpl) } catch(e){ console.warn('loadWidgetsForTemplate failed', e) }
-            // small yield to keep event loop free
-            await new Promise(r=>setTimeout(r,50))
-          }
-        } catch(e){ console.warn('fetching layout/templates/widgets failed', e) }
-        await new Promise(r=>setTimeout(r,50))
+  try {
+    // Ensure templates and widgets are loaded so DOM components (charts/fonts) render correctly
+    for (let li = 0; li < layouts.value.length; li++){
+      const layout = layouts.value[li]
+      if (!layout) continue
+      if (!Array.isArray(layout.templates) || layout.templates.length === 0) {
+        const resIdx = layouts.value.findIndex(l=>l.id===layout.id)
+        await loadTemplatesForLayout(layout.id, resIdx !== -1 ? resIdx : undefined)
       }
-
-      // Build a simple PDF from data (titles + widget summaries) — avoids DOM rendering and html2canvas
-      const pdf = new jsPDF('p','mm','a4')
-      const margin = 12
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const usable = pageWidth - margin * 2
-      let y = 14
-      pdf.setFontSize(14)
-      pdf.text('Report Export', margin, y)
-      y += 8
-      pdf.setFontSize(10)
-
-      for (const layout of exportLayouts) {
-        if (y > 280) { pdf.addPage(); y = 14 }
-        pdf.setDrawColor(220)
-        pdf.setFillColor(245)
-        pdf.rect(margin-2, y-6, usable+4, 8, 'F')
-        pdf.setTextColor(20)
-        pdf.setFontSize(12)
-        pdf.text(`Layout: ${layout.name || ''}`, margin, y)
-        y += 6
-        pdf.setFontSize(10)
-        const templates = layout.templates || []
-        if (!templates.length) {
-          pdf.text('  (템플릿 없음)', margin, y); y += 6; continue
-        }
-        for (const tpl of templates) {
-          if (y > 280) { pdf.addPage(); y = 14 }
-          pdf.setFontSize(11)
-          pdf.text(`- Template: ${tpl.displayName || tpl.name || tpl.templateId || tpl.id}`, margin+4, y)
-          y += 5
-          // list widget keys/titles as bullets
-          const widgets = tpl.widgets || []
-          if (!widgets.length) {
-            pdf.setFontSize(9); pdf.text('    (위젯 없음)', margin+8, y); y += 5; continue
-          }
-          for (const w of widgets) {
-            if (y > 280) { pdf.addPage(); y = 14 }
-            const title = (w.title || w.widgetName || w.widgetKey || JSON.stringify(w).slice(0,40))
-            pdf.setFontSize(9)
-            pdf.text(`    • ${String(title)}`, margin+8, y)
-            y += 4
-          }
-          y += 4
-        }
-        y += 6
+      const tplList = (layouts.value.find(l=>l.id===layout.id)?.templates) || []
+      for (let ti = 0; ti < tplList.length; ti++){
+        try { await loadWidgetsForTemplate(tplList[ti]) } catch(e){ console.warn('loadWidgetsForTemplate failed', e) }
       }
-
-      const now = new Date(); const pad = n=>String(n).padStart(2,'0')
-      const fileName = `report_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`
-      try { pdf.save(fileName); toast?.showToast('PDF 생성이 완료되었습니다.', 'success') } catch(e){ console.warn('pdf save failed', e); toast?.showToast('PDF 저장 중 오류가 발생했습니다.', 'error') }
-    } catch (e) {
-      console.error('Background PDF generation failed', e)
-      toast?.showToast('PDF 생성 중 오류가 발생했습니다.', 'error')
-    } finally {
-      pdfGenerating.value = false
+      await new Promise(r=>setTimeout(r,100))
     }
-  })()
+
+    const pdf = new jsPDF('p','mm','a4')
+    const margin = 10
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const usableW = pageWidth - margin * 2
+    const usableH = pageHeight - margin * 2
+    let firstPage = true
+
+    // Render each template into the main pane and capture using html2canvas (preserves fonts and charts)
+    for (let li = 0; li < layouts.value.length; li++){
+      const layout = layouts.value[li]
+      if (!layout || !Array.isArray(layout.templates)) continue
+      for (let ti = 0; ti < layout.templates.length; ti++){
+        // set selection to render the correct grid component
+        selectedIndex.value = li
+        selectedTemplateIndex.value = ti
+        // wait for DOM updates and allow child components (charts) to finish drawing
+        await nextTick()
+        await new Promise(r=>setTimeout(r, 600))
+
+        const target = document.querySelector('.main-pane')
+        if (!target) { console.warn('main-pane not found for capture'); continue }
+
+        try {
+          const canvas = await html2canvas(target, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+          const imgData = canvas.toDataURL('image/png')
+          const scale = Math.min(usableW / canvas.width, usableH / canvas.height)
+          const imgW = canvas.width * scale
+          const imgH = canvas.height * scale
+
+          if (!firstPage) pdf.addPage()
+          firstPage = false
+          pdf.addImage(imgData, 'PNG', margin, margin, imgW, imgH)
+        } catch (e) {
+          console.error('html2canvas capture failed', e)
+          if (!firstPage) pdf.addPage()
+          firstPage = false
+          pdf.setFontSize(12)
+          pdf.text(`Failed to capture Layout: ${layout.name || ''} - Template: ${layout.templates[ti]?.displayName || ''}`, margin, margin + 10)
+        }
+
+        await new Promise(r=>setTimeout(r, 200))
+      }
+    }
+
+    const now = new Date(); const pad = n=>String(n).padStart(2,'0')
+    const fileName = `report_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`
+    try { pdf.save(fileName); toast?.showToast('PDF 생성이 완료되었습니다.', 'success') } catch(e){ console.warn('pdf save failed', e); toast?.showToast('PDF 저장 중 오류가 발생했습니다.', 'error') }
+
+  } catch (e) {
+    console.error('DOM-based PDF generation failed', e)
+    toast?.showToast('PDF 생성 중 오류가 발생했습니다.', 'error')
+  } finally {
+    pdfGenerating.value = false
+  }
 }
 
 // Template add/delete wrappers
