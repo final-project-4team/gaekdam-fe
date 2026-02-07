@@ -20,6 +20,10 @@
 </template>
 
 <script setup>
+// expose component name for keep-alive cache matching
+// (Vue 3.3+ / macro-enabled projects support defineOptions in <script setup>)
+/* eslint-disable no-undef */
+defineOptions({ name: 'TemplateGrid' })
 /**
  * TemplateGrid.vue
  * - 목적: 템플릿의 위젯(카드) 그리드를 표시하는 presentation 컴포넌트
