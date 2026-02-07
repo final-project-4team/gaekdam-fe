@@ -28,7 +28,6 @@
                 </div>
               </button>
               <div class="layout-controls">
-                <button class="icon-btn" title="템플릿 추가" @click.stop="openCreateTemplateForLayout(li)">＋</button>
                 <button class="icon-btn danger" title="레이아웃 삭제" @click.stop="openDeleteModal(layout)">🗑</button>
               </div>
             </div>
@@ -214,6 +213,23 @@ const selectedLayoutId = ref(null)
 const deletingLayout = ref(false)
 
 function openCreateLayout(){ newLayoutName.value=''; newLayoutDescription.value=''; selectedVisibility.value='PRIVATE'; showCreateLayout.value = true }
+
+// Open Create Template modal for a specific layout index (used by sidebar + buttons)
+function openCreateTemplateForLayout(li){
+  try{
+    if (typeof li === 'number' && li >= 0 && li < layouts.value.length) {
+      selectedIndex.value = li
+      // default template selection when opening
+      selectedTemplateIndex.value = 0
+      const layout = layouts.value[li]
+      if (layout && layout.id && (!Array.isArray(layout.templates) || layout.templates.length === 0)) {
+        // load templates in background so modal opens immediately
+        loadTemplatesForLayout(layout.id, li).catch(e => console.warn('loadTemplatesForLayout failed', e))
+      }
+    }
+  }catch(e){ console.warn('openCreateTemplateForLayout error', e) }
+  showCreateTemplate.value = true
+}
 
 async function handleCreateLayout(){
    if (creatingLayout.value) return
