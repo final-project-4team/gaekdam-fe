@@ -408,6 +408,13 @@ async function shareReport() {
 
 function confirmDeleteTemplate(idx){ deleteTemplateIndex.value = idx; showDeleteTemplateModal.value = true }
 
+// Local delete helper used by sidebar per-layout delete buttons. Ensures layout selection and template index are set before opening modal.
+function confirmDeleteTemplateLocal(li, ti){
+  selectedIndex.value = li
+  deleteTemplateIndex.value = ti
+  showDeleteTemplateModal.value = true
+}
+
 // 실제 템플릿 삭제 처리: ConfirmModal에서 @confirm으로 호출됩니다.
 async function handleDeleteTemplate(){
   if (deletingTemplate.value) return
@@ -569,6 +576,9 @@ onMounted(() => { loadLayouts() })
 .tpl-dot { color:#3b82f6; font-size:10px }
 .tpl-text { color:#0f1724 }
 .template-del { border:none; background:transparent; color:#64748b; cursor:pointer; padding:6px }
+/* make the delete button a bit wider for easier clicking */
+.template-del { min-width:64px; padding:6px 10px; text-align:center; border-radius:6px }
+.template-del:active { transform: translateY(1px) }
 .template-del:hover { color:#0b61ff }
 .add-template-btn { width:100%; border:1px dashed #dbeeff; background:transparent; padding:8px; border-radius:8px; cursor:pointer }
 
