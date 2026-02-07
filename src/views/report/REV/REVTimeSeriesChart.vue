@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, onActivated, onDeactivated, computed } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import zoomPlugin from 'chartjs-plugin-zoom'
 import { formatCount, safeNumber } from '@/utils/formatters'
@@ -184,7 +184,18 @@ function renderChart(){
 
 onMounted(()=>{ try{ if (props.widget) loadSavedMode(props.widget) }catch(e){}; try{ renderChart() }catch(e){ console.warn('REVTimeSeriesChart mount render failed', e) } })
 
-watch(()=>props.widget, (w)=>{ try{ loadSavedMode(w) }catch(e){}; renderChart() }, { deep:true })
+onActivated(() => {
+  // Recreate or update chart when component is re-activated from keep-alive cache
+  try { renderChart() } catch (e) { console.warn('REVTimeSeriesChart activated render failed', e) }
+})
+
+onDeactivated(() => {
+  // Destroy chart instance when component is deactivated to avoid stale plugin listeners
+  if (chartInstance) {
+    try { chartInstance.destroy() } catch (e) { /* ignore */ }
+    chartInstance = null
+  }
+})
 
 function storageKeyForWidget(widget){ const id = (widget && (widget.widgetKey || widget.id || widget.title)) ? (widget.widgetKey || widget.id || widget.title) : 'default'; return 'revtc_mode_'+String(id) }
 function setCumulativeMode(v){ cumulativeMode.value = !!v; try{ localStorage.setItem(storageKeyForWidget(props.widget), cumulativeMode.value ? '1' : '0') }catch(e){}; try{ renderChart() }catch(e){} }
@@ -203,8 +214,6 @@ function onDownloadImage(){ menuOpen.value=false; downloadImage() }
 function toggleBrush(){ dragEnabled.value = !dragEnabled.value; try{ if (chartInstance){ chartInstance.destroy(); chartInstance=null } menuOpen.value=false; renderChart(); if (chartEl.value) chartEl.value.style.cursor = dragEnabled.value ? 'crosshair' : 'default' }catch(e){ console.warn('toggleBrush failed', e) } }
 
 function resetZoom(){ try{ if (chartInstance && typeof chartInstance.resetZoom === 'function') { chartInstance.resetZoom() } }catch(e){} }
-
-onBeforeUnmount(()=>{ if (chartInstance){ try{ chartInstance.destroy() }catch(e){} chartInstance=null } })
 
 </script>
 

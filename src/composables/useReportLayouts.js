@@ -24,6 +24,10 @@ export function useReportLayouts() {
   const selectedYear = ref(String(currentYear))
   const selectedMonth = ref(String(new Date().getMonth() + 1))
 
+  // In-memory cache for template widgets keyed by `${templateId}::${period}`
+  // Keeps previously loaded widgets per template+period to allow instant re-render when returning to a template
+  const widgetCache = new Map()
+
   // 계산된 값들
   const currentLayout = computed(() => layouts.value[selectedIndex.value] || { name: '', templates: [] })
   const selectedTemplate = computed(() => {
@@ -168,23 +172,63 @@ export function useReportLayouts() {
   }
 
   // 3) 템플릿에 포함된 위젯(카드)들 로드
+  const makeCacheKey = (templateId, period) => `${templateId}::${period}`
+
+  function invalidateCacheForTemplateId(templateId){
+    if (!templateId) return
+    for (const k of Array.from(widgetCache.keys())){
+      if (k.startsWith(`${templateId}::`)) widgetCache.delete(k)
+    }
+  }
+
+  function invalidateCacheForLayout(layout){
+    if (!layout || !Array.isArray(layout.templates)) return
+    for (const tpl of layout.templates){
+      const tid = tpl.templateId ?? tpl.id
+      if (tid) invalidateCacheForTemplateId(tid)
+    }
+  }
+
   const loadWidgetsForTemplate = async (template) => {
     if (!template) return
     const templateId = template.templateId ?? template.id
     if (!templateId) return
     const period = getPeriod()
+    const cacheKey = makeCacheKey(templateId, period)
+
+    // Return cached widgets if present
+    if (widgetCache.has(cacheKey)) {
+      try {
+        const cached = widgetCache.get(cacheKey)
+        // mutate existing array to preserve reference used by child components
+        if (!Array.isArray(template.widgets)) template.widgets = []
+        if (Array.isArray(cached)) {
+          template.widgets.splice(0, template.widgets.length, ...cached.slice())
+        } else {
+          template.widgets.splice(0, template.widgets.length)
+        }
+        // console debug to show cache hit
+        console.debug('[useReportLayouts] loadWidgetsForTemplate cache hit', { templateId, period })
+        return template.widgets
+      } catch (e) { /* fallthrough to fetch on unexpected error */ }
+    }
+
     try {
       const res = await apiGetTemplateWidgets(templateId, period)
       const items = res?.data?.data || []
-
-        // Template ID, 기간, 항목 로그찍어보기
-        console.log('[useReportLayouts] loadWidgetsForTemplate', { templateId, period })
-        console.log('리포트 전체요약 위젯 값 조회', items)
-      // sortOrder로 정렬 후 템플릿 객체에 위젯 배열을 붙임
-      template.widgets = Array.isArray(items) ? items.sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0)) : []
+      console.log('[useReportLayouts] loadWidgetsForTemplate', { templateId, period })
+      // sort and attach
+      const sorted = Array.isArray(items) ? items.sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0)) : []
+      // mutate existing array (preserve reference) so child components keep stable layout
+      if (!Array.isArray(template.widgets)) template.widgets = []
+      template.widgets.splice(0, template.widgets.length, ...sorted)
+      // cache the result for quick reuse
+      try { widgetCache.set(cacheKey, sorted.slice()) } catch(e){ /* ignore cache set errors */ }
+      return template.widgets
     } catch (err) {
       console.error('[useReportLayouts] loadWidgetsForTemplate failed', err)
       template.widgets = []
+      return template.widgets
     }
   }
 
@@ -266,6 +310,8 @@ export function useReportLayouts() {
       if (idx !== -1) layouts.value[idx].defaultFilterJson = payload.defaultFilterJson
       // persist to local storage as a resilient fallback
       try { savePeriodsToStorage() } catch(e){ /* ignore */ }
+      // invalidate cached widgets for this layout because period changed
+      try { invalidateCacheForLayout(target) } catch(e){ /* ignore */ }
       const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
       if (tpl) await loadWidgetsForTemplate(tpl)
     } catch (err) {

@@ -72,7 +72,13 @@
         <h4 v-if="sectionTitle" class="section-title">{{ sectionTitle }}</h4>
 
         <!-- 템플릿 ID에 따라 적절한 그리드 컴포넌트를 동적으로 렌더링합니다. -->
-        <component :is="gridComponent" :widgets="_currentSelectedTemplate?.widgets || []" />
+        <keep-alive>
+          <component
+            :is="gridComponent"
+            :key="_currentSelectedTemplate?.templateId ?? _currentSelectedTemplate?.id"
+            :widgets="_currentSelectedTemplate?.widgets || []"
+          />
+        </keep-alive>
       </section>
     </div>
 
@@ -265,8 +271,8 @@ async function handleCreateLayout(){
      }
      await createLayout(payload)
      showCreateLayout.value = false
-   } catch(e){ console.error(e) }
-   finally{ creatingLayout.value = false }
+   } catch(e) { console.error(e) }
+   finally { creatingLayout.value = false }
  }
 
 function selectLayout(i){
