@@ -1,19 +1,15 @@
 <template>
   <div class="sender-phone-setting">
 
-    <!-- ===================== -->
     <!-- 헤더 -->
-    <!-- ===================== -->
     <div class="page-header">
       <div class="title">발신번호 설정</div>
       <div class="desc">
-        대표 발신번호를 설정하고, 여정별 메시지를 시연합니다.
+        발신번호를 선택하고, 여정별 메시지를 시연합니다.
       </div>
     </div>
 
-    <!-- ===================== -->
     <!-- 발신번호 등록 -->
-    <!-- ===================== -->
     <div class="card">
       <div class="card-title">발신번호 등록</div>
 
@@ -24,11 +20,9 @@
       </div>
     </div>
 
-    <!-- ===================== -->
-    <!-- 발신번호 목록 -->
-    <!-- ===================== -->
+    <!-- 발신번호 선택 -->
     <div class="card">
-      <div class="card-title">발신번호 목록</div>
+      <div class="card-title">발신번호 선택</div>
 
       <div
           v-for="phone in senderPhones"
@@ -39,8 +33,8 @@
           <input
               type="radio"
               name="senderPhone"
-              :checked="phone.active"
-              @change="activate(phone.senderPhoneCode)"
+              :value="phone.senderPhoneCode"
+              v-model="selectedSenderPhoneCode"
           />
         </label>
 
@@ -48,25 +42,35 @@
           <div class="number">{{ phone.phoneNumber }}</div>
           <div class="label">{{ phone.label }}</div>
         </div>
-
-        <span v-if="phone.active" class="badge">대표</span>
       </div>
     </div>
 
+    <!-- 시연 대상 예약 -->
     <div v-if="demoReservation" class="card">
       <div class="card-title">시연 대상 예약</div>
 
       <div class="reservation-info">
         <div><b>예약코드</b> : {{ demoReservation.reservationCode }}</div>
-        <div><b>전화번호</b> : {{ demoReservation.phone }}</div>
-        <div><b>현재 상태</b> : {{ demoReservation.reservationStatus }}</div>
+
+        <div>
+          <b>수신번호</b> :
+          <input
+              v-model="toPhone"
+              placeholder="01012345678"
+              class="phone-input"
+          />
+        </div>
+
+        <div>
+          <b>현재 상태</b> : {{ demoReservation.reservationStatus }}
+        </div>
       </div>
 
       <div class="stage-buttons">
         <button
             v-for="stage in stages"
             :key="stage.stageCode"
-            :disabled="!hasActivePhone"
+            :disabled="!canSend"
             @click="sendStage(stage)"
         >
           {{ stage.stageNameKor }} 문자 보내기
@@ -74,34 +78,13 @@
       </div>
     </div>
 
-    <!-- ===================== -->
-    <!-- 시연: 여정별 문자 발송 -->
-    <!-- ===================== -->
-    <div class="card">
-      <div class="card-title">여정별 문자 시연</div>
+    <!-- 힌트 -->
+    <div v-if="!selectedSenderPhoneCode" class="hint">
+      발신번호를 하나 선택하세요.
+    </div>
 
-      <div
-          v-for="stage in stages"
-          :key="stage.stageCode"
-          class="stage-row"
-      >
-        <div class="stage-name">{{ stage.stageNameKor }}</div>
-
-        <div class="buttons">
-          <button
-              v-for="(tpl, visitorType) in stage.templates"
-              :key="tpl.templateCode"
-              :disabled="!hasActivePhone"
-              @click="sendStageSms(stage, tpl)"
-          >
-            {{ visitorType }} 발송
-          </button>
-        </div>
-      </div>
-
-      <div v-if="!hasActivePhone" class="hint">
-        대표 발신번호를 먼저 선택하세요.
-      </div>
+    <div v-else-if="!toPhone" class="hint">
+      수신번호를 입력해야 문자 발송이 가능합니다.
     </div>
 
   </div>
@@ -113,37 +96,34 @@ import { ref, computed, onMounted } from 'vue'
 import {
   getMessageSenderPhoneListApi,
   createMessageSenderPhoneApi,
-  activateMessageSenderPhoneApi,
 } from '@/api/message/messageSenderPhoneApi'
 
 import { getMessageJourneyStagesApi } from '@/api/message/messageStageApi'
 import { getDemoReservationApi } from '@/api/message/demoReservationApi'
-import { sendDemoSmsApi } from '@/api/message/demoSmsApi.js'
+import { sendDemoSmsApi } from '@/api/message/demoSmsApi'
 
-const demoReservation = ref(null)
-
-/* ===================== */
 /* 상태 */
-/* ===================== */
+const demoReservation = ref(null)
+const toPhone = ref('')
+
 const senderPhones = ref([])
+const selectedSenderPhoneCode = ref(null)
+
 const newPhone = ref({ phoneNumber: '', label: '' })
 const stages = ref([])
 
-/* ===================== */
-/* 계산값 */
-/* ===================== */
-const hasActivePhone = computed(() =>
-    senderPhones.value.some(p => p.active)
+/* 계산 */
+const canSend = computed(() =>
+    !!selectedSenderPhoneCode.value && !!toPhone.value
 )
 
+/* Demo 예약 */
 const loadDemoReservation = async () => {
   const res = await getDemoReservationApi()
   demoReservation.value = res.data
 }
 
-/* ===================== */
-/* 발신번호 API */
-/* ===================== */
+/* 발신번호 */
 const loadSenderPhones = async () => {
   const res = await getMessageSenderPhoneListApi()
   senderPhones.value = res.data || []
@@ -156,53 +136,33 @@ const createSenderPhone = async () => {
   await loadSenderPhones()
 }
 
-const activate = async (code) => {
-  await activateMessageSenderPhoneApi(code)
-  await loadSenderPhones()
-}
-
-/* ===================== */
-/* 여정 / 문자 시연 */
-/* ===================== */
+/* 여정 */
 const loadStages = async () => {
   const res = await getMessageJourneyStagesApi()
   stages.value = res.data.data || []
 }
 
-const sendStageSms = async (stage, template) => {
-  await sendDemoSmsApi({
-    reservationCode: 333,              // 시연용 고정
-    stageCode: stage.stageCode,
-    templateCode: template.templateCode,
-    toPhone: '01082802984',             // 시연자 번호
-  })
-
-  alert(`${stage.stageNameKor} 문자 발송 완료`)
-}
-
-
+/* 문자 발송 */
 const sendStage = async (stage) => {
-  if (!demoReservation.value) return
+  if (!canSend.value) return
 
   await sendDemoSmsApi({
     reservationCode: demoReservation.value.reservationCode,
     stageCode: stage.stageCode,
-    toPhone: demoReservation.value.phone,
+    senderPhoneCode: selectedSenderPhoneCode.value,
+    toPhone: toPhone.value,
   })
 
   alert(`${stage.stageNameKor} 문자 발송 완료`)
 }
 
-/* ===================== */
 /* 생명주기 */
-/* ===================== */
 onMounted(async () => {
   await loadSenderPhones()
   await loadStages()
   await loadDemoReservation()
 })
 </script>
-
 
 <style scoped>
 .sender-phone-setting {
@@ -241,16 +201,6 @@ onMounted(async () => {
   gap: 8px;
 }
 
-.form-row input {
-  padding: 8px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-}
-
-.form-row button {
-  padding: 8px 14px;
-}
-
 .phone-row {
   display: flex;
   align-items: center;
@@ -267,30 +217,20 @@ onMounted(async () => {
   color: #6b7280;
 }
 
-.badge {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4f46e5;
-}
-
 .stage-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.stage-buttons button {
-  padding: 8px 12px;
-}
-
-.reservation-info {
-  margin-bottom: 12px;
-  font-size: 13px;
+.phone-input {
+  margin-left: 8px;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
 }
 
 .hint {
-  margin-top: 8px;
   font-size: 12px;
   color: #ef4444;
 }
