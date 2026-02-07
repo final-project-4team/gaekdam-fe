@@ -140,14 +140,8 @@ const {
 const auth = useAuthStore?.()
 const toast = useToastStore?.()
 
- // 기본 기간을 월간(2026-01)으로 설정: 레이아웃별 기본 필터에 반영
-try {
-  if (currentPeriodType) currentPeriodType.value = '월간'
-  if (currentSelectedYear) currentSelectedYear.value = '2026'
-  if (currentSelectedMonth) currentSelectedMonth.value = '01'
-} catch (e) {
-  console.warn('기본 기간 설정 실패', e)
-}
+// NOTE: Do not set per-layout period defaults here — that would overwrite each layout's saved defaultFilterJson.
+// Per-layout period values are loaded from each layout's `defaultFilterJson` when `currentLayout` is selected.
 
 // local UI state (modals / loading)
 const creatingLayout = ref(false)
@@ -240,45 +234,74 @@ function onPeriodTypeChange(){
 
 async function shareReport() {
    try {
-     // 캡처할 영역: 전체 콘텐츠 영역 또는 메인 패널
-     const el = document.querySelector('.content-area') || document.querySelector('.main-pane')
-     if (!el) {
-       console.error('PDF 생성 대상 엘리먼트를 찾을 수 없습니다.')
-       return
-     }
-
-     // 렌더 안정화를 위해 잠깐 대기(애니메이션/폰트 로드 등)
-     await new Promise(r => setTimeout(r, 250))
-
-     // html2canvas로 캡처 (useCORS: 외부 이미지가 있을 경우 서버에서 CORS 허용 필요)
-     const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-     const imgData = canvas.toDataURL('image/png')
-
-     // PDF 생성: A4 portrait
      const pdf = new jsPDF('p', 'mm', 'a4')
      const pageWidth = pdf.internal.pageSize.getWidth()
      const pageHeight = pdf.internal.pageSize.getHeight()
+     const margin = 10
+     const imgWidthMM = pageWidth - margin * 2
 
-     // 이미지 실제 크기(mm) 계산
-     const imgProps = pdf.getImageProperties(imgData)
-     const imgWidthMM = pageWidth - 20 // 좌우 여백 10mm씩
-     const imgHeightMM = (imgProps.height * imgWidthMM) / imgProps.width
+     // collect layouts to export (only those currently present)
+     const exportLayouts = Array.isArray(layouts.value) ? layouts.value : []
 
-     // 여러 페이지로 분할하여 추가
-     let heightLeft = imgHeightMM
-     let position = 10 // 상단 여백 10mm
-     let pageNum = 0
-     while (heightLeft > 0) {
-       if (pageNum > 0) pdf.addPage()
-       pdf.addImage(imgData, 'PNG', 10, position, imgWidthMM, imgHeightMM)
-       heightLeft -= pageHeight - 20 // 페이지당 내용 영역에서 여백 고려
-       position -= pageHeight - 20
-       pageNum++
+     let isFirstContent = true
+
+     for (let li = 0; li < exportLayouts.length; li++) {
+       const layout = exportLayouts[li]
+       // switch to layout and ensure templates are loaded
+       selectedIndex.value = li
+       selectedTemplateIndex.value = 0
+       if (layout && layout.id) {
+         // load templates for this layout (composable will set currentLayout etc.)
+         try { await loadTemplatesForLayout(layout.id, li) } catch (e) { console.warn('loadTemplatesForLayout failed', e) }
+       }
+
+       // small wait for DOM to update
+       await new Promise(r => setTimeout(r, 200))
+
+       const tplList = (layouts.value[li]?.templates) ? layouts.value[li].templates : []
+
+       for (let ti = 0; ti < tplList.length; ti++) {
+         selectedTemplateIndex.value = ti
+         const tpl = tplList[ti]
+         // ensure widgets are loaded for the selected template
+         try { await loadWidgetsForTemplate(tpl) } catch (e) { console.warn('loadWidgetsForTemplate failed', e) }
+
+         // wait for DOM render
+         await new Promise(r => setTimeout(r, 250))
+
+         const el = document.querySelector('.main-pane') || document.querySelector('.content-area')
+         if (!el) {
+           console.error('PDF 생성 대상 엘리먼트를 찾을 수 없습니다.')
+           continue
+         }
+
+         const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+         const imgData = canvas.toDataURL('image/png')
+         const imgProps = pdf.getImageProperties(imgData)
+         const imgHeightMM = (imgProps.height * imgWidthMM) / imgProps.width
+
+         // paginate the image if it overflows
+         let heightLeft = imgHeightMM
+         let position = margin
+         let pageAddedForThisImage = 0
+
+         while (heightLeft > 0) {
+           if (!isFirstContent || pageAddedForThisImage > 0) pdf.addPage()
+           pdf.addImage(imgData, 'PNG', margin, position, imgWidthMM, imgHeightMM)
+
+           heightLeft -= (pageHeight - margin * 2)
+           position -= (pageHeight - margin * 2)
+           pageAddedForThisImage++
+           isFirstContent = false
+         }
+       }
      }
 
-     const period = currentPeriodType.value === '월간' ? `${currentSelectedYear.value}-${String(currentSelectedMonth.value).padStart(2,'0')}` : `${currentSelectedYear.value}`
-     const name = `report_${period}_${new Date().toISOString().replace(/[:.]/g,'-')}.pdf`
-     pdf.save(name)
+     // file name: report_YYYYMMDD_HHMMSS.pdf
+     const now = new Date()
+     const pad = (n) => String(n).padStart(2, '0')
+     const fileName = `report_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`
+     pdf.save(fileName)
    } catch (e) {
      console.error('PDF 생성 실패', e)
    }

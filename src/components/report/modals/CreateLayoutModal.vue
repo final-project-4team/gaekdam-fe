@@ -5,7 +5,7 @@
       <div class="form-grid">
         <div class="form-row">
           <label class="form-label">레이아웃 이름</label>
-          <input v-model="name" class="input" placeholder="ex. 2026년 1월 레이아웃" />
+          <input v-model="name" class="input" placeholder="ex. 2025년 리포트" />
         </div>
 
         <div class="form-row">
@@ -28,7 +28,7 @@
       <!-- description full width -->
       <div class="form-row full-width">
         <label class="form-label">내용</label>
-        <textarea v-model="description" rows="5" class="textarea" placeholder="레이아웃에 대한 설명을 입력하세요"></textarea>
+        <textarea v-model="description" rows="5" class="textarea" placeholder="리포트에 대한 설명을 입력하세요"></textarea>
       </div>
 
       <!-- template cards with responsive grid -->
@@ -68,7 +68,7 @@ import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import { defineProps, ref, watch, defineEmits, computed } from 'vue'
 
-const props = defineProps({ visible: Boolean, title: { type: String, default: '레이아웃 추가' }, initial: Object, templates: { type: Array, default: () => [] } })
+const props = defineProps({ visible: Boolean, title: { type: String, default: '레이아웃 생성' }, initial: Object, templates: { type: Array, default: () => [] } })
 const emit = defineEmits(['create', 'close'])
 
 const now = new Date()

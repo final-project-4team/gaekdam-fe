@@ -111,7 +111,16 @@ export function useReportLayouts() {
       const res = await listReportLayouts(employeeCode)
       const data = res?.data?.data || []
       // backend shape에 따라 id/name/templates 추출
-      layouts.value = data.map(r => ({ id: r.layoutId ?? r.id, name: r.name, templates: r.templates || [], defaultFilterJson: r.defaultFilterJson || (r.dateRangePreset ? { periodType: r.dateRangePreset === 'MONTH' ? 'MONTH' : 'YEAR', period: r.defaultFilterJson?.period || (r.dateRangePreset === 'MONTH' ? `${String(currentYear)}-${String(new Date().getMonth()+1).padStart(2,'0')}` : `${String(currentYear)}`) } : undefined) }))
+      layouts.value = data.map(r => ({ id: r.layoutId ?? r.id, name: r.name, templates: r.templates || [], defaultFilterJson: r.defaultFilterJson ?? (r.dateRangePreset ? { periodType: r.dateRangePreset === 'MONTH' ? 'MONTH' : 'YEAR', period: r.defaultFilterJson?.period || undefined } : undefined) }))
+
+      // merge any locally saved per-layout periods (fallback when server omitted them)
+      const saved = loadPeriodsFromStorage()
+      for (const l of layouts.value) {
+        const key = String(l.id)
+        if ((!l.defaultFilterJson || !l.defaultFilterJson.period) && saved[key]) {
+          l.defaultFilterJson = saved[key]
+        }
+      }
       const initial = layouts.value[selectedIndex.value]
       if (initial && initial.id) loadTemplatesForLayout(initial.id, selectedIndex.value)
     } catch (err) {
@@ -207,6 +216,9 @@ export function useReportLayouts() {
         try { await loadWidgetsForTemplate(tpl) } catch (e) { /* ignore */ }
       }
 
+      // persist newly created layout's period locally as well
+      try { savePeriodsToStorage() } catch(e){ /* ignore */ }
+
       return layouts.value[selectedIndex.value]
     } catch (err) {
       console.error('[useReportLayouts] createLayout failed', err)
@@ -244,6 +256,8 @@ export function useReportLayouts() {
       await updateReportLayout(target.id, payload)
       const idx = layouts.value.findIndex(l => l.id === target.id)
       if (idx !== -1) layouts.value[idx].defaultFilterJson = payload.defaultFilterJson
+      // persist to local storage as a resilient fallback
+      try { savePeriodsToStorage() } catch(e){ /* ignore */ }
       const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
       if (tpl) await loadWidgetsForTemplate(tpl)
     } catch (err) {
@@ -303,6 +317,26 @@ export function useReportLayouts() {
       console.error('[useReportLayouts] deleteTemplate failed', err)
       throw err
     }
+  }
+
+  // helpers: persist per-layout periods to localStorage as a fallback when server doesn't return them
+  const STORAGE_KEY = 'report_layout_periods'
+  function loadPeriodsFromStorage(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY)
+      return raw ? JSON.parse(raw) : {}
+    }catch(e){ return {} }
+  }
+  function savePeriodsToStorage(){
+    try{
+      const map = {}
+      for (const l of layouts.value) {
+        if (l && l.id && l.defaultFilterJson && l.defaultFilterJson.period) {
+          map[String(l.id)] = l.defaultFilterJson
+        }
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+    }catch(e){ console.warn('savePeriodsToStorage failed', e) }
   }
 
   return {
