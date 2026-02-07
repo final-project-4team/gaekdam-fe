@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, onActivated, onDeactivated, computed } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import zoomPlugin from 'chartjs-plugin-zoom'
 import { formatCount, safeNumber } from '@/utils/formatters'
@@ -308,7 +308,19 @@ onMounted(() => {
   try { renderChart() } catch (e) { console.warn('CXTimeSeriesChart mount render failed', e) }
 })
 
-watch(() => props.widget, (w) => { try { loadSavedMode(w) } catch (e) {} renderChart() }, { deep: true })
+// When used with <keep-alive>, Vue calls activated/deactivated instead of mount/unmount.
+onActivated(() => {
+  try { renderChart() } catch (e) { console.warn('CXTimeSeriesChart activated render failed', e) }
+})
+
+onDeactivated(() => {
+  if (chartInstance) {
+    try { chartInstance.destroy() } catch (e) { /* ignore */ }
+    chartInstance = null
+  }
+})
+
+ watch(() => props.widget, (w) => { try { loadSavedMode(w) } catch (e) {} renderChart() }, { deep: true })
 
 function storageKeyForWidget(widget) {
   const id = (widget && (widget.widgetKey || widget.id || widget.title)) ? (widget.widgetKey || widget.id || widget.title) : 'default'

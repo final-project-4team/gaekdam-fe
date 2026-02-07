@@ -47,17 +47,28 @@
 
     <!-- 아이콘 (항상 보임, 클릭으로 열기) -->
     <button class="chat-icon" :class="{ 'chat-icon--open': open }" @click="toggle" :aria-expanded="open" :title="open ? '닫기' : '챗 열기'">
-      <!-- 심플 블루 채팅 버블 아이콘 -->
-      <svg width="34" height="34" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <!-- Cuter smiling bubble icon -->
+      <svg width="42" height="42" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
         <defs>
-          <linearGradient id="g2" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stop-color="#60a9ff" />
+          <linearGradient id="cuteGrad" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="#7fc9ff" />
             <stop offset="100%" stop-color="#2b8be6" />
           </linearGradient>
         </defs>
-        <path d="M4 4h12a4 4 0 014 4v6a4 4 0 01-4 4H8l-4 4V8a4 4 0 014-4z" fill="url(#g2)" />
-        <circle cx="9" cy="11" r="1" fill="#fff" opacity="0.95" />
-        <circle cx="13" cy="11" r="1" fill="#fff" opacity="0.95" />
+        <!-- rounded bubble -->
+        <rect x="4" y="6" width="48" height="36" rx="12" ry="12" fill="url(#cuteGrad)" />
+        <!-- tail -->
+        <path d="M18 42 L22 54 L26 42 Z" fill="#2b8be6" opacity="0.95" />
+        <!-- eyes -->
+        <circle cx="22" cy="20" r="3" fill="#fff" />
+        <circle cx="38" cy="20" r="3" fill="#fff" />
+        <!-- smile -->
+        <path d="M22 28 Q32 36 42 28" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" />
+        <!-- little sparkle -->
+        <g opacity="0.9">
+          <circle cx="48" cy="10" r="2" fill="#fff" />
+          <rect x="46.2" y="6" width="1.6" height="6" rx="0.8" fill="#fff" transform="rotate(25 48 9)" />
+        </g>
       </svg>
     </button>
   </div>
@@ -421,7 +432,7 @@ async function presignAndUpload(file, onProgress) {
 </script>
 
 <style scoped>
-.chatbot-root { position: fixed; right: 20px; bottom: 20px; z-index: 10000; }
+.chatbot-root { position: fixed; right: 20px; bottom: 20px; z-index: 10000; display: flex; flex-direction: column; align-items: flex-end; }
 
 /* 아이콘 */
 .chat-icon {
@@ -429,7 +440,7 @@ async function presignAndUpload(file, onProgress) {
   background: linear-gradient(135deg,#4aa3ff,#2b8be6);
   color: #fff;
   border: none;
-  border-radius: 12px;
+  border-radius: 50%;
   width: 64px; height: 64px; display:flex; align-items:center; justify-content:center;
   cursor: pointer; position: fixed; bottom: 20px; right: 20px; z-index: 10001;
   box-shadow: 0 10px 30px rgba(43,139,230,0.28), inset 0 -4px 8px rgba(0,0,0,0.08);
@@ -438,9 +449,19 @@ async function presignAndUpload(file, onProgress) {
   transform: translateY(0) scale(var(--icon-scale));
 }
 .chat-icon--open { --icon-scale: 0.78; box-shadow: 0 8px 20px rgba(43,139,230,0.18); }
-.chat-icon svg { width: 48%; height: 48%; display:block }
+.chat-icon svg { width: 100%; height: 100%; display:block }
 .chat-icon:hover { transform: translateY(-4px) scale(calc(var(--icon-scale) * 1.03)); box-shadow: 0 14px 36px rgba(43,139,230,0.32); }
 .chat-icon:active { transform: translateY(-2px) scale(calc(var(--icon-scale) * 0.99)); }
+
+/* When chat is open, pin the icon under the chat window (inside the fixed container) */
+.chat-icon.chat-icon--open {
+  /* make icon positioned relative to .chatbot-root instead of viewport */
+  position: absolute;
+  top: calc(100% - 12px); /* place just below the chat window */
+  right: 0; /* align to the chat window's right edge */
+  bottom: auto;
+  z-index: 10002;
+}
 
 /* 창 */
 .chat-window {
@@ -506,4 +527,14 @@ async function presignAndUpload(file, onProgress) {
   font-size: 12px; color: #6b7280; margin-top: 4px; margin-left: 8px;
 }
 .elapsed { font-size: 11px; color: #6b7280; margin-top:6px; }
+
+/* Animation for the cute chat icon */
+@keyframes pulse {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.1); }
+  100% { transform: translateY(0) scale(1); }
+}
+.chat-icon {
+  animation: pulse 2s infinite;
+}
 </style>

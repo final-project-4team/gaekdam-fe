@@ -5,6 +5,10 @@ import ListView from "@/components/common/ListView.vue";
 import { getInquiryListApi } from "@/api/voc/inquiryApi.js";
 import InquiryDetailModal from "@/views/voc/inquiry/modal/InquiryDetailModal.vue";
 
+import { usePermissionGuard } from '@/composables/usePermissionGuard';
+
+const { withPermission } = usePermissionGuard();
+
 /* Search Types */
 const searchTypes = [
   { label: "전체", value: "ALL" },
@@ -72,9 +76,11 @@ const showDetailModal = ref(false);
 const selectedInquiryCode = ref(null);
 
 const openDetailModal = (row) => {
-  selectedInquiryCode.value = row?.inquiryCode ?? null;
-  if (!selectedInquiryCode.value) return;
-  showDetailModal.value = true;
+  withPermission('INQUIRY_READ', async () => {
+      selectedInquiryCode.value = row?.inquiryCode ?? null;
+      if (!selectedInquiryCode.value) return;
+      showDetailModal.value = true;
+  })
 };
 
 const closeDetailModal = () => {

@@ -248,7 +248,7 @@ const submitAction = async () => {
 };
 
 const closeIncident = async () => {
-  withPermission('INCIDENT_CREATE', async () => {
+  withPermission('INCIDENT_UPDATE', async () => {
   if (!isClosable.value) return;
   if (closing.value) return; // 중복 클릭 방지
   if (!confirm("조치를 완료(종결) 처리할까요?")) return;

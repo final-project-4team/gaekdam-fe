@@ -27,7 +27,7 @@ export const getEmployeeList = async ({
 
       departmentName: detail.departmentName || undefined,
       hotelPositionName: detail.hotelPositionName || undefined,
-
+      permissionName: detail.permissionName || undefined,
       // phoneNumber -> phone
       phone: detail.phoneNumber || undefined,
 

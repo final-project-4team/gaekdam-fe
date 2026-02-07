@@ -37,18 +37,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue' // computed added
 import ContentTabs from '@/components/layoutComponents/ContentTabs.vue'
 import ListView from '@/components/common/ListView.vue'
 import { getPermissionLogList } from '@/api/system/systemLogApi.js'
+import { useAuthStore } from '@/stores/authStore' // Import authStore
+
+const authStore = useAuthStore()
 
 // 탭 설정
-const tabs = [
-  { label: '로그인', path: '/system/log' },
-  { label: '활동 기록', path: '/system/activity' },
-  { label: '권한 변경', path: '/system/permission' },
-  { label: '개인 정보 조회', path: '/system/privacy' }
+const allTabs = [
+  {label: '로그인', path: '/system/log', permission: 'LOG_LOGIN_LIST'},
+  {label: '활동 기록', path: '/system/activity', permission: 'LOG_AUDIT_LIST'},
+  {label: '권한 변경', path: '/system/permission', permission: 'LOG_PERMISSION_CHANGED_LIST'},
+  {label: '개인 정보 조회', path: '/system/privacy', permission: 'LOG_PERSONAL_INFORMATION_LIST'}
 ]
+
+const tabs = computed(() => {
+    return allTabs.filter(tab => !tab.permission || authStore.hasPermission(tab.permission))
+})
 
 // 테이블 컬럼
 const columns = [
@@ -254,6 +261,13 @@ onMounted(() => {
   gap: 10px;       
   padding: 16px 20px;
   width: 100%;
+}
+
+:deep(.toolbar-left),
+:deep(.toolbar-right) {
+  flex-wrap: wrap;
+  white-space: normal;
+  margin-left: 0 !important;
 }
 
 :deep(.search-bar) {
