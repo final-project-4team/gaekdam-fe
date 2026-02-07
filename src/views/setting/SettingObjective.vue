@@ -218,15 +218,44 @@ const resetForm = () => {
 const exportExcel = async () => {
   try {
     isDownloading.value = true
-    const blob = await targetApi.downloadExcelTemplate({
-      hotelGroupCode,
-      periodType: periodType.value,
-      periodValue: formattedPeriod.value // YYYY or YYYY-MM
-    })
-    const url = window.URL.createObjectURL(new Blob([blob]))
+    // Build CSV template grouped by section titles and desiredLayout
+    const rows = []
+    // top metadata row
+    rows.push([`기간`, formattedPeriod.value])
+    rows.push([])
+
+    for (let i = 0; i < titles.length; i++) {
+      const section = titles[i]
+      const labels = desiredLayout[i] || []
+      // section header
+      rows.push([section])
+      // header columns for this section
+      rows.push(['KPI 이름', '단위', '목표값'])
+      for (const label of labels) {
+        // find unit from kpis or unitOverrides
+        const found = kpis.value.find(k => (k.name || '').trim() === label) || kpis.value.find(k => (k.name || '').includes(label))
+        const unit = (found && found.unit) ? found.unit : (unitOverrides[label] || '')
+        rows.push([label, unit, ''])
+      }
+      rows.push([])
+    }
+
+    // convert rows to CSV string (comma separated, escape double quotes)
+    const csv = rows.map(r => r.map(c => {
+      if (c === null || c === undefined) return ''
+      const s = String(c)
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"'
+      return s
+    }).join(',')).join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `KPI_Template.xlsx`
+    const now = new Date()
+    const pad = n => String(n).padStart(2,'0')
+    const fileName = `KPI_Template_${formattedPeriod.value}_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`
+    a.download = fileName
     document.body.appendChild(a)
     a.click()
     a.remove()
