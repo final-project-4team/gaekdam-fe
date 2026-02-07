@@ -321,80 +321,100 @@ function onPeriodTypeChange(){
   applyPeriodAndReload()
 }
 
-async function shareReport() {
-   try {
-     const pdf = new jsPDF('p', 'mm', 'a4')
-     const pageWidth = pdf.internal.pageSize.getWidth()
-     const pageHeight = pdf.internal.pageSize.getHeight()
-     const margin = 10
-     const imgWidthMM = pageWidth - margin * 2
+ // Non-blocking PDF generator: run in background, do not change UI selection or render DOM
+const pdfGenerating = ref(false)
+function shareReport(){
+  if (pdfGenerating.value) { toast?.showToast('이미 PDF 생성 작업이 진행중입니다.', 'info'); return }
+  pdfGenerating.value = true
+  toast?.showToast('PDF 생성 작업을 백그라운드에서 시작했습니다. 완료되면 다운로드됩니다.', 'info')
 
-     // collect layouts to export (only those currently present)
-     const exportLayouts = Array.isArray(layouts.value) ? layouts.value : []
+  // background async task (do not await) — keeps UI responsive
+  ;(async () => {
+    try {
+      const exportLayouts = Array.isArray(layouts.value) ? JSON.parse(JSON.stringify(layouts.value)) : []
 
-     let isFirstContent = true
+      // For each layout, ensure templates/widgets are available by fetching data via composable functions
+      for (let li = 0; li < exportLayouts.length; li++) {
+        const layout = exportLayouts[li]
+        if (!layout) continue
+        try {
+          // fetch templates if missing
+          if (!Array.isArray(layout.templates) || layout.templates.length === 0) {
+            const resIdx = layouts.value.findIndex(l=>l.id===layout.id)
+            await loadTemplatesForLayout(layout.id, resIdx !== -1 ? resIdx : undefined)
+            // read back into our local copy
+            const fresh = layouts.value.find(l=>l.id===layout.id)
+            layout.templates = fresh ? JSON.parse(JSON.stringify(fresh.templates || [])) : []
+          }
+          // fetch widgets for each template (without touching UI selection)
+          for (let ti = 0; ti < (layout.templates || []).length; ti++){
+            const tpl = layout.templates[ti]
+            try { await loadWidgetsForTemplate(tpl) } catch(e){ console.warn('loadWidgetsForTemplate failed', e) }
+            // small yield to keep event loop free
+            await new Promise(r=>setTimeout(r,50))
+          }
+        } catch(e){ console.warn('fetching layout/templates/widgets failed', e) }
+        await new Promise(r=>setTimeout(r,50))
+      }
 
-     for (let li = 0; li < exportLayouts.length; li++) {
-       const layout = exportLayouts[li]
-       // switch to layout and ensure templates are loaded
-       selectedIndex.value = li
-       selectedTemplateIndex.value = 0
-       if (layout && layout.id) {
-         // load templates for this layout (composable will set currentLayout etc.)
-         try { await loadTemplatesForLayout(layout.id, li) } catch (e) { console.warn('loadTemplatesForLayout failed', e) }
-       }
+      // Build a simple PDF from data (titles + widget summaries) — avoids DOM rendering and html2canvas
+      const pdf = new jsPDF('p','mm','a4')
+      const margin = 12
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const usable = pageWidth - margin * 2
+      let y = 14
+      pdf.setFontSize(14)
+      pdf.text('Report Export', margin, y)
+      y += 8
+      pdf.setFontSize(10)
 
-       // small wait for DOM to update
-       await new Promise(r => setTimeout(r, 200))
+      for (const layout of exportLayouts) {
+        if (y > 280) { pdf.addPage(); y = 14 }
+        pdf.setDrawColor(220)
+        pdf.setFillColor(245)
+        pdf.rect(margin-2, y-6, usable+4, 8, 'F')
+        pdf.setTextColor(20)
+        pdf.setFontSize(12)
+        pdf.text(`Layout: ${layout.name || ''}`, margin, y)
+        y += 6
+        pdf.setFontSize(10)
+        const templates = layout.templates || []
+        if (!templates.length) {
+          pdf.text('  (템플릿 없음)', margin, y); y += 6; continue
+        }
+        for (const tpl of templates) {
+          if (y > 280) { pdf.addPage(); y = 14 }
+          pdf.setFontSize(11)
+          pdf.text(`- Template: ${tpl.displayName || tpl.name || tpl.templateId || tpl.id}`, margin+4, y)
+          y += 5
+          // list widget keys/titles as bullets
+          const widgets = tpl.widgets || []
+          if (!widgets.length) {
+            pdf.setFontSize(9); pdf.text('    (위젯 없음)', margin+8, y); y += 5; continue
+          }
+          for (const w of widgets) {
+            if (y > 280) { pdf.addPage(); y = 14 }
+            const title = (w.title || w.widgetName || w.widgetKey || JSON.stringify(w).slice(0,40))
+            pdf.setFontSize(9)
+            pdf.text(`    • ${String(title)}`, margin+8, y)
+            y += 4
+          }
+          y += 4
+        }
+        y += 6
+      }
 
-       const tplList = (layouts.value[li]?.templates) ? layouts.value[li].templates : []
-
-       for (let ti = 0; ti < tplList.length; ti++) {
-         selectedTemplateIndex.value = ti
-         const tpl = tplList[ti]
-         // ensure widgets are loaded for the selected template
-         try { await loadWidgetsForTemplate(tpl) } catch (e) { console.warn('loadWidgetsForTemplate failed', e) }
-
-         // wait for DOM render
-         await new Promise(r => setTimeout(r, 250))
-
-         const el = document.querySelector('.main-pane') || document.querySelector('.content-area')
-         if (!el) {
-           console.error('PDF 생성 대상 엘리먼트를 찾을 수 없습니다.')
-           continue
-         }
-
-         const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-         const imgData = canvas.toDataURL('image/png')
-         const imgProps = pdf.getImageProperties(imgData)
-         const imgHeightMM = (imgProps.height * imgWidthMM) / imgProps.width
-
-         // paginate the image if it overflows
-         let heightLeft = imgHeightMM
-         let position = margin
-         let pageAddedForThisImage = 0
-
-         while (heightLeft > 0) {
-           if (!isFirstContent || pageAddedForThisImage > 0) pdf.addPage()
-           pdf.addImage(imgData, 'PNG', margin, position, imgWidthMM, imgHeightMM)
-
-           heightLeft -= (pageHeight - margin * 2)
-           position -= (pageHeight - margin * 2)
-           pageAddedForThisImage++
-           isFirstContent = false
-         }
-       }
-     }
-
-     // file name: report_YYYYMMDD_HHMMSS.pdf
-     const now = new Date()
-     const pad = (n) => String(n).padStart(2, '0')
-     const fileName = `report_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`
-     pdf.save(fileName)
-   } catch (e) {
-     console.error('PDF 생성 실패', e)
-   }
- }
+      const now = new Date(); const pad = n=>String(n).padStart(2,'0')
+      const fileName = `report_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`
+      try { pdf.save(fileName); toast?.showToast('PDF 생성이 완료되었습니다.', 'success') } catch(e){ console.warn('pdf save failed', e); toast?.showToast('PDF 저장 중 오류가 발생했습니다.', 'error') }
+    } catch (e) {
+      console.error('Background PDF generation failed', e)
+      toast?.showToast('PDF 생성 중 오류가 발생했습니다.', 'error')
+    } finally {
+      pdfGenerating.value = false
+    }
+  })()
+}
 
 // Template add/delete wrappers
  async function confirmAddTemplate(tpl){
