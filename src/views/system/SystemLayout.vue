@@ -1,7 +1,7 @@
 <template>
   <MainContentLayout>
     <template #tabs>
-      <ContentTabs :tabs="tabs" />
+      <ContentTabs :tabs="showTabs" />
     </template>
 
     <router-view />
@@ -11,13 +11,36 @@
 <script setup>
 import MainContentLayout from '@/components/layoutComponents/MainContentLayout.vue'
 import ContentTabs from '@/components/layoutComponents/ContentTabs.vue'
+import {useAuthStore} from "@/stores/authStore.js";
+import {computed} from "vue";
+
+const authStore=useAuthStore()
 
 
-const tabs = [
-  { 
-    label: '시스템 로그', 
+const systemAllTabs = [
+  {
+    label: '시스템 로그',
     path: '/system',
     activeMatches: ['/system/log', '/system/activity', '/system/permission', '/system/privacy']
   }
 ]
+
+
+const showTabs=computed(() => {
+  return systemAllTabs.filter(tab => !tab.permission || authStore.hasPermission(tab.permission))
+})
 </script>
+<!--
+
+const systemAllTabs = [
+  {
+    label: '시스템 로그',
+    path: '/system',
+    activeMatches: ['/system/log', '/system/activity', '/system/permission', '/system/privacy']
+  }
+]
+
+const showTabs=computed(() => {
+  return systemAllTabs.filter(tab => !tab.permission || authStore.hasPermission(tab.permission))
+})
+-->

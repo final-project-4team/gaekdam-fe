@@ -273,7 +273,7 @@ const onPageChange = async (p) => {
 }
 
 const onRowClick = (row) => {
-  withPermission(['TODAY_RESERVATION_READ','CUSTOMER_READ'], () => {
+  withPermission(['TODAY_RESERVATION_READ'], () => {
     console.log('row-click row:', row)
 
     if (!row || !row.customerCode) return

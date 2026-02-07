@@ -381,7 +381,7 @@ const onFileChange = (e) => {
 }
 
 const handleImport = () => {
-  withPermission('SETTING_OBJECTIVE_CREATE', async () => {
+  withPermission('SETTING_OBJECTIVE_UPDATE', async () => {
     if (!importFile.value) {
       alert('파일 선택 필요');
       return

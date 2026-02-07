@@ -235,7 +235,7 @@ const openCreate = () => {
 };
 
 const create = () => {
-  withPermission('CUSTOMER_MEMO_CREATE', async () => {
+  withPermission('CUSTOMER_UPDATE', async () => {
     if (saving.value) return;
 
     const content = createText.value.trim();
@@ -339,7 +339,7 @@ const closeEdit = () => {
 };
 
 const update =  () => {
-  withPermission('CUSTOMER_MEMO_UPDATE', async () => {
+  withPermission('CUSTOMER_UPDATE', async () => {
 
     if (saving.value) return;
     if (!editTarget.value) return;
@@ -374,7 +374,7 @@ const openDelete = (m) => {
 };
 
 const remove =  () => {
-  withPermission('CUSTOMER_MEMO_DELETE', async() => {
+  withPermission('CUSTOMER_UPDATE', async() => {
     if (saving.value) return;
     if (!deleteTarget.value) return;
 
