@@ -11,5 +11,6 @@ export const getTodayOperationSummaryApi = ({ propertyCode } = {}) => {
         params: {
             propertyCode: propertyCode ?? undefined,
         },
+        skipLoading: true,
     })
 }

@@ -62,7 +62,7 @@ export function useCustomerReservations({
         try {
             const pageData = await getReservationsByCustomerApi({
                 customerCode,
-                size: 5,
+                size: 50, // [MODIFIED] Fetch more to filter future items effectively
                 offset: 0,
             });
 
@@ -72,7 +72,28 @@ export function useCustomerReservations({
                 return;
             }
 
-            const codes = items
+            // [MODIFIED] Filter out future checkins ( > today )
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const pastItems = items.filter(r => {
+                const checkin = r.checkinDate ?? r.checkin;
+                if (!checkin) return true;
+                const d = new Date(checkin);
+                return d <= today;
+            });
+
+            // Sort by checkin date DESC (latest past first)
+            pastItems.sort((a, b) => {
+                const dA = new Date(a.checkinDate ?? a.checkin);
+                const dB = new Date(b.checkinDate ?? b.checkin);
+                return dB - dA;
+            });
+
+            // Take top 5 from filtered list
+            const top5 = pastItems.slice(0, 5);
+
+            const codes = top5
                 .map((r) => Number(r.reservationCode))
                 .filter((v) => Number.isFinite(v));
 
@@ -90,7 +111,7 @@ export function useCustomerReservations({
 
             const roomTypeMap = new Map(detailResults.map((x) => [x.code, x.roomTypeName]));
 
-            reservationRows.value = items.map((r) => {
+            reservationRows.value = top5.map((r) => {
                 const code = Number(r.reservationCode);
                 const roomTypeName = roomTypeMap.get(code) || "-";
 
@@ -196,7 +217,10 @@ export function useCustomerReservations({
         const filtered = (reservationAllRaw.value ?? []).filter((r) => {
             const checkin = r?.checkinDate ?? r?.checkin ?? r?.checkin_at;
             if (!checkin) return true;
-            return range.inRange(checkin);
+
+            // [MODIFIED] If from is empty, treat as 1900-01-01
+            const effectiveFrom = range.range.value.from || "1900-01-01";
+            return range.inRangeByYmd(checkin, effectiveFrom, range.range.value.to);
         });
 
         const codes = filtered
@@ -239,7 +263,8 @@ export function useCustomerReservations({
 
     const onReservationAll = async () => {
         showReservationAllModal.value = true;
-        range.syncByMonths(range.range.value.months || 12);
+        // [MODIFIED] Default to ALL past history (empty from)
+        range.setAllPast();
         await loadReservationsAllRaw();
         await buildReservationAllRows();
     };
@@ -273,6 +298,7 @@ export function useCustomerReservations({
         // range filter state + actions (외부에서 UI에 그대로 바인딩)
         reservationRange: range.range, // { months, from, to }
         setReservationMonths: range.setMonths,
+        setReservationAllPast: range.setAllPast,
         resetReservationRange: range.reset,
         applyReservationRange,
     };
