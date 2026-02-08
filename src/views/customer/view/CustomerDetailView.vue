@@ -1,20 +1,47 @@
 <template>
   <div class="customer-detail-page">
-    <!-- Header Section -->
-    <header class="detail-header">
+
+    <!-- 상단 내비게이션 (탭 + 공통 액션) -->
+    <div class="page-top-nav">
+      <div class="nav-tabs">
+        <button
+            class="nav-tab-btn"
+            :class="{ active: activeTab === 'basic' }"
+            @click="setTab('basic')"
+        >
+          기본 정보
+        </button>
+        <button
+            class="nav-tab-btn"
+            :class="{ active: activeTab === 'report' }"
+            @click="setTab('report')"
+        >
+          분석 리포트
+        </button>
+      </div>
+      <div class="nav-actions">
+        <button class="action-btn outline" @click="goBack">
+          목록으로
+        </button>
+      </div>
+    </div>
+
+    <!-- 헤더 섹션 (기본 정보만) -->
+    <header class="detail-header" v-show="activeTab === 'basic'">
       <div class="header-main">
-        <!-- Left: Profile Info -->
+        <!-- 좌측: 프로필 정보 -->
         <div class="header-left">
+          <!-- Membership Avatar -->
+          <div class="membership-avatar" :class="membershipAvatarClass">
+            <span class="avatar-text">{{ membershipInitial }}</span>
+          </div>
           <div class="profile-info">
             <div class="info-top">
               <h1 class="customer-name">{{ detail.customerName || "-" }}</h1>
               <div class="badge-list">
                 <!-- Status Badge -->
                 <span class="badge-pill" :class="statusTagClass(detail.status)">{{ detail.status }}</span>
-                <!-- Membership Badge (if exists) -->
-                <span v-if="membership.gradeName" class="badge-pill" :class="membershipTagClass(membership.gradeName)">
-                  {{ membership.gradeName }}
-                </span>
+                <!-- Membership Badge (Removed) -->
                 <!-- Loyalty Badge (if exists) -->
                 <span v-if="loyalty.gradeName" class="badge-pill" :style="loyaltyTagStyle(loyalty.gradeName)">
                   {{ loyalty.gradeName }}
@@ -33,7 +60,7 @@
           </div>
         </div>
 
-        <!-- Middle: Meta Info (Grid: Label - Value) -->
+        <!-- 중간: 메타 정보 (그리드: 라벨 & 값) -->
         <div class="header-middle">
           <div class="meta-grid">
             <span class="meta-label">대표 연락처</span>
@@ -47,18 +74,16 @@
               <span>{{ primaryEmail }}</span>
             </div>
 
-            <span class="meta-label">유입경로</span> <!-- or '외부 ID' if strict mapping -->
+            <span class="meta-label">유입경로</span> <!-- 또는 엄격한 매핑 시 '외부 ID' -->
             <div class="meta-value-row">
               <span>{{ detail.inflowChannel || "-" }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Right: Actions -->
+        <!-- 우측: 액션 -->
         <div class="header-actions">
-          <button class="action-btn primary" @click="goBack">
-            목록으로
-          </button>
+          <!-- 'Back to List' removed as it is now in top-nav -->
           <button class="action-btn" @click="onMembershipChange">
             멤버십 변경
           </button>
@@ -67,11 +92,13 @@
           </button>
         </div>
       </div>
+
+      <!-- 구 버전 탭 제거됨 -->
     </header>
 
-    <!-- Content Grid -->
-    <main class="dashboard-grid">
-      <!-- Left Column -->
+    <!-- 탭 1: 기본 정보 -->
+    <main class="dashboard-grid" v-show="activeTab === 'basic'">
+      <!-- 좌측 컬럼 -->
       <div class="column left-column">
         <template v-for="card in leftCards" :key="card.id">
 
@@ -131,7 +158,9 @@
                   v-else
                   :columns="reservationColumns"
                   :rows="reservationRows"
+                  :page="1"
                   :pageSize="5"
+                  :total="reservationRows.length"
                   @row-click="openReservationModal"
               />
             </div>
@@ -150,7 +179,9 @@
                   v-else
                   :columns="inquiryColumns"
                   :rows="inquiryRows"
+                  :page="1"
                   :pageSize="3"
+                  :total="inquiryRows.length"
                   @row-click="openInquiryModal"
               />
             </div>
@@ -159,7 +190,7 @@
         </template>
       </div>
 
-      <!-- Right Column -->
+      <!-- 우측 컬럼 -->
       <div class="column right-column">
         <template v-for="card in rightCards" :key="card.id">
 
@@ -175,34 +206,22 @@
           <section v-else-if="card.id === 'statusHistory'" class="dashboard-card">
             <div class="card-header">
               <h3 class="card-heading">상태 변경 이력</h3>
-              <button class="text-btn" @click="onStatusHistory">이력 보기</button>
+              <button class="text-btn" @click="onStatusHistory">이력 보기({{ statusHistoryTotalCount }})</button>
             </div>
             <div class="info-list">
               <div class="info-row">
-                <span class="info-label">최근 변경</span>
-                <span class="info-value status-badge" :class="statusTagClass(statusBeforeLabel)">
-                  {{ statusBeforeLabel }}
+                <span class="info-label">현재 상태</span>
+                <span class="info-value status-badge" :class="statusTagClass(detail.status)">
+                  {{ detail.status || "Unknown" }}
                 </span>
-                <span class="arrow">→</span>
-                <span class="info-value status-badge" :class="statusTagClass(statusAfterLabel)">
-                  {{ statusAfterLabel }}
-                </span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">마지막 변경일</span>
+                <span class="info-value">{{ statusChangedAtLabel }}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">변경 주체</span>
                 <span class="info-value">{{ statusActorLabel }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">변경자</span>
-                <span class="info-value">{{ statusEmployeeLabel }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">일시</span>
-                <span class="info-value">{{ statusChangedAtLabel }}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">사유</span>
-                <span class="info-value text-ellipsis">{{ statusReasonLabel }}</span>
               </div>
             </div>
           </section>
@@ -272,7 +291,7 @@
       </div>
     </main>
 
-    <!-- Modals (Legacy Structure Preserved) -->
+    <!-- 모달 (기존 구조 유지) -->
     <BaseModal v-if="showContactModal" title="연락처 전체보기" @close="showContactModal = false">
       <div class="modal-body">
         <div v-if="(detail.contacts?.length || 0) === 0" class="empty-state">연락처 데이터가 없습니다.</div>
@@ -282,8 +301,9 @@
             <span class="contact-val">
               {{ c.contactType === 'PHONE' ? formatPhone(c.contactValue) : c.contactValue }}
             </span>
-            <span v-if="c.isPrimary" class="tag-primary">기본</span>
-            <span class="tag-optin">{{ c.marketingOptIn ? "마케팅 동의" : "미동의" }}</span>
+            <!-- Marketing Badge -->
+            <span v-if="c.marketingOptIn" class="badge-pill tag--ok">마케팅 수신 동의</span>
+            <span v-else class="badge-pill tag--mute">마케팅 미동의</span>
           </div>
         </div>
       </div>
@@ -451,7 +471,13 @@
         </div>
         <div v-if="reservationAllLoading" class="loading-state">로딩 중...</div>
         <div v-else-if="reservationAllRows.length === 0" class="empty-state">데이터가 없습니다.</div>
-        <TableWithPaging v-else :columns="reservationColumns" :rows="reservationAllRows" :pageSize="20" />
+        <TableWithPaging v-else
+                         :columns="reservationColumns"
+                         :rows="reservationAllRows"
+                         :page="1"
+                         :pageSize="20"
+                         :total="reservationAllRows.length"
+        />
       </div>
     </BaseModal>
 
@@ -482,7 +508,13 @@
         </div>
         <div v-if="inquiryAllLoading" class="loading-state">로딩 중...</div>
         <div v-else-if="inquiryAllRows.length === 0" class="empty-state">데이터가 없습니다.</div>
-        <TableWithPaging v-else :columns="inquiryColumns" :rows="inquiryAllRows" :pageSize="20" />
+        <TableWithPaging v-else
+                         :columns="inquiryColumns"
+                         :rows="inquiryAllRows"
+                         :page="1"
+                         :pageSize="20"
+                         :total="inquiryAllRows.length"
+        />
       </div>
     </BaseModal>
 
@@ -521,6 +553,18 @@
       <div class="modal-body" v-else>로딩 중...</div>
     </BaseModal>
 
+    <!-- 탭 2: 분석 리포트 -->
+    <div v-if="activeTab === 'report'" class="report-tab-wrapper">
+      <CustomerReportView
+          :customerCode="customerCode"
+          :membershipGrade="membership?.gradeName"
+          :loyaltyGrade="loyalty?.gradeName"
+          :joinedAt="formatDate(membership?.joinedAt)"
+          :lastVisitedAt="formatDate(snapshot?.lastUsedAt)"
+      />
+    </div>
+
+    <!-- 모달 -->
     <MembershipHistoryModal
         :open="showMembershipHistoryModal"
         :customerCode="customerCode"
@@ -549,6 +593,7 @@ import BaseButton from "@/components/common/button/BaseButton.vue";
 import BaseModal from "@/components/common/modal/BaseModal.vue";
 import TableWithPaging from "@/components/common/table/TableWithPaging.vue";
 
+import CustomerReportView from "@/views/customer/view/CustomerReportView.vue";
 import CustomerMemoView from "@/views/customer/view/CustomerMemoView.vue";
 import MembershipHistoryModal from "@/views/customer/modal/MembershipHistoryModal.vue";
 import LoyaltyHistoryModal from "@/views/customer/modal/LoyaltyHistoryModal.vue";
@@ -572,20 +617,24 @@ const useRouterInstance = useRouter(); // renamed to avoid conflict
 const router = useRouterInstance; // consistent usage
 const authStore = useAuthStore();
 
+const activeTab = computed(() => route.query.tab || 'basic');
+const setTab = (tab) => {
+  router.replace({ query: { ...route.query, tab } });
+};
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 const customerCode = computed(() => Number(route.params.id));
 
-/* Composables */
+/* 컴포저블 */
 const {
   detail, snapshot, timelineItems, badges, chips,
   primaryPhone, primaryEmail, membership, loyalty,
   loadAll, loadTimeline,
 } = useCustomerDetailPage({ hotelGroupCode, customerCode });
 
-/* Avatar Logic: Default to Icon */
-// Removing text avatar logic to prefer Icon
+/* 아바타 로직: 기본 아이콘 사용 */
+// 텍스트 아바타 로직 제거 (아이콘 선호)
 
-/* Badge & Tag Logic */
+/* 배지 및 태그 로직 */
 const statusTagClass = (status) => {
   const s = String(status ?? "").toUpperCase();
   if (s === "ACTIVE") return "tag--ok";
@@ -604,6 +653,21 @@ const membershipTagClass = (gradeName) => {
   return "tag--base";
 };
 
+const membershipInitial = computed(() => {
+  const g = String(membership.value?.gradeName ?? "").trim().toUpperCase();
+  if (!g || g === "-" || g === "미가입") return "-";
+  return g.charAt(0);
+});
+
+const membershipAvatarClass = computed(() => {
+  const g = String(membership.value?.gradeName ?? "").toUpperCase();
+  if (g.includes("VIP")) return "avatar--vip";
+  if (g.includes("GOLD")) return "avatar--gold";
+  if (g.includes("SILVER")) return "avatar--silver";
+  if (g.includes("BRONZE")) return "avatar--bronze";
+  return "avatar--base";
+});
+
 const loyaltyTagStyle = (gradeName) => {
   const g = String(gradeName ?? "").toUpperCase().trim();
   if (g.includes("EXCELLENT")) {
@@ -617,11 +681,13 @@ const loyaltyTagStyle = (gradeName) => {
 
 const timelineTop5 = computed(() => (timelineItems.value ?? []).slice(0, 5));
 
-/* Status History Top 1 */
+/* 상태 변경 이력 최신 1건 */
 const statusHistoryTop1 = ref(null);
+const statusHistoryTotalCount = ref(0);
 const statusBeforeLabel = computed(() => statusHistoryTop1.value?.beforeStatus ?? "-");
 const statusAfterLabel = computed(() => statusHistoryTop1.value?.afterStatus ?? "-");
 const statusActorLabel = computed(() => {
+  if (!statusHistoryTop1.value) return "-";
   const src = String(statusHistoryTop1.value?.changeSource ?? "").toUpperCase();
   return src === "SYSTEM" ? "SYSTEM" : (src ? "MANUAL" : "-");
 });
@@ -642,13 +708,15 @@ const loadStatusTop1 = async () => {
       params: { size: 1, offset: 0, sortBy: "changed_at", direction: "DESC" },
     });
     const content = res?.data?.data?.content ?? [];
+    statusHistoryTotalCount.value = res?.data?.data?.totalElements ?? 0;
     statusHistoryTop1.value = Array.isArray(content) ? content[0] ?? null : null;
   } catch {
     statusHistoryTop1.value = null;
+    statusHistoryTotalCount.value = 0;
   }
 };
 
-/* Access API wrappers */
+/* API 래퍼 접근 */
 const patchMembershipManually = async (customerCode, payload) => {
   const res = await api.patch(`/memberships/customers/${customerCode}/manual`, payload);
   return res.data?.data;
@@ -670,7 +738,7 @@ const getInquiryDetailApi = async (code) => {
   return res.data?.data;
 };
 
-/* Composables Wiring */
+/* 컴포저블 연결 */
 const {
   reservationColumns, reservationLoading, reservationRows, loadReservationsTop5,
   showReservationModal, selectedReservationDetail, openReservationModal, closeReservationModal,
@@ -685,7 +753,7 @@ const {
   inquiryRange, setInquiryMonths, resetInquiryRange, applyInquiryRange,
 } = useCustomerInquiries({ customerCodeRef: customerCode, getInquiryListApi, getInquiryDetailApi });
 
-/* DnD Settings */
+/* DnD 설정 */
 const LS_KEY = "customer_detail_card_setting_v2";
 const defaultCardSetting = () => [
   { id: "snapshot", label: "고객 스냅샷", enabled: true, column: "left", order: 1 },
@@ -693,9 +761,9 @@ const defaultCardSetting = () => [
   { id: "reservation", label: "예약/이용(최근 5건)", enabled: true, column: "left", order: 3 },
   { id: "voc", label: "문의/클레임(최근 3건)", enabled: true, column: "left", order: 4 },
   { id: "memo", label: "고객 메모", enabled: true, column: "right", order: 1 },
-  { id: "statusHistory", label: "고객 상태 변경 이력", enabled: true, column: "right", order: 2 },
-  { id: "membership", label: "멤버십", enabled: true, column: "right", order: 3 },
-  { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 4 },
+  { id: "membership", label: "멤버십", enabled: true, column: "right", order: 2 },
+  { id: "loyalty", label: "로열티", enabled: true, column: "right", order: 3 },
+  { id: "statusHistory", label: "고객 상태 변경 이력", enabled: true, column: "right", order: 4 },
 ];
 const {
   showCardSettingModal, onCardSetting, saveCardSetting, resetCardSetting,
@@ -703,19 +771,19 @@ const {
   dragState, isOver, showIndicator, onDragStart, onDragEnter, onDragOver, onDragLeave, onDropAt, onDragEnd,
 } = useCardSettingDnd({ lsKey: LS_KEY, defaultCardSetting });
 
-/* Page Load */
+/* 페이지 로드 */
 const loadPage = async () => {
   await Promise.all([loadAll(), loadReservationsTop5(), loadInquiriesTop3(), loadStatusTop1()]);
 };
 onMounted(loadPage);
 
-/* Actions */
+/* 액션 */
 const goBack = () => router.push({ name: "CustomerList" });
 const showContactModal = ref(false);
 const openContactModal = () => (showContactModal.value = true);
 const onMemoChanged = async () => { await Promise.all([loadTimeline(), loadStatusTop1()]); };
 
-/* Membership */
+/* 멤버십 */
 const showMembershipModal = ref(false);
 const savingMembership = ref(false);
 const membershipGrades = ref([]);
@@ -762,7 +830,7 @@ const onMembershipChange = () => {
       employeeCode: null,
     };
 
-    // ✅ Auto-fill using getMyPage
+    // ✅ getMyPage를 사용한 자동 채우기
     try {
       const me = await getMyPage();
       if (me && me.employeeCode) {
@@ -783,7 +851,7 @@ const submitMembershipChange = async () => {
     const payload = {
       membershipGradeCode: Number(membershipChange.value.membershipGradeCode),
       membershipStatus: membershipChange.value.membershipStatus,
-      // expiredAt is already "YYYY-12-31", just append time
+      // expiredAt은 이미 "YYYY-12-31" 형식이므로 시간만 추가
       expiredAt: membershipChange.value.expiredAt ? `${membershipChange.value.expiredAt}T23:59:59` : null,
       changeReason: (membershipChange.value.changeReason || "").trim(),
       employeeCode: Number(membershipChange.value.employeeCode),
@@ -796,7 +864,7 @@ const submitMembershipChange = async () => {
   finally { savingMembership.value = false; }
 };
 
-/* Sub-Modals */
+/* 서브 모달 */
 const showMembershipHistoryModal = ref(false);
 const showLoyaltyHistoryModal = ref(false);
 const showStatusHistoryModal = ref(false);
@@ -810,7 +878,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 </script>
 
 <style scoped>
-/* Page Layout */
+/* 페이지 레이아웃 */
 .customer-detail-page {
   --primary-color: #2563eb;
   --bg-color: #f8fafc;
@@ -831,7 +899,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 
 
 
-/* Header */
+/* 헤더 */
 .detail-header {
   background: var(--card-bg);
   border-radius: 16px;
@@ -849,18 +917,62 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   align-items: center;
 }
 
-/* Left: Profile */
+/* 좌측: 프로필 */
 .header-left {
   display: flex;
   align-items: center;
+  gap: 20px;
   height: 100%;
+}
+
+.membership-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: white;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  background: #e2e8f0; /* Default */
+  flex-shrink: 0;
+  border: 4px solid white;
+  outline: 2px solid transparent;
+}
+
+/* Avatar Gradients */
+.avatar--vip {
+  background: linear-gradient(135deg, #a855f7, #7e22ce);
+  outline-color: #d8b4fe;
+  box-shadow: 0 4px 12px rgba(126, 34, 206, 0.3);
+}
+.avatar--gold {
+  background: linear-gradient(135deg, #facc15, #ca8a04);
+  outline-color: #fde047;
+  box-shadow: 0 4px 12px rgba(202, 138, 4, 0.3);
+}
+.avatar--silver {
+  background: linear-gradient(135deg, #94a3b8, #475569);
+  outline-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(71, 85, 105, 0.25);
+}
+.avatar--bronze {
+  background: linear-gradient(135deg, #fdba74, #ea580c);
+  outline-color: #ffedd5;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25);
+}
+.avatar--base {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+  color: #64748b;
 }
 
 .profile-info {
   display: flex;
   flex-direction: column;
-  justify-content: center; /* Center vertically together */
-  gap: 8px; /* Tighter gap */
+  justify-content: center; /* 수직 중앙 정렬 */
+  gap: 8px; /* 간격 좁게 */
   height: 100%;
 }
 
@@ -872,7 +984,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 }
 
 .customer-name {
-  font-size: 32px; /* Increased size */
+  font-size: 32px; /* 크기 확대 */
   font-weight: 800;
   color: #0f172a;
   margin: 0;
@@ -895,7 +1007,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   border: 1px solid transparent;
 }
 
-/* Badge Colors */
+/* 배지 색상 */
 .tag--ok { background-color: #dcfce7 !important; color: #166534 !important; border-color: #bbf7d0 !important; }
 .tag--warn { background-color: #ffedd5 !important; color: #c2410c !important; border-color: #fed7aa !important; }
 .tag--mute { background-color: #f1f5f9 !important; color: #94a3b8 !important; }
@@ -933,7 +1045,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-/* Middle: Meta */
+/* 중간: 메타 정보 */
 .header-middle {
   display: flex;
   justify-content: flex-start;
@@ -968,7 +1080,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   color: #0f172a;
 }
 
-/* Action Group */
+/* 액션 그룹 */
 .header-actions {
   display: flex;
   flex-direction: column;
@@ -1031,7 +1143,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   display: none;
 }
 
-/* Dashboard Grid */
+/* 대시보드 그리드 */
 .dashboard-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -1048,7 +1160,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   background: var(--card-bg);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); /* Slight elevation */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); /* 약간의 입체감 */
   border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
@@ -1060,13 +1172,14 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 }
 
 .card-heading {
-  font-size: 16px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 18px; /* 헤더 크기 확대 */
+  font-weight: 800; /* Extra Bold */
+  color: #0f172a; /* 더 진한 색 */
   margin: 0;
   display: flex;
   align-items: center;
   gap: 8px;
+  letter-spacing: -0.02em;
 }
 
 .sub-count {
@@ -1076,44 +1189,56 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 }
 
 
-/* Stats Grid */
+/* 통계 그리드 */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr 1fr; /* 2열 유지하되 꽉 차게 */
   gap: 16px;
 }
 
 .stat-item {
   background: #f8fafc;
-  padding: 16px;
-  border-radius: 12px;
+  padding: 20px 24px; /* 패딩 확대 */
+  border-radius: 16px; /* 둥글게 */
+  border: 1px solid #f1f5f9;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row; /* 가로 배치 */
+  justify-content: space-between; /* 양끝 정렬 */
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  background: #fff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  transform: translateY(-2px);
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 15px; /* 크기 확대 */
   color: #64748b;
-  font-weight: 600;
+  font-weight: 700; /* 볼드 */
 }
 
 .stat-value {
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
+  font-size: 22px; /* 훨씬 크게 */
+  font-weight: 800; /* Extra Bold */
+  color: #1e293b;
+  letter-spacing: -0.5px;
 }
 
 .stat-value small {
-  font-size: 14px;
+  font-size: 15px;
   color: #94a3b8;
+  font-weight: 600;
   margin-left: 2px;
 }
 
 .stat-value.highlight { color: #2563eb; }
 .stat-value.alert { color: #f59e0b; }
 
-/* Filter Bar (Ported from TimelineAllModal) */
+/* 필터 바 (TimelineAllModal에서 가져옴) */
 .filter-bar {
   display: flex;
   justify-content: space-between;
@@ -1161,7 +1286,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   font-weight: 600;
 }
 
-/* BaseButton overrides for Pill style */
+/* 알약 스타일을 위한 BaseButton 오버라이드 */
 .pill {
   border-radius: 999px !important;
   font-weight: 600;
@@ -1173,7 +1298,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   color: #1d4ed8 !important;
 }
 
-/* Timeline */
+/* 타임라인 */
 .timeline-container {
   padding-left: 8px;
 }
@@ -1232,7 +1357,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   color: #94a3b8;
 }
 
-/* Status & Info Lists */
+/* 상태 및 정보 리스트 */
 .info-list {
   display: flex;
   flex-direction: column;
@@ -1284,12 +1409,12 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   text-overflow: ellipsis;
 }
 
-/* Modals */
+/* 모달 */
 .modal-body {
   padding: 4px 0;
 }
 
-/* Contact List Modal */
+/* 연락처 목록 모달 */
 .contact-list {
   display: flex;
   flex-direction: column;
@@ -1332,7 +1457,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   font-size: 11px;
 }
 
-/* Form Styles */
+/* 폼 스타일 */
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1385,7 +1510,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   color: #94a3b8;
 }
 
-/* Detail View in Modal */
+/* 모달 내 상세 보기 */
 .detail-view-body {
   display: flex;
   flex-direction: column;
@@ -1437,7 +1562,7 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   white-space: pre-wrap;
 }
 
-/* DnD Styles */
+/* DnD 스타일 */
 .dnd-wrapper {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1522,5 +1647,56 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 .dnd-dropzone.over {
   background: #eff6ff;
   border-color: #3b82f6;
+}
+
+/* 상단 내비게이션 */
+.page-top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eef2f7;
+  padding: 0 4px;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 28px;
+}
+
+.nav-tab-btn {
+  background: none;
+  border: none;
+  padding: 16px 4px; /* Slightly taller for top nav */
+  font-size: 16px;   /* Slightly larger text */
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.nav-tab-btn:hover {
+  color: #334155;
+}
+
+.nav-tab-btn.active {
+  color: #577ce6;
+  font-weight: 700;
+}
+
+.nav-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 100%;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(to right, #7bb0f1, #6f93f6);
+}
+
+.report-tab-wrapper {
+  margin-top: 0; /* Remove margin as it's now top-level */
 }
 </style>

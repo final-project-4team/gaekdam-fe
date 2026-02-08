@@ -16,6 +16,12 @@
         @row-click="openRowModal"
         @filter="handleFilter"
     >
+      <template #cell-calculationTermMonth="{ row }">
+        {{ row.calculationTermMonth }} 개월
+      </template>
+      <template #cell-calculationRenewalDay="{ row }">
+        1월  {{ row.calculationRenewalDay }}일
+      </template>
       <template #cell-membershipGradeStatus="{ row }">
         <div class="action-buttons" @click.stop>
           <BaseButton size="sm" type="primary" @click="openEditModal(row)" class="action-btn">수정</BaseButton>
@@ -36,7 +42,7 @@
         <p><b>멤버십 금액(포인트):</b> {{ membershipGradeDetail.calculationAmount }}</p>
         <p><b>숙박 횟수:</b> {{ membershipGradeDetail.calculationCount}}</p>
         <p><b>산정 기간(개월):</b> {{ membershipGradeDetail.calculationTermMonth}}</p>
-        <p><b>승급 일자(매달):</b> {{ membershipGradeDetail.calculationRenewalDay }}</p>
+        <p><b>승급 일자(매 년):</b> {{ membershipGradeDetail.calculationRenewalDay }}</p>
         <p><b>활성화 상태:</b> {{ membershipGradeDetail.membershipGradeStatus }}</p>
         <p><b>수정 일자:</b> {{ membershipGradeDetail.updatedAt }}</p>
         
@@ -46,8 +52,16 @@
         </div>
       </div>
       <div class="modal-footer">
-        <BaseButton type="danger" size="sm" @click="deactivateMembership" style="margin-right: 8px;">비활성화</BaseButton>
-        <BaseButton type="primary" size="sm" @click="closeRowModal">확인</BaseButton>
+        <BaseButton 
+          v-if="membershipGradeDetail?.membershipGradeStatus === 'ACTIVE'"
+          type="danger" 
+          size="sm" 
+          @click="deactivateMembership" 
+          style="margin-right: 8px;"
+        >
+          비활성화
+        </BaseButton>
+        <BaseButton type="primary" size="sm" @click="closeRowModal">닫기</BaseButton>
       </div>
     </BaseModal>
     
@@ -104,16 +118,16 @@
                     <th>산정 기간</th>
                     <td>
                         <div class="input-unit-wrapper">
-                            <input v-model="newMembership.calculationTermMonth" type="number" class="unit-input" />
+                            <input v-model="newMembership.calculationTermMonth" type="number" class="unit-input" readonly/>
                             <span class="unit-text">개월</span>
                         </div>
                     </td>
                 </tr>
                 <tr>
-                    <th>승급 일자(매달)</th>
+                    <th>승급 일자(매 년)</th>
                     <td>
                         <div class="input-unit-wrapper">
-                            <input v-model="newMembership.calculationRenewalDay" type="number" class="unit-input" />
+                            <input v-model="newMembership.calculationRenewalDay" type="number" class="unit-input" readonly />
                             <span class="unit-text">일</span>
                         </div>
                     </td>
@@ -160,7 +174,7 @@ const columns = [
   { key: 'calculationAmount', label: '멤버십 금액(포인트)', align: 'center' },
   { key: 'calculationCount', label: '숙박 횟수', align: 'center' },
   { key: 'calculationTermMonth', label: '산정 기간(몇 개월)', align: 'center' },
-  { key: 'calculationRenewalDay', label: '승급 일자(매달)', align: 'center' },
+  { key: 'calculationRenewalDay', label: '승급 일자(매 년)', align: 'center' },
   { key: 'membershipGradeStatus', label: '', align: 'center' } // Ensure status col exists for check
 ]
 
@@ -169,8 +183,8 @@ const filters = [
     key: 'membershipGradeStatus',
     options: [
       { label: '전체 상태', value: '' },
-      { label: '활성 (ACTIVE)', value: 'ACTIVE' },
-      { label: '중지 (INACTIVE)', value: 'INACTIVE' }
+      { label: '활성화된 멤버십', value: 'ACTIVE' },
+      { label: '비활성화된 멤버십', value: 'INACTIVE' }
     ]
   }
 ]
@@ -234,18 +248,21 @@ const deactivateMembership =  (row) => {
     try {
       await deleteMembershipGrade(target.membershipGradeCode)
       alert('멤버십 등급이 비활성화되었습니다.')
+      
+      // 목록 새로고침
       membershipGradeList.value = await getMembershipGradeList()
 
-      if (selectedRow.value && selectedRow.value.membershipGradeCode
-          === target.membershipGradeCode) {
+      // 모달 닫기
+      if (showRowModal.value) {
         closeRowModal()
       }
     } catch (error) {
       console.error('멤버십 비활성화 실패:', error)
-      // alert('멤버십 비활성화 중 오류가 발생했습니다.')
+      alert('멤버십 비활성화 중 오류가 발생했습니다.')
     }
   });
 }
+
 
 const isEditMode = ref(false)
 
@@ -284,8 +301,8 @@ const openActionModal = () => {
       tierComment: '',
       calculationAmount: '',
       calculationCount: '',
-      calculationTermMonth: '',
-      calculationRenewalDay: ''
+      calculationTermMonth: '12',
+      calculationRenewalDay: '1'
     }
     showActionModal.value = true
   });
@@ -424,7 +441,12 @@ onMounted(async () => {
   -webkit-appearance: none;
   margin: 0;
 }
-
+.unit-input:read-only {
+  background-color: #f3f4f6; /* 회색 배경 */
+  color: #6b7280;
+  outline: none;
+  cursor: default;
+}
 .unit-text {
     position: absolute;
     right: 12px;

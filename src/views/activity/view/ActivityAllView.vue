@@ -333,7 +333,7 @@ const showReasonModal = ref(false)
 const targetRow = ref(null)
 
 const openRowModal = (row) => {
-  withPermission(['RESERVATION_READ','CUSTOMER_READ'], () => {
+  withPermission(['RESERVATION_READ'], () => {
     targetRow.value = row
     showReasonModal.value = true
   });

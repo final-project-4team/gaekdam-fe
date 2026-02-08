@@ -169,7 +169,16 @@
 import { ref, onMounted, computed } from 'vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
-import { getEmployeeDetail, updateEmployee, updateEmployeeStatus, createEmployee, unlockEmployee, getDepartmentList, getHotelPositionList } from '@/api/setting/employeeApi.js'
+import {
+  getEmployeeDetail,
+  updateEmployee,
+  updateEmployeeStatus,
+  createEmployee,
+  unlockEmployee,
+  getDepartmentList,
+  getHotelPositionList,
+  inactiveEmployee
+} from '@/api/setting/employeeApi.js'
 import {getPermissionNameList} from "@/api/setting/permissionApi.js";
 
 
@@ -367,8 +376,7 @@ const save = async () => {
             await createEmployee(payload)
         } else {
             const payload = {
-                // ...form.value, // 기존: 그대로 전송 시 departmentId, hotelPositionId 등이 전송됨
-                // 변경: 백엔드 DTO(EmployeeUpdateRequest 등)가 Create와 유사하다면 Code로 매핑 필요
+
                 employeeNumber: Number(form.value.employeeNumber), // 수정 불가라면 제외해도 되지만, 일단 포함
                 email: form.value.email,
                 phoneNumber: form.value.phoneNumber,
@@ -384,8 +392,10 @@ const save = async () => {
         emit('refresh')
         close()
     } catch(e) {
-        console.error(e)
-        alert("실패하였습니다.")
+      console.error(e)
+    //  const errorCode = e.response?.data?.code || 'UNKNOWN';
+      const errorMsg = e.response?.data?.message || e.message || '요청 처리에 실패했습니다.';
+      alert(` ${errorMsg}`);
     } finally {
 
         saving.value = false;
@@ -394,12 +404,12 @@ const save = async () => {
 
 // 상태 변경
 const toggleStatus = async (targetStatus) => {
-    if(!confirm(targetStatus === 'LOCKED' ? "사용자를 비활성화(잠금) 하시겠습니까?" : "사용자를 활성화 하시겠습니까?")) return;
+    if(!confirm(targetStatus === 'LOCKED' ? "사용자를 비활성화하시겠습니까?" : "사용자를 활성화 하시겠습니까?")) return;
     try {
         if (targetStatus === 'ACTIVE') {
             await unlockEmployee(props.employeeCode)
         } else {
-            await updateEmployeeStatus(props.employeeCode, targetStatus)
+            await inactiveEmployee(props.employeeCode)
         }
         await fetchDetail() 
     } catch(e) {

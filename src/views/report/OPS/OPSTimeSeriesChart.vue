@@ -41,7 +41,7 @@
   - 설치 필요: 프로젝트에 chart.js 설치 필요 (`npm i chart.js`).
 */
 
-import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, onActivated, onDeactivated, computed } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { formatCurrency, formatPercent, formatCount, safeNumber } from '@/utils/formatters'
 Chart.register(...registerables)
@@ -379,7 +379,17 @@ onMounted(()=>{
   try{ renderChart() }catch(e){ console.warn('TimeSeriesChart mount render failed', e) }
 })
 
-// widget 객체 내부가 바뀔 때 재렌더링 (deep watch)
+onActivated(() => {
+  try { renderChart() } catch (e) { console.warn('TimeSeriesChart activated render failed', e) }
+})
+
+onDeactivated(() => {
+  if (chartInstance) {
+    try { chartInstance.destroy() } catch (e) { /* ignore */ }
+    chartInstance = null
+  }
+})
+
 watch(() => props.widget, (w) => {
   try{
     // 위젯이 변경되면 로컬 저장된 모드를 불러오고 차트를 갱신

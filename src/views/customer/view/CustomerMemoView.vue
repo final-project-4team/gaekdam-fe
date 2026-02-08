@@ -1,15 +1,11 @@
 <template>
   <!-- 우측 메모 카드 -->
-  <section class="card">
-    <div class="card-head">
-      <div class="card-title">고객 메모</div>
-
-      <div class="right-actions">
-        <BaseButton type="primary" size="sm" @click="openCreate">메모 작성</BaseButton>
-
-        <div class="outline-wrap">
-          <BaseButton type="ghost" size="sm" @click="openList">전체 보기</BaseButton>
-        </div>
+  <section class="dashboard-card">
+    <div class="card-header">
+      <h3 class="card-heading">고객 메모</h3>
+      <div class="header-actions">
+        <button class="text-btn action-primary" @click="openCreate">메모 작성</button>
+        <button class="text-btn" @click="openList">전체 보기</button>
       </div>
     </div>
 
@@ -17,14 +13,14 @@
       <div
           v-for="m in recent"
           :key="m.customerMemoCode"
-          class="memo"
+          class="memo-item"
           @click="openDetail(m.customerMemoCode)"
       >
         <div class="memo-head">
-          <div class="memo-at">{{ fmt(m.createdAt) }}</div>
+          <span class="memo-date">{{ fmt(m.createdAt) }}</span>
           <div class="memo-actions" @click.stop>
-            <BaseButton type="warning" size="sm" @click="openEdit(m)">수정</BaseButton>
-            <BaseButton type="danger" size="sm" @click="openDelete(m)">삭제</BaseButton>
+            <button class="icon-btn edit" @click="openEdit(m)">수정</button>
+            <button class="icon-btn delete" @click="openDelete(m)">삭제</button>
           </div>
         </div>
         <div class="memo-text">{{ m.customerMemoContent }}</div>
@@ -239,7 +235,7 @@ const openCreate = () => {
 };
 
 const create = () => {
-  withPermission('CUSTOMER_MEMO_CREATE', async () => {
+  withPermission('CUSTOMER_UPDATE', async () => {
     if (saving.value) return;
 
     const content = createText.value.trim();
@@ -343,7 +339,7 @@ const closeEdit = () => {
 };
 
 const update =  () => {
-  withPermission('CUSTOMER_MEMO_UPDATE', async () => {
+  withPermission('CUSTOMER_UPDATE', async () => {
 
     if (saving.value) return;
     if (!editTarget.value) return;
@@ -378,7 +374,7 @@ const openDelete = (m) => {
 };
 
 const remove =  () => {
-  withPermission('CUSTOMER_MEMO_DELETE', async() => {
+  withPermission('CUSTOMER_UPDATE', async() => {
     if (saving.value) return;
     if (!deleteTarget.value) return;
 
@@ -419,210 +415,185 @@ const fmt = (v) => {
 </script>
 
 <style scoped>
-.card {
-  background: #fff;
-  border: 1px solid #eef2f7;
-  border-radius: 14px;
-  padding: 12px;
+/* Dashboard Card Style (Global Unification) */
+.dashboard-card {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%; /* Fill height */
+  display: flex;
+  flex-direction: column;
 }
 
-.card-head {
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-.card-title {
-  font-size: 13px;
-  font-weight: 900;
+.card-heading {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.02em;
 }
 
-.right-actions {
+.header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.outline-wrap :deep(button) {
-  height: 30px !important;
-  padding: 0 12px !important;
-  border-radius: 999px !important;
-  background: #fff !important;
-  border: 1px solid #e5e7eb !important;
-  color: #2563eb !important;
-  font-weight: 900 !important;
+.text-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  background: #f1f5f9;
 }
 
-.outline-wrap :deep(button:hover) {
-  background: #f3f4f6 !important;
+.text-btn:hover {
+  background: #e2e8f0;
+  color: #3b82f6;
 }
 
+.text-btn.action-primary {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+.text-btn.action-primary:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+/* Memo List */
 .memo-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
-.memo {
-  border: 1px solid #eef2f7;
+.memo-item {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
   border-radius: 12px;
-  padding: 10px;
+  padding: 16px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.memo:hover {
-  border-color: #c7d2fe;
+.memo-item:hover {
+  background: #fff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  transform: translateY(-1px);
 }
 
 .memo-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
+}
+
+.memo-date {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .memo-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.memo-item:hover .memo-actions {
+  opacity: 1;
 }
 
-.memo-at {
-  font-size: 12px;
-  color: #6b7280;
-  font-weight: 800;
+.icon-btn {
+  border: none;
+  background: #e2e8f0;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
 }
+.icon-btn.edit:hover { background: #fcd34d; color: #92400e; }
+.icon-btn.delete:hover { background: #fca5a5; color: #991b1b; }
 
 .memo-text {
-  margin-top: 6px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+  line-height: 1.5;
   white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .empty {
-  padding: 10px;
-  border: 1px dashed #e5e7eb;
+  text-align: center;
+  padding: 24px;
+  background: #f8fafc;
   border-radius: 12px;
-  color: #6b7280;
-  font-size: 13px;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
 }
 
+/* Other Modals Styles skipped for brevity but generally inherit global modal styles */
 .textarea {
   width: 100%;
   min-height: 140px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 14px;
-  outline: none;
-}
-
-.loading {
-  padding: 10px;
-  font-weight: 800;
-  color: #6b7280;
-}
-
-.list-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.list-item {
-  border: 1px solid #eef2f7;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 10px;
+  padding: 16px;
+  font-size: 15px;
+  outline: none;
+  resize: vertical;
+  background: #f8fafc;
+}
+.textarea:focus {
+  background: #fff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* List Modal Typography */
+.list-item {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
   cursor: pointer;
 }
+.list-head { margin-bottom: 8px; }
+.list-at { font-size: 13px; font-weight: 700; color: #64748b; }
+.list-text { font-size: 14px; color: #334155; }
 
-.list-item:hover {
-  border-color: #c7d2fe;
-}
+.filter-bar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.preset { display: flex; gap: 8px; }
+.range { display: flex; align-items: center; gap: 8px; }
+.range input { border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 8px; }
 
-.list-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.list-at {
-  font-size: 12px;
-  color: #6b7280;
-  font-weight: 900;
-}
-
-.list-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.list-text {
-  margin-top: 8px;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: pre-wrap;
-}
-
-.paging {
-  margin-top: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-}
-
-.page-info {
-  font-weight: 900;
-  color: #374151;
-}
-
-.detail-at {
-  font-size: 12px;
-  color: #6b7280;
-  font-weight: 900;
-}
-
-.detail-text {
-  margin-top: 10px;
-  white-space: pre-wrap;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-/* 기간 필터 UI */
-.filter-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.preset {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.preset :deep(button.active) {
-  border: 2px solid #2563eb !important;
-}
-
-.range {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.range input[type="date"] {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-weight: 700;
-}
-
-.dash {
-  color: #6b7280;
-  font-weight: 900;
-}
 </style>

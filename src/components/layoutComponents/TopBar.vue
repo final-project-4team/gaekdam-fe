@@ -3,8 +3,7 @@
     <div class="left"></div>
 
     <div class="center" @click="goTestPage">
-      고객을 담다 <br />
-      <span class="brand">客談</span>
+      <img src="@/assets/logo_main.png" alt="GAEKDAM" class="logo-img" />
     </div>
 
     <div class="right">
@@ -14,7 +13,8 @@
         <!-- 드롭다운 -->
         <div v-if="showMenu" class="dropdown">
 
-           <div class="item" @click="router.push('/system/myPage')">마이페이지</div>
+
+           <div class="item" @click="router.push('/myPage')">마이페이지</div>
 
           <div class="item logout" @click.stop="logout">
             로그아웃
@@ -64,12 +64,16 @@ const goTestPage = () => {
 
 .center {
   justify-self: center;
-  font-size: 12px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.brand {
-  margin-left: 15px;
+.logo-img {
+  height: 45px;
+  width: auto;
+  object-fit: contain;
 }
 
 .right {

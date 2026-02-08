@@ -10,7 +10,7 @@
 
     <ListView
         :columns="columns"
-        :rows="filteredLoyaltyList"
+        :rows="loyaltyList"
         :filters="filters"
         :searchTypes="searchTypes"
         :showSearch="false"
@@ -106,7 +106,7 @@
                     <th>실적 기간</th>
                     <td>
                         <div class="input-unit-wrapper">
-                            <input v-model="newPolicy.loyaltyCalculationTermMonth" type="number" class="unit-input" />
+                            <input v-model="newPolicy.loyaltyCalculationTermMonth" type="number" class="unit-input" readonly/>
                             <span class="unit-text">개월</span>
                         </div>
                     </td>
@@ -115,7 +115,7 @@
                     <th>승급 판정 일자(매월)</th>
                     <td>
                         <div class="input-unit-wrapper">
-                            <input v-model="newPolicy.loyaltyCalculationRenewalDay" type="number" class="unit-input" />
+                            <input v-model="newPolicy.loyaltyCalculationRenewalDay" type="number" class="unit-input" readonly />
                             <span class="unit-text">일</span>
                         </div>
                     </td>
@@ -170,18 +170,18 @@ const columns = [
   { key: 'loyaltyCalculationAmount', label: '실적 금액(포인트)', align: 'center', sortable: true },
   { key: 'loyaltyCalculationCount', label: '숙박 횟수', align: 'center' },
   { key: 'loyaltyCalculationTermMonth', label: '산정 기간(몇 개월)', align: 'center' },
-  { key: 'loyaltyCalculationRenewalDay', label: '승급 일자(매달)', align: 'center' },
+  { key: 'loyaltyCalculationRenewalDay', label: '승급 일자(매 년)', align: 'center' },
   { key: 'loyaltyGradeStatus', label: '', align: 'center' }
 ]
 
 
 const filters = [
   {
-    key: 'status',
+    key: 'loyaltyGradeStatus',
     options: [
-      { label: '전체 상태', value: '' },
-      { label: '활성 (ACTIVE)', value: 'ACTIVE' },
-      { label: '중지 (INACTIVE)', value: 'INACTIVE' }
+      { label: '전체', value: '' },
+      { label: '활성화된 로열티', value: 'ACTIVE' },
+      { label: '비활성화된 로열티', value: 'INACTIVE' }
     ]
   }
 ]
@@ -192,20 +192,23 @@ const searchTypes = [
 ]
 
 
-const filteredLoyaltyList = computed(() => {
-    let result = loyaltyList.value;
+// 1. filteredLoyaltyList 삭제하고 바로 loyaltyList 사용하도록 변경
+// const filteredLoyaltyList = computed(() => { ... }); (삭제)
 
-    // 상태 필터 적용
-    if (activeFilters.value.status) {
-        result = result.filter(item => item.status === activeFilters.value.status);
-    }
-    
-    return result;
-});
+const fetchLoyaltyGrades = async (status = '') => {
+    // API 요청 파라미터 매핑
+    const params = {
+        sortBy: 'loyaltyGradeName',
+        direction: 'ASC',
+        status: status || 'ALL' // 값이 없으면 ALL
+    };
+    loyaltyList.value = await getLoyaltyGradeList(params);
+}
 
-// 필터 핸들러
 const handleFilter = (filterValues) => {
     activeFilters.value = filterValues;
+    const status = filterValues.loyaltyGradeStatus; // 필터 키 사용
+    fetchLoyaltyGrades(status);
 }
 
 
@@ -254,8 +257,8 @@ const openActionModal = () => {
       loyaltyTierComment: '',
       loyaltyCalculationAmount: '',
       loyaltyCalculationCount: '',
-      loyaltyCalculationTermMonth: '',
-      loyaltyCalculationRenewalDay: ''
+      loyaltyCalculationTermMonth: '12',
+      loyaltyCalculationRenewalDay: '1'
     }
     showActionModal.value = true
   });
@@ -339,7 +342,7 @@ const deletePolicy = () => {
 }
 
 onMounted(async () => {
-  loyaltyList.value = await getLoyaltyGradeList()
+  await fetchLoyaltyGrades();
 })
 </script>
 
@@ -475,7 +478,12 @@ onMounted(async () => {
   -webkit-appearance: none;
   margin: 0;
 }
-
+.unit-input:read-only {
+  background-color: #f3f4f6; /* 회색 배경 */
+  color: #6b7280;
+  outline: none;
+  cursor: default;
+}
 .unit-text {
     position: absolute;
     right: 12px;

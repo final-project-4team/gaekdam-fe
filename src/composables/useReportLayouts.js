@@ -24,6 +24,10 @@ export function useReportLayouts() {
   const selectedYear = ref(String(currentYear))
   const selectedMonth = ref(String(new Date().getMonth() + 1))
 
+  // In-memory cache for template widgets keyed by `${templateId}::${period}`
+  // Keeps previously loaded widgets per template+period to allow instant re-render when returning to a template
+  const widgetCache = new Map()
+
   // 계산된 값들
   const currentLayout = computed(() => layouts.value[selectedIndex.value] || { name: '', templates: [] })
   const selectedTemplate = computed(() => {
@@ -34,10 +38,74 @@ export function useReportLayouts() {
   })
 
   function pad(n){ return String(n).padStart(2,'0') }
+  // Get period string for current layout (layout-specific defaultFilterJson wins, otherwise fall back to global selectors)
   function getPeriod(){
+    const def = currentLayout.value?.defaultFilterJson
+    if (def && def.period) return def.period
     const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
     return preset === 'MONTH' ? `${selectedYear.value}-${pad(selectedMonth.value)}` : `${selectedYear.value}`
   }
+
+  // Helpers to map layout.defaultFilterJson -> UI values and setters
+  function _layoutToUI(layout){
+    const def = layout?.defaultFilterJson || {}
+    const pt = def.periodType === 'MONTH' ? '월간' : '연간'
+    const period = def.period || ''
+    let y = String(currentYear)
+    let m = String(new Date().getMonth() + 1).padStart(2,'0')
+    if (period) {
+      const parts = String(period).split('-')
+      y = parts[0] || y
+      if (parts[1]) m = String(parts[1]).padStart(2,'0')
+    }
+    return { periodTypeUI: pt, year: y, month: m }
+  }
+
+  const currentPeriodType = computed({
+    get(){ return _layoutToUI(currentLayout.value).periodTypeUI },
+    set(v){
+      const layout = currentLayout.value
+      if (!layout) return
+      const pt = v === '월간' ? 'MONTH' : 'YEAR'
+      const ui = _layoutToUI(layout)
+      const period = pt === 'MONTH' ? `${ui.year}-${ui.month}` : `${ui.year}`
+      if (!layout.defaultFilterJson) layout.defaultFilterJson = {}
+      layout.defaultFilterJson.periodType = pt
+      layout.defaultFilterJson.period = period
+    }
+  })
+
+  const currentSelectedYear = computed({
+    get(){ return _layoutToUI(currentLayout.value).year },
+    set(v){
+      const layout = currentLayout.value
+      if (!layout) return
+      const ui = _layoutToUI(layout)
+      const pt = (layout.defaultFilterJson?.periodType === 'MONTH') ? 'MONTH' : (periodType.value === '월간' ? 'MONTH' : 'YEAR')
+      const year = String(v)
+      const month = ui.month
+      const period = pt === 'MONTH' ? `${year}-${month}` : `${year}`
+      if (!layout.defaultFilterJson) layout.defaultFilterJson = {}
+      layout.defaultFilterJson.periodType = pt
+      layout.defaultFilterJson.period = period
+    }
+  })
+
+  const currentSelectedMonth = computed({
+    get(){ return _layoutToUI(currentLayout.value).month },
+    set(v){
+      const layout = currentLayout.value
+      if (!layout) return
+      const ui = _layoutToUI(layout)
+      const pt = (layout.defaultFilterJson?.periodType === 'MONTH') ? 'MONTH' : (periodType.value === '월간' ? 'MONTH' : 'YEAR')
+      const year = ui.year
+      const month = String(v).padStart(2,'0')
+      const period = pt === 'MONTH' ? `${year}-${month}` : `${year}`
+      if (!layout.defaultFilterJson) layout.defaultFilterJson = {}
+      layout.defaultFilterJson.periodType = pt
+      layout.defaultFilterJson.period = period
+    }
+  })
 
   // --- 주요 함수들 ---
   // 1) 레이아웃 목록 조회: 서버에서 레이아웃을 가져와 내부 상태에 설정
@@ -47,7 +115,16 @@ export function useReportLayouts() {
       const res = await listReportLayouts(employeeCode)
       const data = res?.data?.data || []
       // backend shape에 따라 id/name/templates 추출
-      layouts.value = data.map(r => ({ id: r.layoutId ?? r.id, name: r.name, templates: r.templates || [] }))
+      layouts.value = data.map(r => ({ id: r.layoutId ?? r.id, name: r.name, templates: r.templates || [], defaultFilterJson: r.defaultFilterJson ?? (r.dateRangePreset ? { periodType: r.dateRangePreset === 'MONTH' ? 'MONTH' : 'YEAR', period: r.defaultFilterJson?.period || undefined } : undefined) }))
+
+      // merge any locally saved per-layout periods (fallback when server omitted them)
+      const saved = loadPeriodsFromStorage()
+      for (const l of layouts.value) {
+        const key = String(l.id)
+        if ((!l.defaultFilterJson || !l.defaultFilterJson.period) && saved[key]) {
+          l.defaultFilterJson = saved[key]
+        }
+      }
       const initial = layouts.value[selectedIndex.value]
       if (initial && initial.id) loadTemplatesForLayout(initial.id, selectedIndex.value)
     } catch (err) {
@@ -59,7 +136,7 @@ export function useReportLayouts() {
   // 2) 특정 레이아웃의 템플릿 목록 로드
   // - layoutId: 서버에 요청할 id
   // - index: 로컬 layouts 배열의 인덱스 (있으면 해당 인덱스에 결과를 넣음)
-  const loadTemplatesForLayout = async (layoutId, index) => {
+  const loadTemplatesForLayout = async (layoutId, index, desiredTemplateIndex) => {
     try {
       const res = await listLayoutTemplates(layoutId)
       const payload = res?.data?.data
@@ -75,11 +152,19 @@ export function useReportLayouts() {
       const idx = typeof index === 'number' ? index : layouts.value.findIndex(l => l.id === layoutId)
       if (idx !== -1) {
         layouts.value[idx].templates = mapped
-        if (selectedIndex.value === idx) selectedTemplateIndex.value = 0
+        if (selectedIndex.value === idx) {
+          // honor desiredTemplateIndex when provided, otherwise default to 0
+          if (typeof desiredTemplateIndex === 'number' && desiredTemplateIndex >= 0 && desiredTemplateIndex < mapped.length) {
+            selectedTemplateIndex.value = desiredTemplateIndex
+          } else {
+            selectedTemplateIndex.value = 0
+          }
+        }
       }
       if (selectedIndex.value === idx) {
-        const tpl = layouts.value[idx].templates[0]
-        if (tpl) loadWidgetsForTemplate(tpl)
+        const chosenIdx = (typeof desiredTemplateIndex === 'number' && desiredTemplateIndex >= 0 && desiredTemplateIndex < mapped.length) ? desiredTemplateIndex : 0
+        const tpl = layouts.value[idx].templates[chosenIdx]
+        if (tpl) await loadWidgetsForTemplate(tpl)
       }
     } catch (err) {
       console.error('[useReportLayouts] loadTemplatesForLayout failed', err)
@@ -87,23 +172,63 @@ export function useReportLayouts() {
   }
 
   // 3) 템플릿에 포함된 위젯(카드)들 로드
+  const makeCacheKey = (templateId, period) => `${templateId}::${period}`
+
+  function invalidateCacheForTemplateId(templateId){
+    if (!templateId) return
+    for (const k of Array.from(widgetCache.keys())){
+      if (k.startsWith(`${templateId}::`)) widgetCache.delete(k)
+    }
+  }
+
+  function invalidateCacheForLayout(layout){
+    if (!layout || !Array.isArray(layout.templates)) return
+    for (const tpl of layout.templates){
+      const tid = tpl.templateId ?? tpl.id
+      if (tid) invalidateCacheForTemplateId(tid)
+    }
+  }
+
   const loadWidgetsForTemplate = async (template) => {
     if (!template) return
     const templateId = template.templateId ?? template.id
     if (!templateId) return
     const period = getPeriod()
+    const cacheKey = makeCacheKey(templateId, period)
+
+    // Return cached widgets if present
+    if (widgetCache.has(cacheKey)) {
+      try {
+        const cached = widgetCache.get(cacheKey)
+        // mutate existing array to preserve reference used by child components
+        if (!Array.isArray(template.widgets)) template.widgets = []
+        if (Array.isArray(cached)) {
+          template.widgets.splice(0, template.widgets.length, ...cached.slice())
+        } else {
+          template.widgets.splice(0, template.widgets.length)
+        }
+        // console debug to show cache hit
+        console.debug('[useReportLayouts] loadWidgetsForTemplate cache hit', { templateId, period })
+        return template.widgets
+      } catch (e) { /* fallthrough to fetch on unexpected error */ }
+    }
+
     try {
       const res = await apiGetTemplateWidgets(templateId, period)
       const items = res?.data?.data || []
-
-        // Template ID, 기간, 항목 로그찍어보기
-        console.log('[useReportLayouts] loadWidgetsForTemplate', { templateId, period })
-        console.log('리포트 전체요약 위젯 값 조회', items)
-      // sortOrder로 정렬 후 템플릿 객체에 위젯 배열을 붙임
-      template.widgets = Array.isArray(items) ? items.sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0)) : []
+      console.log('[useReportLayouts] loadWidgetsForTemplate', { templateId, period })
+      // sort and attach
+      const sorted = Array.isArray(items) ? items.sort((a,b)=> (a.sortOrder||0)-(b.sortOrder||0)) : []
+      // mutate existing array (preserve reference) so child components keep stable layout
+      if (!Array.isArray(template.widgets)) template.widgets = []
+      template.widgets.splice(0, template.widgets.length, ...sorted)
+      // cache the result for quick reuse
+      try { widgetCache.set(cacheKey, sorted.slice()) } catch(e){ /* ignore cache set errors */ }
+      return template.widgets
     } catch (err) {
       console.error('[useReportLayouts] loadWidgetsForTemplate failed', err)
       template.widgets = []
+      return template.widgets
     }
   }
 
@@ -112,8 +237,40 @@ export function useReportLayouts() {
     try {
       const res = await createReportLayout(payload)
       const newId = res?.data?.data
-      layouts.value.push({ id: newId ?? `layout-${Date.now()}`, name: payload.name, templates: [] })
+      const newLayout = { id: newId ?? `layout-${Date.now()}`, name: payload.name, templates: [], defaultFilterJson: payload.defaultFilterJson }
+      // add to local list and select it
+      layouts.value.push(newLayout)
       selectedIndex.value = layouts.value.length - 1
+      selectedTemplateIndex.value = 0
+
+      // If payload contains templates to apply immediately, add them to the newly created layout.
+      if (Array.isArray(payload?.templates) && payload.templates.length) {
+        for (const tpl of payload.templates) {
+          try {
+            // addTemplate will persist and load widgets for the added template
+            await addTemplate(selectedIndex.value, { templateId: tpl.templateId, displayName: tpl.displayName, sortOrder: tpl.sortOrder, isActive: tpl.isActive }, auth?.employeeCode ?? 1)
+          } catch (err) {
+            console.warn('[useReportLayouts] failed to add template during createLayout', err)
+          }
+        }
+      }
+
+      // Ensure layout period is applied/persisted on server and reload widgets for the currently selected template
+      try {
+        await applyPeriodToLayout(newLayout)
+      } catch (err) {
+        console.warn('[useReportLayouts] applyPeriodToLayout after createLayout failed', err)
+      }
+
+      // If there is at least one template, make sure its widgets are loaded
+      const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
+      if (tpl) {
+        try { await loadWidgetsForTemplate(tpl) } catch (e) { /* ignore */ }
+      }
+
+      // persist newly created layout's period locally as well
+      try { savePeriodsToStorage() } catch(e){ /* ignore */ }
+
       return layouts.value[selectedIndex.value]
     } catch (err) {
       console.error('[useReportLayouts] createLayout failed', err)
@@ -141,14 +298,20 @@ export function useReportLayouts() {
 
   // 6) 레이아웃의 기본 기간(defaultFilterJson) 적용 (PATCH)
   const applyPeriodToLayout = async (layout) => {
-    if (!layout || !layout.id) return
-    const preset = periodType.value === '월간' ? 'MONTH' : 'YEAR'
-    const period = preset === 'MONTH' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`
-    const payload = { layoutId: layout.id, defaultFilterJson: { periodType: preset, period } }
+    const target = layout && layout.id ? layout : currentLayout.value
+    if (!target || !target.id) return
+    const def = target.defaultFilterJson || {}
+    const preset = def.periodType === 'MONTH' ? 'MONTH' : (periodType.value === '월간' ? 'MONTH' : 'YEAR')
+    const period = def.period || (preset === 'MONTH' ? `${selectedYear.value}-${String(selectedMonth.value).padStart(2,'0')}` : `${selectedYear.value}`)
+    const payload = { layoutId: target.id, defaultFilterJson: { periodType: preset, period } }
     try {
-      await updateReportLayout(layout.id, payload)
-      const idx = layouts.value.findIndex(l => l.id === layout.id)
+      await updateReportLayout(target.id, payload)
+      const idx = layouts.value.findIndex(l => l.id === target.id)
       if (idx !== -1) layouts.value[idx].defaultFilterJson = payload.defaultFilterJson
+      // persist to local storage as a resilient fallback
+      try { savePeriodsToStorage() } catch(e){ /* ignore */ }
+      // invalidate cached widgets for this layout because period changed
+      try { invalidateCacheForLayout(target) } catch(e){ /* ignore */ }
       const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
       if (tpl) await loadWidgetsForTemplate(tpl)
     } catch (err) {
@@ -210,6 +373,26 @@ export function useReportLayouts() {
     }
   }
 
+  // helpers: persist per-layout periods to localStorage as a fallback when server doesn't return them
+  const STORAGE_KEY = 'report_layout_periods'
+  function loadPeriodsFromStorage(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY)
+      return raw ? JSON.parse(raw) : {}
+    }catch(e){ return {} }
+  }
+  function savePeriodsToStorage(){
+    try{
+      const map = {}
+      for (const l of layouts.value) {
+        if (l && l.id && l.defaultFilterJson && l.defaultFilterJson.period) {
+          map[String(l.id)] = l.defaultFilterJson
+        }
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+    }catch(e){ console.warn('savePeriodsToStorage failed', e) }
+  }
+
   return {
     layouts,
     selectedIndex,
@@ -221,6 +404,10 @@ export function useReportLayouts() {
     months,
     selectedYear,
     selectedMonth,
+    // per-layout period bindings
+    currentPeriodType,
+    currentSelectedYear,
+    currentSelectedMonth,
     loadLayouts,
     loadTemplatesForLayout,
     loadWidgetsForTemplate,

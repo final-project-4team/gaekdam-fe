@@ -48,22 +48,24 @@
         title="활동 로그 상세 정보"
         @close="closeRowModal"
     >
-      <div v-if="activityLogDetail" class="detail-view">
-        <p><b>로그 번호:</b> {{ activityLogDetail.auditLogCode }}</p>
-        <p><b>메뉴명:</b> {{ activityLogDetail.menuName }}</p>
-        <p><b>업무명:</b> {{ activityLogDetail.action }}</p>
-        <p><b>상세 정보:</b> {{ activityLogDetail.detail }}</p>
+      <div class="modal-scroll-content">
+        <div v-if="activityLogDetail" class="detail-view">
+          <p><b>로그 번호:</b> {{ activityLogDetail.auditLogCode }}</p>
+          <p><b>메뉴명:</b> {{ activityLogDetail.menuName }}</p>
+          <p><b>업무명:</b> {{ activityLogDetail.action }}</p>
+          <p><b>상세 정보:</b> {{ activityLogDetail.detail }}</p>
 
-        <!-- 변경 전/후 값 표시 (값이 있을 때만) -->
-        <p v-if="activityLogDetail.previousValue">
-          <b>변경 전:</b> {{ activityLogDetail.previousValue }}
-        </p>
-        <p v-if="activityLogDetail.newValue">
-          <b>변경 후:</b> {{ activityLogDetail.newValue }}
-        </p>
+          <!-- 변경 전/후 값 표시 (값이 있을 때만) -->
+          <p v-if="activityLogDetail.previousValue">
+            <b>변경 전:</b> {{ activityLogDetail.previousValue }}
+          </p>
+          <p v-if="activityLogDetail.newValue">
+            <b>변경 후:</b> {{ activityLogDetail.newValue }}
+          </p>
 
-        <p><b>접속자 ID:</b> {{ activityLogDetail.loginId }}</p>
-        <p><b>일시:</b> {{ activityLogDetail.occurredAt }}</p>
+          <p><b>접속자 ID:</b> {{ activityLogDetail.loginId }}</p>
+          <p><b>일시:</b> {{ activityLogDetail.occurredAt }}</p>
+        </div>
       </div>
 
       <template #footer>
@@ -76,26 +78,32 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue' // computed added
 import ContentTabs from '@/components/layoutComponents/ContentTabs.vue'
 import ListView from '@/components/common/ListView.vue'
 import BaseButton from '@/components/common/button/BaseButton.vue'
 import BaseModal from '@/components/common/modal/BaseModal.vue'
 import {
   getActivityLogList,
-  getSystemLogDetail // 사용 가능한지 확인 필요, 없다면 activityDetail API 필요할수도
+  getSystemLogDetail 
 } from '@/api/system/systemLogApi.js'
 import { usePermissionGuard } from '@/composables/usePermissionGuard';
+import { useAuthStore } from '@/stores/authStore'
 
 const { withPermission } = usePermissionGuard();
+const authStore = useAuthStore()
 
 // 탭 설정
-const tabs = [
-  { label: '로그인', path: '/system/log' },
-  { label: '활동 기록', path: '/system/activity' },
-  { label: '권한 변경', path: '/system/permission' },
-  { label: '개인 정보 조회', path: '/system/privacy' }
+const allTabs = [
+  {label: '로그인', path: '/system/log', permission: 'LOG_LOGIN_LIST'},
+  {label: '활동 기록', path: '/system/activity', permission: 'LOG_AUDIT_LIST'},
+  {label: '권한 변경', path: '/system/permission', permission: 'LOG_PERMISSION_CHANGED_LIST'},
+  {label: '개인 정보 조회', path: '/system/privacy', permission: 'LOG_PERSONAL_INFORMATION_LIST'}
 ]
+
+const tabs = computed(() => {
+    return allTabs.filter(tab => !tab.permission || authStore.hasPermission(tab.permission))
+})
 
 // 테이블 컬럼
 const columns = [
@@ -380,6 +388,13 @@ onMounted(() => {
   width: 100%;
 }
 
+:deep(.toolbar-left),
+:deep(.toolbar-right) {
+  flex-wrap: wrap;
+  white-space: normal;
+  margin-left: 0 !important;
+}
+
 /* 검색 컨테이너 */
 :deep(.search-bar) {
   display: flex;
@@ -413,6 +428,29 @@ onMounted(() => {
 }
 
 /* 모달 스타일 */
+
+/* ==================== 모달 스타일 ==================== */
+.modal-scroll-content {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 스크롤바 스타일 */
+.modal-scroll-content::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-scroll-content::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 3px;
+}
+.modal-scroll-content::-webkit-scrollbar-track {
+  background-color: #f3f4f6;
+}
+
 .detail-view p {
   margin: 8px 0;
   font-size: 14px;

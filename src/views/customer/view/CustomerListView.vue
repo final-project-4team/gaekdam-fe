@@ -71,7 +71,7 @@
           </div>
         </template>
 
-        <!-- Custom Column Slots for Badges -->
+        <!-- 뱃지를 위한 커스텀 컬럼 슬롯 -->
         <template #cell-status="{ value }">
           <span class="badge-pill" :class="statusTagClass(value)">{{ value }}</span>
         </template>
@@ -85,7 +85,7 @@
       </ListView>
     </div>
 
-    <!-- Column Picker Modal -->
+    <!-- 컬럼 설정 모달 -->
     <BaseModal v-if="showColumnModal" title="테이블 표시 항목 설정" @close="showColumnModal = false">
       <div class="column-picker-body">
         <p class="picker-desc">목록에 표시할 항목을 선택해주세요.</p>
@@ -104,7 +104,7 @@
       </template>
     </BaseModal>
 
-    <!-- Reason Request Modal -->
+    <!-- 사유 입력 모달 -->
     <ReasonRequestModal
         v-if="showReasonModal"
         @close="closeReasonModal"
@@ -130,7 +130,7 @@ import { usePermissionGuard } from '@/composables/usePermissionGuard';
 
 const { withPermission } = usePermissionGuard();
 
-/* Tag Helper Functions */
+/* 태그 헬퍼 함수 */
 const statusTagClass = (status) => {
   const s = String(status ?? "").toUpperCase();
   if (s === "ACTIVE") return "tag--ok";
@@ -163,7 +163,7 @@ const loyaltyTagStyle = (gradeName) => {
 const router = useRouter();
 const authStore = useAuthStore();
 
-/* search types */
+/* 검색 유형 */
 const searchTypes = [
   { label: "전체", value: "" },
   { label: "고객명", value: "customerName" },
@@ -178,23 +178,23 @@ const normalizeSearchType = (v) => {
   return searchTypes.some((t) => t.value === vv) ? vv : DEFAULT_SEARCH_TYPE;
 };
 
-/* dynamic grade options */
-const membershipGradeOptions = ref([{ label: "멤버십", value: "" }, { label: "미가입", value: -1 }]);
-const loyaltyGradeOptions = ref([{ label: "로열티", value: "" }, { label: "미가입", value: -1 }]);
+/* 등급 옵션 동적 로드 */
+const membershipGradeOptions = ref([{ label: "멤버십(전체)", value: "" }, { label: "미가입", value: -1 }]);
+const loyaltyGradeOptions = ref([{ label: "로열티(전체)", value: "" }, { label: "미가입", value: -1 }]);
 
 const loadGradeOptions = async () => {
   try {
     const [mList, lList] = await Promise.all([getMembershipGradeList(), getLoyaltyGradeList()]);
     membershipGradeOptions.value = [
-      { label: "멤버십", value: "" },
+      { label: "멤버십(전체)", value: "" },
       { label: "미가입", value: -1 },
       ...(Array.isArray(mList) ? mList : [])
           .filter((g) => g && g.membershipGradeCode != null && g.gradeName)
           .map((g) => ({ label: g.gradeName, value: g.membershipGradeCode })),
     ];
     loyaltyGradeOptions.value = [
-      { label: "로열티", value: "" },
-      { label: "미가입", value: -1 },
+      { label: "로열티(전체)", value: "" },
+      // 미가입 제외
       ...(Array.isArray(lList) ? lList : [])
           .filter((g) => g && g.loyaltyGradeCode != null && g.loyaltyGradeName)
           .map((g) => ({ label: g.loyaltyGradeName, value: g.loyaltyGradeCode })),
@@ -205,12 +205,12 @@ const loadGradeOptions = async () => {
 };
 onMounted(loadGradeOptions);
 
-/* filters */
+/* 필터 설정 */
 const filters = computed(() => [
   {
     key: "status",
     options: [
-      { label: "상태", value: "" },
+      { label: "상태(전체)", value: "" },
       { label: "ACTIVE", value: "ACTIVE" },
       { label: "INACTIVE", value: "INACTIVE" },
       { label: "CAUTION", value: "CAUTION" },
@@ -219,7 +219,7 @@ const filters = computed(() => [
   {
     key: "contractType",
     options: [
-      { label: "계약주체", value: "" },
+      { label: "계약주체(전체)", value: "" },
       { label: "INDIVIDUAL", value: "INDIVIDUAL" },
       { label: "CORPORATE", value: "CORPORATE" },
     ],
@@ -227,7 +227,7 @@ const filters = computed(() => [
   {
     key: "nationalityType",
     options: [
-      { label: "국적", value: "" },
+      { label: "국적(전체)", value: "" },
       { label: "DOMESTIC", value: "DOMESTIC" },
       { label: "FOREIGN", value: "FOREIGN" },
     ],
@@ -235,9 +235,8 @@ const filters = computed(() => [
   {
     key: "inflowChannel",
     options: [
-      { label: "유입채널", value: "" },
+      { label: "유입채널(전체)", value: "" },
       { label: "WEB", value: "WEB" },
-      { label: "OFFLINE", value: "OFFLINE" },
       { label: "OTA", value: "OTA" },
     ],
   },
@@ -247,7 +246,7 @@ const filters = computed(() => [
 
 const filtersKey = computed(() => `m:${membershipGradeOptions.value.length}-l:${loyaltyGradeOptions.value.length}`);
 
-/* columns */
+/* 컬럼 정의 */
 const columns = [
   { key: "customerCode", label: "고객코드", sortable: true, align: "center" },
   { key: "customerName", label: "고객명", sortable: true, align: "center" },
@@ -270,7 +269,7 @@ const visibleColumns = computed(() => {
 const openColumnModal = () => (showColumnModal.value = true);
 const resetColumns = () => (columnKeySet.value = columns.map((c) => c.key));
 
-/* state */
+/* 상태값 */
 const rows = ref([]);
 const totalCount = ref(0);
 const page = ref(1);
@@ -285,7 +284,7 @@ const defaultDetailForm = () => ({
 });
 const detailForm = ref(defaultDetailForm());
 
-/* normalize helpers */
+/* 정규화 헬퍼 */
 const t = (v) => (v ?? "").toString().trim();
 const phoneDigits = (v) => (v ?? "").toString().replace(/\D/g, "");
 const emailLower = (v) => (v ?? "").toString().trim().toLowerCase();
@@ -308,7 +307,7 @@ const normalizeFilterValues = (values = {}) => {
   return out;
 };
 
-/* api */
+/* API 호출 */
 const hotelGroupCode = computed(() => authStore.hotel?.hotelGroupCode);
 const buildParams = () => {
   const d = detailForm.value && Object.keys(detailForm.value).length ? detailForm.value : defaultDetailForm();
@@ -361,7 +360,7 @@ const loadCustomers = async () => {
   totalCount.value = data?.totalElements ?? 0;
 };
 
-/* handlers */
+/* 핸들러 */
 const onSearch = ({ key, value }) => {
   page.value = 1;
   searchType.value = normalizeSearchType(key);
@@ -390,7 +389,7 @@ const onPageChange = (p) => {
 };
 watch(() => hotelGroupCode.value, (v) => { if (v) loadCustomers(); }, { immediate: true });
 
-/* detail debounce */
+/* 디바운스 처리 */
 let detailTimer = null;
 let lastDetailKey = "";
 const normalizeDetailForKey = (d) => ({
@@ -422,7 +421,7 @@ const goDetail = (row) => {
   });
 };
 
-/* reason modal */
+/* 사유 입력 모달 */
 const showReasonModal = ref(false);
 const selectedCustomerCode = ref(null);
 const closeReasonModal = () => {
@@ -483,7 +482,7 @@ const onReasonConfirmed = (reason) => {
   flex: 1;
 }
 
-/* Detail Panel Styles */
+/* 상세 패널 스타일 */
 .detail-panel {
   background: white;
   padding: 24px;
@@ -557,7 +556,7 @@ const onReasonConfirmed = (reason) => {
   pointer-events: none;
 }
 
-/* Column Picker Modal Styles */
+/* 컬럼 설정 모달 스타일 */
 .column-picker-body {
   padding: 0 8px;
 }
@@ -618,7 +617,7 @@ const onReasonConfirmed = (reason) => {
   gap: 8px;
 }
 
-/* Premium Badge Styles */
+/* 프리미엄 배지 스타일 */
 .badge-pill {
   font-size: 11px;
   font-weight: 700;

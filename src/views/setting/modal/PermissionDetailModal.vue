@@ -7,12 +7,14 @@
   >
     <div class="permission-detail">
       <!-- 상단: 권한 이름 입력 -->
-      <div class="header-section">
+      <div class="header-section" >
         <label>권한 이름</label>
         <input 
           v-model="form.permissionName" 
           placeholder="권한 이름을 입력하세요 (예: 관리자)" 
           class="name-input"
+          :readonly="!isCreate"
+          :class="{ 'read-only': !isCreate }"
         />
       </div>
 
@@ -232,6 +234,23 @@ const PERMISSION_ENUM_ORDER = [
   // 부서/직급
   'DEPARTMENT_LIST',
   'HOTEL_POSITION_LIST',
+
+  // 사건사고 (INCIDENT) - 수정 (ID 매핑 유지를 위해 맨 뒤에 추가)
+  'INCIDENT_UPDATE',
+];
+
+const DISABLED_UI_PERMISSIONS = [
+  'REPORT_LAYOUT_READ', 'REPORT_LAYOUT_UPDATE',
+  'REPORT_LAYOUT_TEMPLATE_LIST', 'REPORT_LAYOUT_TEMPLATE_UPDATE',
+  'REPORT_LAYOUT_TEMPLATE_LIBRARY_LIST',
+  'MEMBER_LIST',
+  'CUSTOMER_DELETE',
+  'CUSTOMER_MEMO_CREATE', 'CUSTOMER_MEMO_LIST', 'CUSTOMER_MEMO_READ', 'CUSTOMER_MEMO_UPDATE', 'CUSTOMER_MEMO_DELETE',
+  'INCIDENT_DELETE',
+  'MESSAGE_CREATE', 'MESSAGE_DELETE',
+  'LOG_LOGIN_READ',
+  'LOG_PERSONAL_INFORMATION_READ',
+  'SETTING_OBJECTIVE_CREATE', 'SETTING_OBJECTIVE_DELETE'
 ];
 
 
@@ -253,17 +272,21 @@ const isValidPermission = (key) => {
 
 const isChecked = (resource, actionCode) => {
   const key = `${resource}_${actionCode}`
+  // 비활성화 목록에 있으면 체크 안 된 것으로 표시
+  if (DISABLED_UI_PERMISSIONS.includes(key)) return false
   return form.value.permissionTypeKeys.includes(key)
 }
 
 const isDisabled = (resource, actionCode) => {
   const key = `${resource}_${actionCode}`
-  return !isValidPermission(key)
+  // 비활성화 목록에 있거나 유효하지 않은 키면 disabled
+  return DISABLED_UI_PERMISSIONS.includes(key) || !isValidPermission(key)
 }
 
 const togglePermission = (resource, actionCode) => {
   const key = `${resource}_${actionCode}`
   if (!isValidPermission(key)) return // 유효하지 않은 키는 토글 불가
+  if (DISABLED_UI_PERMISSIONS.includes(key)) return // UI 비활성화 키는 토글 불가
 
   const idx = form.value.permissionTypeKeys.indexOf(key)
   if (idx > -1) {
@@ -321,9 +344,10 @@ const save = async () => {
 
     emit('refresh')
     close()
-  } catch (e) {
-    console.error(e)
-    alert('저장 중 오류가 발생했습니다.')
+  } catch(e) {
+    //console.error(e)
+    const errorMsg = e.response?.data?.message || e.message || '요청 처리에 실패했습니다.';
+    alert(` ${errorMsg}`);
   }
 }
 </script>
@@ -354,6 +378,13 @@ const save = async () => {
   border-radius: 6px;
   font-size: 14px;
   width: 300px;
+}
+
+.name-input.read-only {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+  border-color: #e5e7eb;
 }
 
 .matrix-container {

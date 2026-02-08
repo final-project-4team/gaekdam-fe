@@ -84,12 +84,7 @@
         @close="closeResetModal"
     >
       <div class="reset-result-content">
-        <p class="desc">비밀번호가 초기화되었습니다.</p>
-        <div class="result-box">
-          <label>임시 비밀번호</label>
-          <div class="password-text">{{ resetPasswordResult }}</div>
-        </div>
-        <p class="caution">사용자에게 이 정보를 안전하게 전달해주세요.</p>
+        <p class="desc">임시 비밀번호가 메일로 발송 되었습니다.</p>
       </div>
       <template #footer>
         <BaseButton type="primary" @click="closeResetModal">확인</BaseButton>
@@ -149,6 +144,7 @@ import {
 import EmployeeDetailModal from "@/views/setting/modal/EmployeeDetailModal.vue";
 import ReasonRequestModal from "@/views/setting/modal/ReasonRequestModal.vue";
 import {usePermissionGuard} from '@/composables/usePermissionGuard';
+import {ElMessageBox} from "element-plus";
 // ...
 const {withPermission} = usePermissionGuard();
 
@@ -180,7 +176,8 @@ const searchTypes = [
   {label: '전체', value: ''},
   {label: '부서', value: 'departmentName'},
   {label: '직책', value: 'hotelPositionName'},
-  {label: '이름', value: 'employeeName'}
+  {label: '이름', value: 'employeeName'},
+  {label: '권한', value: 'permissionName'},
 ]
 
 const filters = [
@@ -191,6 +188,7 @@ const filters = [
       {label: 'ACTIVE', value: 'ACTIVE'},
       {label: 'LOCKED', value: 'LOCKED'},
       {label: 'DORMANCY', value: 'DORMANCY'},
+      {label: 'INACTIVE', value: 'INACTIVE'},
     ],
   }
 ]
@@ -200,7 +198,8 @@ const quickSearch = ref({
   employeeName: null,
   employeeNumber: null,
   departmentName: null,
-  hotelPositionName: null
+  hotelPositionName: null,
+  permissionName:null
 })
 
 const detailForm = ref({
@@ -218,6 +217,7 @@ const loadEmployeeList = async () => {
       employeeNumber: quickSearch.value.employeeNumber ?? detailForm.value.employeeNumber,
       departmentName: quickSearch.value.departmentName,
       hotelPositionName: quickSearch.value.hotelPositionName,
+      permissionName: quickSearch.value.permissionName,
       phoneNumber: detailForm.value.phoneNumber,
       email: detailForm.value.email
     }
@@ -254,7 +254,7 @@ const onSearch = (payload) => {
     employeeName: null,
     employeeNumber: null,
     departmentName: null,
-    hotelPositionName: null
+    positionName: null
   }
 
   if (!payload || !payload.value) {
@@ -273,6 +273,8 @@ const onSearch = (payload) => {
     quickSearch.value.departmentName = value
   } else if (key === 'hotelPositionName') {
     quickSearch.value.hotelPositionName = value
+  } else if (key === 'permissionName') {
+    quickSearch.value.permissionName = value
   }
 
   loadEmployeeList()
@@ -431,7 +433,10 @@ const handleAction = (action, row) => {
           return
         }
         await lockEmployee(row.employeeCode)
-        alert('잠금 처리되었습니다.')
+        await ElMessageBox.alert('잠금 되었습니다', '알림', {
+          confirmButtonText: '확인',
+          type: 'warning', // success, warning, info, error 아이콘 자동 생성
+        });
       } else if (action === 'activate') {
         if (!confirm(`${row.employeeName} 님을 활성화하시겠습니까?`)) {
           return

@@ -6,8 +6,7 @@
       <div class="login-card">
         <!-- 카드 헤더 (브랜드) -->
         <div class="card-header">
-          <div class="brand-title">고객을 담다</div>
-          <div class="brand-name">客談</div>
+          <img src="../../assets/logo_login.png" alt="고객을 담다" class="brand-logo" />
         </div>
 
         <!-- 로그인 폼 -->
