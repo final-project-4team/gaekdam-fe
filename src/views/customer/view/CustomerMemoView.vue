@@ -57,41 +57,52 @@
           >
             {{ m }}개월
           </BaseButton>
+          <!-- [MODIFIED] Added '전체' button matches other modals -->
+          <BaseButton
+              type="ghost"
+              size="sm"
+              :class="{ active: selectedPreset === 'ALL' }"
+              @click="applyPreset('ALL')"
+          >
+            전체
+          </BaseButton>
         </div>
 
         <div class="range">
           <input type="date" v-model="fromDate" />
           <span class="dash">-</span>
           <input type="date" v-model="toDate" />
-          <BaseButton type="primary" size="sm" :disabled="loading" @click="applyRange">
-            조회
-          </BaseButton>
           <BaseButton type="ghost" size="sm" :disabled="loading" @click="resetRange">
             초기화
+          </BaseButton>
+          <BaseButton type="primary" size="sm" :disabled="loading" @click="applyRange">
+            적용
           </BaseButton>
         </div>
       </div>
 
       <div v-if="loading" class="loading">불러오는 중...</div>
 
-      <div v-else class="list-wrap">
-        <div
-            v-for="m in list.content"
-            :key="m.customerMemoCode"
-            class="list-item"
-            @click="openDetail(m.customerMemoCode)"
-        >
-          <div class="list-head">
-            <div class="list-at">{{ fmt(m.createdAt) }}</div>
-            <div class="list-actions" @click.stop>
-              <BaseButton type="warning" size="sm" @click="openEdit(m)">수정</BaseButton>
-              <BaseButton type="danger" size="sm" @click="openDelete(m)">삭제</BaseButton>
+      <div v-else class="list-container">
+        <div class="list-scroll-area">
+          <div
+              v-for="m in list.content"
+              :key="m.customerMemoCode"
+              class="list-item"
+              @click="openDetail(m.customerMemoCode)"
+          >
+            <div class="list-head">
+              <div class="list-at">{{ fmt(m.createdAt) }}</div>
+              <div class="list-actions" @click.stop>
+                <button class="text-btn text-btn-sm warning" @click="openEdit(m)">수정</button>
+                <button class="text-btn text-btn-sm danger" @click="openDelete(m)">삭제</button>
+              </div>
             </div>
+            <div class="list-text">{{ m.customerMemoContent }}</div>
           </div>
-          <div class="list-text">{{ m.customerMemoContent }}</div>
-        </div>
 
-        <div v-if="list.content.length === 0" class="empty">조회 결과가 없습니다.</div>
+          <div v-if="list.content.length === 0" class="empty">조회 결과가 없습니다.</div>
+        </div>
 
         <div class="paging">
           <BaseButton type="ghost" size="sm" :disabled="list.page <= 1" @click="goPage(list.page - 1)">
@@ -212,6 +223,14 @@ const loadRecent = async () => {
   recent.value = res.data?.data?.content ?? [];
 };
 
+/* [MODIFIED] Moved toYmd to module scope for access in loadList */
+const toYmd = (d) => {
+  const y = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mm}-${dd}`;
+};
+
 const loadList = async (page = list.value.page) => {
   loading.value = true;
   try {
@@ -219,8 +238,8 @@ const loadList = async (page = list.value.page) => {
       customerCode: props.customerCode,
       page,
       size: list.value.size,
-      fromDate: toIsoStart(fromDate.value),
-      toDate: toIsoEnd(toDate.value),
+      fromDate: toIsoStart(fromDate.value || "1900-01-01"), // [MODIFIED] Default if empty
+      toDate: toIsoEnd(toDate.value || toYmd(new Date())),  // [MODIFIED] Revert to Today (exclude future)
     });
     list.value = res.data?.data ?? list.value;
   } finally {
@@ -261,6 +280,10 @@ const create = () => {
 /* list modal */
 const openList = async () => {
   showList.value = true;
+  // [MODIFIED] Default to showing all (clear filters)
+  selectedPreset.value = 'ALL';
+  fromDate.value = "";
+  toDate.value = "";
   await loadList(1);
 };
 
@@ -276,20 +299,19 @@ const goPage = async (p) => {
 const applyPreset = async (m) => {
   selectedPreset.value = m;
 
-  const now = new Date();
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const start = new Date(end);
-  start.setMonth(start.getMonth() - m);
+  if (m === 'ALL') {
+    // [MODIFIED] Handle 'ALL' preset
+    fromDate.value = "";
+    toDate.value = "";
+  } else {
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const start = new Date(end);
+    start.setMonth(start.getMonth() - m);
 
-  const toYmd = (d) => {
-    const y = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${y}-${mm}-${dd}`;
-  };
-
-  fromDate.value = toYmd(start);
-  toDate.value = toYmd(end);
+    fromDate.value = toYmd(start);
+    toDate.value = toYmd(end);
+  }
 
   await loadList(1);
 };
@@ -423,7 +445,7 @@ const fmt = (v) => {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.5);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  height: 100%; /* Fill height */
+  /* height: 100%;  [MODIFIED] Remove fixed height to adapt to content */
   display: flex;
   flex-direction: column;
 }
@@ -485,14 +507,14 @@ const fmt = (v) => {
 .memo-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px; /* [MODIFIED] Reduce gap for compactness */
 }
 
 .memo-item {
   background: #f8fafc;
   border: 1px solid #f1f5f9;
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px; /* [MODIFIED] Reduce padding */
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -571,6 +593,9 @@ const fmt = (v) => {
   outline: none;
   resize: vertical;
   background: #f8fafc;
+  display: block;
+  box-sizing: border-box; /* [MODIFIED] Include padding/border in width */
+  margin-bottom: 8px; /* Maintain user preference */
 }
 .textarea:focus {
   background: #fff;
@@ -591,9 +616,75 @@ const fmt = (v) => {
 .list-at { font-size: 13px; font-weight: 700; color: #64748b; }
 .list-text { font-size: 14px; color: #334155; }
 
-.filter-bar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
-.preset { display: flex; gap: 8px; }
-.range { display: flex; align-items: center; gap: 8px; }
-.range input { border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 8px; }
 
+.filter-bar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.preset { display: flex; gap: 8px; flex-wrap: wrap; }
+.range { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.range input { border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+
+/* Scroll Area for Modal List */
+.list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.list-scroll-area {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 4px; /* Scrollbar space */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Custom Scrollbar */
+.list-scroll-area::-webkit-scrollbar { width: 6px; }
+.list-scroll-area::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+.list-scroll-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.list-scroll-area::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.list-item {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.list-item:hover { border-color: #3b82f6; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.05); }
+
+.list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.list-at { font-size: 13px; font-weight: 700; color: #64748b; }
+
+.list-actions { display: flex; gap: 8px; }
+.text-btn-sm { font-size: 12px; padding: 4px 8px; }
+.text-btn-sm.warning { color: #d97706; background: #fffbeb; }
+.text-btn-sm.warning:hover { background: #fef3c7; }
+.text-btn-sm.danger { color: #dc2626; background: #fef2f2; }
+.text-btn-sm.danger:hover { background: #fee2e2; }
+
+.list-text { font-size: 14px; color: #334155; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+
+/* Pagination Centering */
+.paging {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Center horizontally */
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.page-info {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
 </style>

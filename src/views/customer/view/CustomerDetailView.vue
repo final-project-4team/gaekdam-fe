@@ -459,6 +459,14 @@
               >
                 {{ m }}개월
               </BaseButton>
+              <BaseButton
+                  type="ghost"
+                  size="sm"
+                  :class="['pill', { active: reservationRange.months === 'ALL' }]"
+                  @click="setReservationAllPast()"
+              >
+                전체
+              </BaseButton>
             </div>
           </div>
           <div class="right">
@@ -495,6 +503,14 @@
                   @click="setInquiryMonths(m)"
               >
                 {{ m }}개월
+              </BaseButton>
+              <BaseButton
+                  type="ghost"
+                  size="sm"
+                  :class="['pill', { active: inquiryRange.months === 'ALL' }]"
+                  @click="setInquiryAllPast()"
+              >
+                전체
               </BaseButton>
             </div>
           </div>
@@ -743,14 +759,14 @@ const {
   reservationColumns, reservationLoading, reservationRows, loadReservationsTop5,
   showReservationModal, selectedReservationDetail, openReservationModal, closeReservationModal,
   showReservationAllModal, reservationAllLoading, reservationAllRows, onReservationAll, closeReservationAllModal,
-  reservationRange, setReservationMonths, resetReservationRange, applyReservationRange,
+  reservationRange, setReservationMonths, setReservationAllPast, resetReservationRange, applyReservationRange,
 } = useCustomerReservations({ customerCodeRef: customerCode, getReservationsByCustomerApi, getReservationDetailApi });
 
 const {
   inquiryColumns, inquiryLoading, inquiryRows, loadInquiriesTop3,
   showInquiryModal, selectedInquiryDetail, openInquiryModal, closeInquiryModal,
   showInquiryAllModal, inquiryAllLoading, inquiryAllRows, onInquiryAll, closeInquiryAllModal,
-  inquiryRange, setInquiryMonths, resetInquiryRange, applyInquiryRange,
+  inquiryRange, setInquiryMonths, setInquiryAllPast, resetInquiryRange, applyInquiryRange,
 } = useCustomerInquiries({ customerCodeRef: customerCode, getInquiryListApi, getInquiryDetailApi });
 
 /* DnD 설정 */
@@ -1125,18 +1141,23 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
   border-color: #1d4ed8;
 }
 
+/* [MODIFIED] Unifying text-btn style with CustomerMemoView */
 .text-btn {
-  background: none;
+  background: #f1f5f9;
   border: none;
   font-size: 13px;
   font-weight: 600;
-  color: #2563eb;
+  color: #64748b;
   cursor: pointer;
-  padding: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .text-btn:hover {
-  text-decoration: underline;
+  background: #e2e8f0;
+  color: #3b82f6;
+  text-decoration: none;
 }
 
 .divider {
@@ -1698,5 +1719,61 @@ const closeTimelineAllModal = () => (showTimelineAllModal.value = false);
 
 .report-tab-wrapper {
   margin-top: 0; /* Remove margin as it's now top-level */
+}
+
+/* 기존 스타일은 유지하고, 모달 크기 관련 스타일 추가 */
+:deep(.modal) {
+  width: 1200px !important; /* 모달 너비 확장 (BaseModal의 720px 덮어쓰기) */
+  max-width: 95vw;
+}
+
+/* 모달 내부 테이블 영역 최소 높이 확보 및 스크롤 */
+:deep(.modal-body) {
+  min-height: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* 필터 바 스타일 (2줄 레이아웃 적용) */
+.filter-bar {
+  display: flex;
+  flex-direction: column; /* 2줄로 변경 (Vertical Stack) */
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: flex-start; /* [MODIFIED] Cross-axis alignment to left */
+}
+
+.filter-bar .left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap; /* 버튼 줄바꿈 허용 */
+  width: 100%; /* [MODIFIED] Full width */
+  justify-content: flex-start; /* [MODIFIED] Left align */
+}
+
+/* 오른쪽 필터(날짜, 버튼) */
+.filter-bar .right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap; /* 필요시 줄바꿈 */
+  width: 100%; /* [MODIFIED] Full width */
+  justify-content: flex-start; /* [MODIFIED] Left align */
+}
+
+/* 날짜 입력 너비 고정 및 가독성 확보 */
+.filter-bar .date {
+  width: 140px;
+  text-align: center;
+}
+
+.filter-bar .tilde {
+  margin: 0 4px;
+}
+
+/* 스냅샷 카드 제목 간격 조정 */
+.snapshot-card .card-heading {
+  margin-bottom: 20px; /* 기존보다 여백 추가 */
 }
 </style>

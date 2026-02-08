@@ -73,11 +73,19 @@ export function useRangeFilter({ defaultMonths = 3 } = {}) {
         return inRangeByYmd(dateValue, range.value.from, range.value.to);
     };
 
+    const setAllPast = () => {
+        range.value.months = 'ALL';
+        range.value.from = ""; // [MODIFIED] Empty string for UI (API will handle default)
+        range.value.to = todayYmd();
+    };
+
     return {
         range,
         setMonths,
         reset,
         syncByMonths,
+        setAllPast,
         inRange,
+        inRangeByYmd, // [MODIFIED] Export for manual use
     };
 }

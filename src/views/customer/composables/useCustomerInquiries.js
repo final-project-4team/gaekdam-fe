@@ -79,7 +79,19 @@ export function useCustomerInquiries({
             });
 
             const items = pageData?.items ?? pageData?.content ?? pageData?.list ?? [];
-            const filtered = items
+
+            // [MODIFIED] Filter out future inquiries ( > today )
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const pastItems = items.filter(x => {
+                const created = x.createdAt ?? x.created_at;
+                if (!created) return true;
+                const d = new Date(created);
+                return d <= today;
+            });
+
+            const filtered = pastItems
                 .filter((x) => Number(x?.customerCode) === Number(customerCode))
                 .slice(0, 3);
 
@@ -182,7 +194,10 @@ export function useCustomerInquiries({
             .filter((x) => {
                 const created = x?.createdAt ?? x?.created_at;
                 if (!created) return true;
-                return range.inRange(created);
+
+                // [MODIFIED] If from is empty, treat as 1900-01-01 for filtering
+                const effectiveFrom = range.range.value.from || "1900-01-01";
+                return range.inRangeByYmd(created, effectiveFrom, range.range.value.to);
             });
 
         inquiryAllRows.value = items.map((x) => ({
@@ -201,7 +216,8 @@ export function useCustomerInquiries({
 
     const onInquiryAll = async () => {
         showInquiryAllModal.value = true;
-        range.syncByMonths(range.range.value.months || 12);
+        // [MODIFIED] Default to ALL past history (empty from)
+        range.setAllPast();
         await loadInquiriesAllRaw();
         buildInquiryAllRows();
     };
@@ -234,6 +250,7 @@ export function useCustomerInquiries({
         // range
         inquiryRange: range.range,
         setInquiryMonths: range.setMonths,
+        setInquiryAllPast: range.setAllPast,
         resetInquiryRange: range.reset,
         applyInquiryRange,
     };

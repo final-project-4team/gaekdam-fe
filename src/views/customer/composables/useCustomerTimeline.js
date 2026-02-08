@@ -24,13 +24,19 @@ export function useCustomerTimeline({ customerCode, hotelGroupCode, limit = 50 }
             const data = res?.data?.data;
             const items = data?.items ?? [];
 
-            timelineItems.value = items.map((it) => ({
-                occurredAtRaw: it.occurredAt,
-                at: formatDate(it.occurredAt),
-                type: it.eventType || "-",
-                text: `${it.title || "-"} · ${it.summary || ""}`.trim(),
-                refId: it.refId,
-            }));
+            const now = new Date();
+            timelineItems.value = items
+                .filter(it => {
+                    if (!it.occurredAt) return true;
+                    return new Date(it.occurredAt) <= now;
+                })
+                .map((it) => ({
+                    occurredAtRaw: it.occurredAt,
+                    at: formatDate(it.occurredAt),
+                    type: it.eventType || "-",
+                    text: `${it.title || "-"} · ${it.summary || ""}`.trim(),
+                    refId: it.refId,
+                }));
         } finally {
             loading.value = false;
         }

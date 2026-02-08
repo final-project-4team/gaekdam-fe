@@ -171,7 +171,9 @@ let stayChart = null;
 
 const formatNumber = (num) => {
   if (num === null || num === undefined) return '0';
-  return Number(num).toLocaleString();
+  // If string has commas, remove them before formatting
+  const n = typeof num === 'string' ? Number(num.replace(/,/g, '')) : Number(num);
+  return isNaN(n) ? '0' : n.toLocaleString();
 };
 
 const highlightInsight = (text) => {
@@ -281,6 +283,8 @@ const fetchData = async () => {
           { label: '기타', value: buckets.etc.value, amount: buckets.etc.amount }
         ];
       }
+
+
       reportData.value = data;
     } else {
       console.warn("[Report] Invalid structure:", data);
@@ -288,8 +292,6 @@ const fetchData = async () => {
     }
   } catch (e) {
     console.error("[Report] API Error:", e);
-    // Do NOT fallback to mockData automatically in production/verification to avoid confusion.
-    // mockData();
   } finally {
     loading.value = false;
     await nextTick();
