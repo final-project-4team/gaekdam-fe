@@ -78,7 +78,7 @@ export const getOperationBoardApi = ({
              * ===================== */
             reservationCode:
                 detail.reservationCode != null && detail.reservationCode !== ''
-                    ? detail.reservationCode   // ❗ Number로 강제하지 마도 됨
+                    ? detail.reservationCode
                     : undefined,
 
             /* =====================
@@ -91,6 +91,7 @@ export const getOperationBoardApi = ({
 
             direction: sort.direction || undefined,
         },
+        skipLoading: true,
     })
 }
 

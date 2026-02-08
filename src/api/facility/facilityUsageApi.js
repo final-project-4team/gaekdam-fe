@@ -39,6 +39,7 @@ export const getFacilityUsageListApi = ({
                     ? detail.stayCode
                     : undefined,
         },
+        skipLoading: true,
     })
 }
 
