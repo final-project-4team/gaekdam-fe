@@ -2,7 +2,7 @@ import api from "@/api/axios"
 
 // Read API configuration from environment (Vite .env)
 const API_KEY = import.meta.env.VITE_API_KEY
-const API_AI = (import.meta.env.VITE_API_AI || 'http://127.0.0.1:9000/api/v1').replace(/\/$/, '')
+const API_AI = (import.meta.env.VITE_API_AI).replace(/\/$/, '')
 
 export async function askChat(payload) {
   try {

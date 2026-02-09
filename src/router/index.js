@@ -34,23 +34,26 @@ const routes = [
         meta: {public: true}, // 인증 예외
     },
 
-    {
-        path: '/',
-        component: CrmLayout,
-        children: [
-            {path: '', component: TestView},
+  {
+    path: '/',
+    component: CrmLayout,
+    children: [
 
-            {
-                path: 'reports',
-                component: ReportLayout,
-                children: [
-                    {
-                        path: '',
-                        component: () => import('@/views/report/ReportLayoutView.vue'),
-                        meta: {permission: 'REPORT_LAYOUT_LIST'},//인증 권한 설정
-                    },
-                ]
-            },
+
+      {
+        path: ''
+      },
+      {
+        path: 'reports',
+        component: ReportLayout,
+        children: [
+          {
+            path: '',
+            component: () => import('@/views/report/ReportLayoutView.vue'),
+            meta: { permission: 'REPORT_LAYOUT_LIST' },//인증 권한 설정
+          },
+        ]
+      },
 
             {
                 path: 'customers',
@@ -333,6 +336,10 @@ router.beforeEach(async (to, from, next) => {
             path: '/login',
             query: {redirect: to.fullPath},
         })
+    }
+    //로그인 후 기본 경로로 왔을 때
+    if (to.path === '/' && authStore.isLoggedIn) {
+        return next(authStore.defaultRouteByPermission());
     }
 
     // 이미 로그인한 상태에서 로그인 페이지 접근 시 -> 메인으로 이동
