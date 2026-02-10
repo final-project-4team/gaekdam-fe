@@ -218,7 +218,8 @@ export const useAuthStore = defineStore("auth", () => {
       setUserFromToken(data.accessToken);
     }
     catch(e){
-      alert("다른 유저가 로그인 하였습니다.");
+      const msg = e.response?.data?.message ;
+      alert(msg);
       throw e;
     }
   };
