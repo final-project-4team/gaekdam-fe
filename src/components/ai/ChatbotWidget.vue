@@ -103,7 +103,7 @@ const uploads = ref([]) // simple upload history: { id, name, state }
 
 // API config from env
 const API_KEY = import.meta.env.VITE_API_KEY
-const API_AI = (import.meta.env.VITE_API_AI || 'http://127.0.0.1:9000/api/v1').replace(/\/$/, '')
+const API_AI = (import.meta.env.VITE_API_AI).replace(/\/$/, '')
 
 function startTimer(index) {
   stopTimer()
