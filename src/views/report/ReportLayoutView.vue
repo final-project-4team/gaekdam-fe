@@ -16,10 +16,10 @@
           <li v-for="(layout, li) in layouts" :key="layout.id" :class="['layout-item', { 'is-active': li === selectedIndex }]">
             <div class="layout-row">
               <button
-                class="layout-select"
-                @click="selectLayout(li)"
-                :aria-expanded="li === selectedIndex ? 'true' : 'false'"
-                :title="layout.description || layout.name"
+                  class="layout-select"
+                  @click="selectLayout(li)"
+                  :aria-expanded="li === selectedIndex ? 'true' : 'false'"
+                  :title="layout.description || layout.name"
               >
                 <span class="chev">{{ li === selectedIndex ? '▾' : '▸' }}</span>
                 <div class="layout-text">
@@ -74,9 +74,9 @@
         <!-- 템플릿 ID에 따라 적절한 그리드 컴포넌트를 동적으로 렌더링합니다. -->
         <keep-alive>
           <component
-            :is="gridComponent"
-            :key="_currentSelectedTemplate?.templateId ?? _currentSelectedTemplate?.id"
-            :widgets="_currentSelectedTemplate?.widgets || []"
+              :is="gridComponent"
+              :key="_currentSelectedTemplate?.templateId ?? _currentSelectedTemplate?.id"
+              :widgets="_currentSelectedTemplate?.widgets || []"
           />
         </keep-alive>
       </section>
@@ -84,9 +84,9 @@
 
     <!-- 레이아웃 추가 모달 -->
     <CreateLayoutModal
-      :visible="showCreateLayout"
-      @close="showCreateLayout = false"
-      @create="async (payload) => {
+        :visible="showCreateLayout"
+        @close="showCreateLayout = false"
+        @create="async (payload) => {
          try {
            const desiredName = String(payload?.name ?? '').trim()
            if (!desiredName) {
@@ -118,28 +118,28 @@
     <!-- 템플릿 삭제 확인 모달 -->
     <!-- Listen to both 'confirm' and 'confirmed' to be resilient to modal emit name differences -->
     <ConfirmModal
-      :visible="showDeleteTemplateModal"
-      title="템플릿 삭제"
-      message="템플릿을 삭제하시겠습니까?"
-      @close="showDeleteTemplateModal = false"
-      @confirm="handleDeleteTemplate"
-      @confirmed="handleDeleteTemplate"
+        :visible="showDeleteTemplateModal"
+        title="템플릿 삭제"
+        message="템플릿을 삭제하시겠습니까?"
+        @close="showDeleteTemplateModal = false"
+        @confirm="handleDeleteTemplate"
+        @confirmed="handleDeleteTemplate"
     />
 
     <!-- 레이아웃 삭제 모달 -->
     <ConfirmModal
-      :visible="showDeleteModal"
-      title="레이아웃 삭제"
-      @close="showDeleteModal = false"
-      @confirm="confirmDelete"
+        :visible="showDeleteModal"
+        title="레이아웃 삭제"
+        @close="showDeleteModal = false"
+        @confirm="confirmDelete"
     >
-        <div>레이아웃을 삭제하시겠습니까?</div>
+      <div>레이아웃을 삭제하시겠습니까?</div>
     </ConfirmModal>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import BaseButton from '@/components/common/button/BaseButton.vue'
@@ -156,7 +156,7 @@ import { useReportLayouts } from '@/composables/useReportLayouts'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 
- // composable state & actions
+// composable state & actions
 const {
   layouts,
   selectedIndex,
@@ -238,49 +238,49 @@ function openCreateTemplateForLayout(li){
 }
 
 async function handleCreateLayout(){
-   if (creatingLayout.value) return
-   creatingLayout.value = true
-   try{
-     const employeeCode = auth?.employeeCode ?? 1
-     // use per-layout selectors when creating layout
-     const presetToUse = (currentPeriodType && currentPeriodType.value === '월간') ? 'MONTH' : 'YEAR'
-     const period = presetToUse === 'MONTH'
-       ? `${(currentSelectedYear && currentSelectedYear.value) || selectedYear.value}-${String((currentSelectedMonth && currentSelectedMonth.value) || selectedMonth.value).padStart(2,'0')}`
-       : `${(currentSelectedYear && currentSelectedYear.value) || selectedYear.value}`
-     // 입력값 검증
-     const desiredName = (newLayoutName.value || '').trim()
-     if (!desiredName) {
-       toast?.showToast('레이아웃 이름을 입력해주세요.', 'error')
-       creatingLayout.value = false
-       return
-     }
-     if (layouts.value.some(l => (l.name || '').trim() === desiredName)) {
-       toast?.showToast('이미 존재하는 레이아웃 이름입니다.', 'error')
-       creatingLayout.value = false
-       return
-     }
+  if (creatingLayout.value) return
+  creatingLayout.value = true
+  try{
+    const employeeCode = auth?.employeeCode ?? 1
+    // use per-layout selectors when creating layout
+    const presetToUse = (currentPeriodType && currentPeriodType.value === '월간') ? 'MONTH' : 'YEAR'
+    const period = presetToUse === 'MONTH'
+        ? `${(currentSelectedYear && currentSelectedYear.value) || selectedYear.value}-${String((currentSelectedMonth && currentSelectedMonth.value) || selectedMonth.value).padStart(2,'0')}`
+        : `${(currentSelectedYear && currentSelectedYear.value) || selectedYear.value}`
+    // 입력값 검증
+    const desiredName = (newLayoutName.value || '').trim()
+    if (!desiredName) {
+      toast?.showToast('레이아웃 이름을 입력해주세요.', 'error')
+      creatingLayout.value = false
+      return
+    }
+    if (layouts.value.some(l => (l.name || '').trim() === desiredName)) {
+      toast?.showToast('이미 존재하는 레이아웃 이름입니다.', 'error')
+      creatingLayout.value = false
+      return
+    }
 
-     const payload = {
-       employeeCode,
-       name: desiredName,
-       description: newLayoutDescription.value,
-       isDefault: false,
-       visibilityScope: selectedVisibility.value,
-       dateRangePreset: presetToUse,
-       defaultFilterJson: { periodType: presetToUse, period }
-     }
-     await createLayout(payload)
-     showCreateLayout.value = false
-   } catch(e) { console.error(e) }
-   finally { creatingLayout.value = false }
- }
+    const payload = {
+      employeeCode,
+      name: desiredName,
+      description: newLayoutDescription.value,
+      isDefault: false,
+      visibilityScope: selectedVisibility.value,
+      dateRangePreset: presetToUse,
+      defaultFilterJson: { periodType: presetToUse, period }
+    }
+    await createLayout(payload)
+    showCreateLayout.value = false
+  } catch(e) { console.error(e) }
+  finally { creatingLayout.value = false }
+}
 
 function selectLayout(i){
-   selectedIndex.value = i
-   selectedTemplateIndex.value = 0
-   const layout = layouts.value[i]
-   if (layout && layout.id) loadTemplatesForLayout(layout.id, i)
- }
+  selectedIndex.value = i
+  selectedTemplateIndex.value = 0
+  const layout = layouts.value[i]
+  if (layout && layout.id) loadTemplatesForLayout(layout.id, i)
+}
 
 const onSelectTemplateLocal = async (li, ti) => {
   // Update selection indexes immediately for responsive UI
@@ -316,10 +316,10 @@ const onSelectTemplateLocal = async (li, ti) => {
 }
 
 function onSelectTemplate(idx){
-   selectedTemplateIndex.value = idx
-   const tpl = currentLayout.value?.templates?.[idx]
-   if (tpl) loadWidgetsForTemplate(tpl)
- }
+  selectedTemplateIndex.value = idx
+  const tpl = currentLayout.value?.templates?.[idx]
+  if (tpl) loadWidgetsForTemplate(tpl)
+}
 
 function onPeriodTypeChange(){
   if (currentPeriodType.value === '연간') currentSelectedMonth.value = String(new Date().getMonth() + 1)
@@ -327,126 +327,111 @@ function onPeriodTypeChange(){
   applyPeriodAndReload()
 }
 
- // Non-blocking PDF generator: run in background, do not change UI selection or render DOM
+// Non-blocking PDF generator: run in background, do not change UI selection or render DOM
 const pdfGenerating = ref(false)
-function shareReport(){
+async function shareReport(){
   if (pdfGenerating.value) { toast?.showToast('이미 PDF 생성 작업이 진행중입니다.', 'info'); return }
   pdfGenerating.value = true
-  toast?.showToast('PDF 생성 작업을 백그라운드에서 시작했습니다. 완료되면 다운로드됩니다.', 'info')
+  toast?.showToast('PDF 생성 작업을 시작합니다. 화면이 잠시 변경될 수 있습니다.', 'info')
 
-  // background async task (do not await) — keeps UI responsive
-  ;(async () => {
-    try {
-      const exportLayouts = Array.isArray(layouts.value) ? JSON.parse(JSON.stringify(layouts.value)) : []
-
-      // For each layout, ensure templates/widgets are available by fetching data via composable functions
-      for (let li = 0; li < exportLayouts.length; li++) {
-        const layout = exportLayouts[li]
-        if (!layout) continue
-        try {
-          // fetch templates if missing
-          if (!Array.isArray(layout.templates) || layout.templates.length === 0) {
-            const resIdx = layouts.value.findIndex(l=>l.id===layout.id)
-            await loadTemplatesForLayout(layout.id, resIdx !== -1 ? resIdx : undefined)
-            // read back into our local copy
-            const fresh = layouts.value.find(l=>l.id===layout.id)
-            layout.templates = fresh ? JSON.parse(JSON.stringify(fresh.templates || [])) : []
-          }
-          // fetch widgets for each template (without touching UI selection)
-          for (let ti = 0; ti < (layout.templates || []).length; ti++){
-            const tpl = layout.templates[ti]
-            try { await loadWidgetsForTemplate(tpl) } catch(e){ console.warn('loadWidgetsForTemplate failed', e) }
-            // small yield to keep event loop free
-            await new Promise(r=>setTimeout(r,50))
-          }
-        } catch(e){ console.warn('fetching layout/templates/widgets failed', e) }
-        await new Promise(r=>setTimeout(r,50))
+  try {
+    // Ensure templates and widgets are loaded so DOM components (charts/fonts) render correctly
+    for (let li = 0; li < layouts.value.length; li++){
+      const layout = layouts.value[li]
+      if (!layout) continue
+      if (!Array.isArray(layout.templates) || layout.templates.length === 0) {
+        const resIdx = layouts.value.findIndex(l=>l.id===layout.id)
+        await loadTemplatesForLayout(layout.id, resIdx !== -1 ? resIdx : undefined)
       }
-
-      // Build a simple PDF from data (titles + widget summaries) — avoids DOM rendering and html2canvas
-      const pdf = new jsPDF('p','mm','a4')
-      const margin = 12
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const usable = pageWidth - margin * 2
-      let y = 14
-      pdf.setFontSize(14)
-      pdf.text('Report Export', margin, y)
-      y += 8
-      pdf.setFontSize(10)
-
-      for (const layout of exportLayouts) {
-        if (y > 280) { pdf.addPage(); y = 14 }
-        pdf.setDrawColor(220)
-        pdf.setFillColor(245)
-        pdf.rect(margin-2, y-6, usable+4, 8, 'F')
-        pdf.setTextColor(20)
-        pdf.setFontSize(12)
-        pdf.text(`Layout: ${layout.name || ''}`, margin, y)
-        y += 6
-        pdf.setFontSize(10)
-        const templates = layout.templates || []
-        if (!templates.length) {
-          pdf.text('  (템플릿 없음)', margin, y); y += 6; continue
-        }
-        for (const tpl of templates) {
-          if (y > 280) { pdf.addPage(); y = 14 }
-          pdf.setFontSize(11)
-          pdf.text(`- Template: ${tpl.displayName || tpl.name || tpl.templateId || tpl.id}`, margin+4, y)
-          y += 5
-          // list widget keys/titles as bullets
-          const widgets = tpl.widgets || []
-          if (!widgets.length) {
-            pdf.setFontSize(9); pdf.text('    (위젯 없음)', margin+8, y); y += 5; continue
-          }
-          for (const w of widgets) {
-            if (y > 280) { pdf.addPage(); y = 14 }
-            const title = (w.title || w.widgetName || w.widgetKey || JSON.stringify(w).slice(0,40))
-            pdf.setFontSize(9)
-            pdf.text(`    • ${String(title)}`, margin+8, y)
-            y += 4
-          }
-          y += 4
-        }
-        y += 6
+      const tplList = (layouts.value.find(l=>l.id===layout.id)?.templates) || []
+      for (let ti = 0; ti < tplList.length; ti++){
+        try { await loadWidgetsForTemplate(tplList[ti]) } catch(e){ console.warn('loadWidgetsForTemplate failed', e) }
       }
-
-      const now = new Date(); const pad = n=>String(n).padStart(2,'0')
-      const fileName = `report_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`
-      try { pdf.save(fileName); toast?.showToast('PDF 생성이 완료되었습니다.', 'success') } catch(e){ console.warn('pdf save failed', e); toast?.showToast('PDF 저장 중 오류가 발생했습니다.', 'error') }
-    } catch (e) {
-      console.error('Background PDF generation failed', e)
-      toast?.showToast('PDF 생성 중 오류가 발생했습니다.', 'error')
-    } finally {
-      pdfGenerating.value = false
+      await new Promise(r=>setTimeout(r,100))
     }
-  })()
+
+    const pdf = new jsPDF('p','mm','a4')
+    const margin = 10
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const usableW = pageWidth - margin * 2
+    const usableH = pageHeight - margin * 2
+    let firstPage = true
+
+    // Render each template into the main pane and capture using html2canvas (preserves fonts and charts)
+    for (let li = 0; li < layouts.value.length; li++){
+      const layout = layouts.value[li]
+      if (!layout || !Array.isArray(layout.templates)) continue
+      for (let ti = 0; ti < layout.templates.length; ti++){
+        // set selection to render the correct grid component
+        selectedIndex.value = li
+        selectedTemplateIndex.value = ti
+        // wait for DOM updates and allow child components (charts) to finish drawing
+        await nextTick()
+        await new Promise(r=>setTimeout(r, 600))
+
+        const target = document.querySelector('.main-pane')
+        if (!target) { console.warn('main-pane not found for capture'); continue }
+
+        try {
+          const canvas = await html2canvas(target, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+          const imgData = canvas.toDataURL('image/png')
+          const scale = Math.min(usableW / canvas.width, usableH / canvas.height)
+          const imgW = canvas.width * scale
+          const imgH = canvas.height * scale
+
+          if (!firstPage) pdf.addPage()
+          firstPage = false
+          pdf.addImage(imgData, 'PNG', margin, margin, imgW, imgH)
+        } catch (e) {
+          console.error('html2canvas capture failed', e)
+          if (!firstPage) pdf.addPage()
+          firstPage = false
+          pdf.setFontSize(12)
+          pdf.text(`Failed to capture Layout: ${layout.name || ''} - Template: ${layout.templates[ti]?.displayName || ''}`, margin, margin + 10)
+        }
+
+        await new Promise(r=>setTimeout(r, 200))
+      }
+    }
+
+    const now = new Date(); const pad = n=>String(n).padStart(2,'0')
+    const fileName = `report_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`
+    try { pdf.save(fileName); toast?.showToast('PDF 생성이 완료되었습니다.', 'success') } catch(e){ console.warn('pdf save failed', e); toast?.showToast('PDF 저장 중 오류가 발생했습니다.', 'error') }
+
+  } catch (e) {
+    console.error('DOM-based PDF generation failed', e)
+    toast?.showToast('PDF 생성 중 오류가 발생했습니다.', 'error')
+  } finally {
+    pdfGenerating.value = false
+  }
 }
 
 // Template add/delete wrappers
- async function confirmAddTemplate(tpl){
-   if (creatingTemplate.value) return
-   creatingTemplate.value = true
-   try{
-     const layoutIndex = selectedIndex.value
-     const layout = layouts.value[layoutIndex]
-     // 중복 확인: templateId 기준 우선, 없으면 displayName 기준
-     const exists = !!(layout?.templates?.some(t => {
-       if (t.templateId !== undefined && t.templateId !== null) return t.templateId === tpl.templateId
-       const tName = (t.name || t.displayName || '').trim()
-       return tName && tName === (tpl.displayName || '').trim()
-     }))
-     if (exists) {
-       toast?.showToast('이미 존재하는 템플릿입니다.', 'error')
-       creatingTemplate.value = false
-       return
-     }
+async function confirmAddTemplate(tpl){
+  if (creatingTemplate.value) return
+  creatingTemplate.value = true
+  try{
+    const layoutIndex = selectedIndex.value
+    const layout = layouts.value[layoutIndex]
+    // 중복 확인: templateId 기준 우선, 없으면 displayName 기준
+    const exists = !!(layout?.templates?.some(t => {
+      if (t.templateId !== undefined && t.templateId !== null) return t.templateId === tpl.templateId
+      const tName = (t.name || t.displayName || '').trim()
+      return tName && tName === (tpl.displayName || '').trim()
+    }))
+    if (exists) {
+      toast?.showToast('이미 존재하는 템플릿입니다.', 'error')
+      creatingTemplate.value = false
+      return
+    }
 
-     const dto = { templateId: tpl.templateId, displayName: tpl.displayName, sortOrder: tpl.sortOrder, isActive: tpl.isActive }
-     await addTemplate(layoutIndex, dto, auth?.employeeCode ?? 1)
-     showCreateTemplate.value = false
-   } catch(e){ console.error(e) }
-   finally{ creatingTemplate.value = false }
- }
+    const dto = { templateId: tpl.templateId, displayName: tpl.displayName, sortOrder: tpl.sortOrder, isActive: tpl.isActive }
+    await addTemplate(layoutIndex, dto, auth?.employeeCode ?? 1)
+    showCreateTemplate.value = false
+  } catch(e){ console.error(e) }
+  finally{ creatingTemplate.value = false }
+}
 
 function confirmDeleteTemplate(idx){ deleteTemplateIndex.value = idx; showDeleteTemplateModal.value = true }
 
@@ -507,12 +492,12 @@ async function confirmDelete(){
 function generateNextLayoutName(){
   const prefix = '레이아웃'
   const nums = layouts.value
-    .map(l => (l.name || '').trim())
-    .map(n => {
-      const m = n.match(new RegExp(`^${prefix}\\s*(\\d+)$`))
-      return m ? Number(m[1]) : null
-    })
-    .filter(x => x !== null)
+      .map(l => (l.name || '').trim())
+      .map(n => {
+        const m = n.match(new RegExp(`^${prefix}\\s*(\\d+)$`))
+        return m ? Number(m[1]) : null
+      })
+      .filter(x => x !== null)
   const next = nums.length ? Math.max(...nums) + 1 : 1
   return `${prefix} ${next}`
 }
@@ -557,18 +542,18 @@ const sectionTitle = computed(() => {
 
 onMounted(() => { loadLayouts() })
 
- // 기간 적용 후 현재 선택된 템플릿의 위젯을 재로딩
- async function applyPeriodAndReload(){
-   try{
-     // composable에 기간 적용
-     applyPeriodToLayout()
-     // 현재 선택된 템플릿 가져와서 위젯 로드
-     const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
-     if (tpl) await loadWidgetsForTemplate(tpl)
-   } catch(e){
-     console.error('applyPeriodAndReload error', e)
-   }
- }
+// 기간 적용 후 현재 선택된 템플릿의 위젯을 재로딩
+async function applyPeriodAndReload(){
+  try{
+    // composable에 기간 적용
+    applyPeriodToLayout()
+    // 현재 선택된 템플릿 가져와서 위젯 로드
+    const tpl = currentLayout.value?.templates?.[selectedTemplateIndex.value]
+    if (tpl) await loadWidgetsForTemplate(tpl)
+  } catch(e){
+    console.error('applyPeriodAndReload error', e)
+  }
+}
 
 </script>
 
