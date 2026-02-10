@@ -57,6 +57,16 @@ api.interceptors.request.use(
 
 // ========== Response: 자동 재발급 + 전역 로딩 종료 ==========
 let isRefreshing = false;
+let refreshSubscribers = [];
+
+const onTokenRefreshed = (accessToken) => {
+    refreshSubscribers.forEach((callback) => callback(accessToken));
+    refreshSubscribers = [];
+};
+
+const addRefreshSubscriber = (callback) => {
+    refreshSubscribers.push(callback);
+};
 
 api.interceptors.response.use(
     (response) => {
@@ -66,7 +76,20 @@ api.interceptors.response.use(
 
         // ApiResponse success=false → 에러 처리
         if (response.data?.success === false) {
-            const err = new Error(response.data.message || "요청 실패");
+            // [추가] 토큰/인증 관련 메시지가 포함된 경우 강제 로그아웃
+            const msg = response.data.message || "";
+            if (
+                msg.includes("유효하지 않은 토큰") ||
+                msg.includes("로그인") ||
+                msg.includes("인증") ||
+                msg.includes("권한") ||
+                msg.includes("Token")
+            ) {
+                const authStore = useAuthStore();
+                authStore.clearAuthState();
+            }
+
+            const err = new Error(msg || "요청 실패");
             err.response = response;
             throw err;
         }
@@ -85,42 +108,76 @@ api.interceptors.response.use(
 
         if (!error.response) return Promise.reject(error);
         const status = error.response.status;
+        const msg = error.response.data?.message || "";
+
+        console.log("Axios Error Interceptor:", { status, msg, data: error.response.data });
+
+        // [추가] 403 Forbidden 이지만 인증 관련 메시지인 경우 로그아웃 처리
+        // (백엔드가 401 대신 403을 주는 경우 대비)
+        if (status === 403) {
+            if (
+                msg.includes("유효하지 않은 토큰") ||
+                msg.includes("로그인") ||
+                msg.includes("인증") ||
+                msg.includes("Token")
+            ) {
+                authStore.clearAuthState();
+                return Promise.reject(error);
+            }
+        }
 
         // 401 이외는 그대로 에러 처리
         if (status !== 401) return Promise.reject(error);
 
-        // auth 요청은 refresh 대상 제외
-        if (originalRequest.url.includes("/api/v1/auth/")) {
+        // auth 요청(특히 refresh)은 재발급 대상 제외 (무한루프 방지)
+        if (originalRequest.url.includes("/auth/refresh") || originalRequest.url.includes("/auth/login")) {
+            // [Fix] Refresh Token 자체가 만료/무효인 경우 로그아웃 처리
+            if (originalRequest.url.includes("/auth/refresh")) {
+                authStore.clearAuthState();
+            }
             return Promise.reject(error);
         }
 
         // 토큰 없으면 실패
         if (!authStore.accessToken) return Promise.reject(error);
 
-        // 중복 재시도 방지
+        // 중복 재시도 방지 (재요청이 실패한 경우)
         if (originalRequest._retry) return Promise.reject(error);
-        if (isRefreshing) return Promise.reject(error);
+
+        // 이미 갱신 중이라면 대기열에 추가
+        if (isRefreshing) {
+            return new Promise((resolve) => {
+                addRefreshSubscriber((accessToken) => {
+                    originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                    resolve(api(originalRequest));
+                });
+            });
+        }
 
         originalRequest._retry = true;
         isRefreshing = true;
 
         try {
-            // refresh 중에는 로딩 다시 안 띄우기
+            // refresh 중에는 로딩 다시 안 띄우기 (선택 사항)
             originalRequest.skipLoading = true;
 
             // refreshToken으로 accessToken 재발급
             await authStore.refreshTokens();
+            const newAccessToken = authStore.accessToken;
+
             isRefreshing = false;
 
-            // 재발급한 토큰으로 재요청
-            originalRequest.headers.Authorization =
-                `Bearer ${authStore.accessToken}`;
+            // 대기 중이던 요청들 일괄 처리
+            onTokenRefreshed(newAccessToken);
 
+            // 현재 요청 재시도
+            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
             return api(originalRequest);
 
         } catch (err) {
             isRefreshing = false;
-            loadingStore.reset()
+            refreshSubscribers = []; // 대기열 비우기
+            loadingStore.reset();
             authStore.clearAuthState();
             return Promise.reject(err);
         }

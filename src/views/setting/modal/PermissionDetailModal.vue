@@ -122,12 +122,7 @@ const ACTION_MAP = {
     '리스트조회': 'LIST',
     '상세조회': 'READ'
 }
-// PERMISSION_ENUM_ORDER는 백엔드 전송 시 정렬을 위해 필요하다면 사용할 수 있지만, 
-// 현재 updatePermission API가 permissionTypeList(숫자 배열)을 받는지 키 문자열 배열을 받는지 확인 필요.
-// SettingPermission.vue 기존 로직을 보면 updatePermission 호출 시:
-// permissionTypeList = row.permissionTypes.map(pt => PERMISSION_ENUM_ORDER.indexOf(pt.key) + 1)
-// 즉, 백엔드는 "ENUM Index + 1" (Integer ID)를 받음.
-// 따라서 ENUM 순서 정보가 반드시 필요함.
+
 
 const PERMISSION_ENUM_ORDER = [
   // 리포트 (REPORT)
@@ -250,7 +245,8 @@ const DISABLED_UI_PERMISSIONS = [
   'MESSAGE_CREATE', 'MESSAGE_DELETE',
   'LOG_LOGIN_READ',
   'LOG_PERSONAL_INFORMATION_READ',
-  'SETTING_OBJECTIVE_CREATE', 'SETTING_OBJECTIVE_DELETE'
+  'SETTING_OBJECTIVE_CREATE', 'SETTING_OBJECTIVE_DELETE',
+  'INCIDENT_UPDATE'
 ];
 
 
